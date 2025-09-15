@@ -1,0 +1,11 @@
+# Ensure consistent line endings
+* text=auto eol=lf
+
+# Treat common binary files as binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
