@@ -19,7 +19,12 @@ const seatSchema = new mongoose.Schema({
     base_price: {
         type: mongoose.Schema.Types.Decimal128,
         required: true
+    },
+    status: {
+        type: String,
+        default: "active"
     }
+    
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 seatSchema.index({ room_id: 1, seat_number: 1 }, { unique: true });
