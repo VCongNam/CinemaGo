@@ -1,5 +1,11 @@
 import { Router } from "express";
 import { verifyToken, requireAdmin, requireStaff, requireCustomer } from "../middlewares/auth.js";
+import { 
+  createMovie, 
+  updateMovie, 
+  deleteMovie, 
+  updateMovieStatus 
+} from "../controllers/movie.controller.js";
 
 const router = Router();
 
@@ -73,5 +79,18 @@ router.get("/test-auth", verifyToken, (req, res) => {
     }
   });
 });
+
+// Protected movie routes (chỉ staff/admin)
+// Tạo phim mới
+router.post("/movies", verifyToken, requireStaff, createMovie);
+
+// Cập nhật phim
+router.put("/movies/:id", verifyToken, requireStaff, updateMovie);
+
+// Xóa phim
+router.delete("/movies/:id", verifyToken, requireStaff, deleteMovie);
+
+// Cập nhật trạng thái phim
+router.patch("/movies/:id/status", verifyToken, requireStaff, updateMovieStatus);
 
 export default router;
