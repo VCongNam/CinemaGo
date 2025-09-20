@@ -244,6 +244,159 @@ export const updateProfile = async (req, res, next) => {
   }
 };
 
+export const getUsers = async (req, res, next) => {
+  try {
+    const { page = 1, pageSize = 10, orderBy = 'created_at', orderDir = 'ASC', role = '', filterCriterias = [] } = req.body;
+
+    // Validation
+    const pageNum = parseInt(page);
+    const limit = parseInt(pageSize);
+    
+    if (pageNum < 1) {
+      return res.status(400).json({ message: "Page phải là số nguyên dương" });
+    }
+    
+    if (limit < 1 || limit > 100) {
+      return res.status(400).json({ message: "PageSize phải từ 1 đến 100" });
+    }
+
+    const skip = (pageNum - 1) * limit;
+
+    // Build filter
+    const filter = {};
+    
+    // Filter by role
+    if (role && role.trim() !== '') {
+      filter.role = role;
+    }
+
+    // Apply additional filterCriterias
+    filterCriterias.forEach(criteria => {
+      const { field, operator, value } = criteria;
+      
+      switch (operator) {
+        case 'equals':
+          filter[field] = value;
+          break;
+        case 'not_equals':
+          filter[field] = { $ne: value };
+          break;
+        case 'contains':
+          filter[field] = { $regex: value, $options: 'i' };
+          break;
+        case 'starts_with':
+          filter[field] = { $regex: `^${value}`, $options: 'i' };
+          break;
+        case 'ends_with':
+          filter[field] = { $regex: `${value}$`, $options: 'i' };
+          break;
+        case 'in':
+          filter[field] = { $in: value };
+          break;
+        case 'not_in':
+          filter[field] = { $nin: value };
+          break;
+        case 'greater_than':
+          filter[field] = { $gt: value };
+          break;
+        case 'less_than':
+          filter[field] = { $lt: value };
+          break;
+        case 'greater_equal':
+          filter[field] = { $gte: value };
+          break;
+        case 'less_equal':
+          filter[field] = { $lte: value };
+          break;
+      }
+    });
+
+    // Build sort
+    const sort = {};
+    const sortOrder = orderDir.toUpperCase() === 'DESC' ? -1 : 1;
+    sort[orderBy] = sortOrder;
+
+    // Query database
+    const [users, totalCount] = await Promise.all([
+      User.find(filter)
+        .select('-password') // Exclude password
+        .sort(sort)
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments(filter)
+    ]);
+
+    // Format response
+    const formattedUsers = users.map(user => ({
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      fullName: user.full_name,
+      phone: user.phone,
+      address: user.address,
+      role: user.role,
+      status: user.status,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at
+    }));
+
+    res.status(200).json({
+      page: pageNum,
+      pageSize: limit,
+      totalCount,
+      list: formattedUsers
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUserById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Validation ID
+    if (!id) {
+      return res.status(400).json({ message: "ID người dùng là bắt buộc" });
+    }
+
+    // Kiểm tra ID có hợp lệ không
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "ID không hợp lệ" });
+    }
+
+    // Tìm user theo ID
+    const user = await User.findById(id).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    // Format response
+    const formattedUser = {
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      fullName: user.full_name,
+      phone: user.phone,
+      address: user.address,
+      dateOfBirth: user.date_of_birth,
+      role: user.role,
+      status: user.status,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at
+    };
+
+    res.status(200).json({
+      success: true,
+      message: "Lấy thông tin người dùng thành công",
+      data: formattedUser
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 
 
