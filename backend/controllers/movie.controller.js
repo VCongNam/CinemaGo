@@ -148,3 +148,48 @@ export const updateMovieStatus = async (req, res, next) => {
     next(error);
   }
 };
+
+// Lấy tất cả thể loại phim
+export const getAllGenres = async (req, res, next) => {
+  try {
+    const movies = await Movie.find({ status: "active" }, { genre: 1 });
+    
+    // Lấy tất cả thể loại từ các phim và loại bỏ trùng lặp
+    const allGenres = [...new Set(movies.flatMap(movie => movie.genre))];
+    
+    res.status(200).json({
+      message: "Lấy danh sách thể loại phim thành công",
+      data: allGenres,
+      count: allGenres.length
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Lọc phim theo thể loại
+export const getMoviesByGenre = async (req, res, next) => {
+  try {
+    const { genre } = req.params;
+    
+    if (!genre) {
+      return res.status(400).json({
+        message: "Thể loại phim là bắt buộc"
+      });
+    }
+    
+    const movies = await Movie.find({ 
+      status: "active",
+      genre: { $in: [genre] }
+    }).sort({ created_at: -1 });
+    
+    res.status(200).json({
+      message: `Lấy danh sách phim thể loại "${genre}" thành công`,
+      data: movies,
+      count: movies.length,
+      genre: genre
+    });
+  } catch (error) {
+    next(error);
+  }
+};
