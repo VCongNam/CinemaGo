@@ -6,6 +6,11 @@ import {
   deleteMovie, 
   updateMovieStatus 
 } from "../controllers/movie.controller.js";
+import {
+  validateCreateMovie,
+  validateUpdateMovie,
+  validateStatusUpdate
+} from "../middlewares/movieValidation.js";
 
 const router = Router();
 
@@ -82,15 +87,15 @@ router.get("/test-auth", verifyToken, (req, res) => {
 
 // Protected movie routes (chỉ staff/admin)
 // Tạo phim mới
-router.post("/movies", verifyToken, requireStaff, createMovie);
+router.post("/movies", verifyToken, requireStaff, validateCreateMovie, createMovie);
 
 // Cập nhật phim
-router.put("/movies/:id", verifyToken, requireStaff, updateMovie);
+router.put("/movies/:id", verifyToken, requireStaff, validateUpdateMovie, updateMovie);
 
 // Xóa phim
 router.delete("/movies/:id", verifyToken, requireStaff, deleteMovie);
 
 // Cập nhật trạng thái phim
-router.patch("/movies/:id/status", verifyToken, requireStaff, updateMovieStatus);
+router.patch("/movies/:id/status", verifyToken, requireStaff, validateStatusUpdate, updateMovieStatus);
 
 export default router;

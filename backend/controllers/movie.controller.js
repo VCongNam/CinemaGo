@@ -39,24 +39,18 @@ export const getMovieById = async (req, res, next) => {
 // Tạo movie mới (chỉ staff/admin)
 export const createMovie = async (req, res, next) => {
   try {
-    const { title, description, duration, genre, release_date, trailer_url, poster_url } = req.body;
+    const { title, description, duration, genre, release_date, trailer_url, poster_url, status } = req.body;
     
-    // Validation
-    if (!title || !duration) {
-      return res.status(400).json({
-        message: "Tiêu đề và thời lượng phim là bắt buộc"
-      });
-    }
-    
+    // Create movie with validated data
     const movie = await Movie.create({
-      title,
-      description,
+      title: title.trim(),
+      description: description?.trim(),
       duration,
       genre,
       release_date,
-      trailer_url,
-      poster_url,
-      status: "active"
+      trailer_url: trailer_url?.trim(),
+      poster_url: poster_url?.trim(),
+      status: status || "active" // Default to active if not provided
     });
     
     res.status(201).json({
@@ -64,6 +58,20 @@ export const createMovie = async (req, res, next) => {
       data: movie
     });
   } catch (error) {
+    // Handle mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => ({
+        field: err.path,
+        message: err.message
+      }));
+      
+      return res.status(400).json({
+        message: "Dữ liệu không hợp lệ",
+        error: "MONGOOSE_VALIDATION_ERROR",
+        details: validationErrors
+      });
+    }
+    
     next(error);
   }
 };
@@ -72,7 +80,13 @@ export const createMovie = async (req, res, next) => {
 export const updateMovie = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = { ...req.body };
+    
+    // Trim string fields if they exist
+    if (updateData.title) updateData.title = updateData.title.trim();
+    if (updateData.description) updateData.description = updateData.description.trim();
+    if (updateData.trailer_url) updateData.trailer_url = updateData.trailer_url.trim();
+    if (updateData.poster_url) updateData.poster_url = updateData.poster_url.trim();
     
     const movie = await Movie.findByIdAndUpdate(
       id,
@@ -91,6 +105,20 @@ export const updateMovie = async (req, res, next) => {
       data: movie
     });
   } catch (error) {
+    // Handle mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => ({
+        field: err.path,
+        message: err.message
+      }));
+      
+      return res.status(400).json({
+        message: "Dữ liệu không hợp lệ",
+        error: "MONGOOSE_VALIDATION_ERROR",
+        details: validationErrors
+      });
+    }
+    
     next(error);
   }
 };
@@ -122,29 +150,54 @@ export const updateMovieStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status } = req.body;
     
-    if (!status || !["active", "inactive"].includes(status)) {
-      return res.status(400).json({
-        message: "Trạng thái phải là 'active' hoặc 'inactive'"
+    // Find the movie first to check if it exists
+    const existingMovie = await Movie.findById(id);
+    if (!existingMovie) {
+      return res.status(404).json({
+        message: "Không tìm thấy phim",
+        error: "MOVIE_NOT_FOUND"
       });
     }
     
+    // Check if status is actually changing
+    if (existingMovie.status === status) {
+      return res.status(200).json({
+        message: `Trạng thái phim đã là '${status}'`,
+        data: existingMovie,
+        note: "Không có thay đổi nào được thực hiện"
+      });
+    }
+    
+    // Update the status
     const movie = await Movie.findByIdAndUpdate(
       id,
       { status },
-      { new: true }
+      { new: true, runValidators: true }
     );
-    
-    if (!movie) {
-      return res.status(404).json({
-        message: "Không tìm thấy phim"
-      });
-    }
     
     res.status(200).json({
       message: "Cập nhật trạng thái phim thành công",
-      data: movie
+      data: movie,
+      changes: {
+        previousStatus: existingMovie.status,
+        newStatus: status
+      }
     });
   } catch (error) {
+    // Handle mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => ({
+        field: err.path,
+        message: err.message
+      }));
+      
+      return res.status(400).json({
+        message: "Trạng thái không hợp lệ",
+        error: "MONGOOSE_VALIDATION_ERROR",
+        details: validationErrors
+      });
+    }
+    
     next(error);
   }
 };
