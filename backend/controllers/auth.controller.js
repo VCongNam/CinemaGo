@@ -1,6 +1,11 @@
 import bcrypt from "bcryptjs";
 import User from "../models/user.js";
 import { signAccessToken } from "../utils/jwt.js";
+<<<<<<< Updated upstream
+=======
+import { sendOTPEmail } from "../utils/email.js";
+import { formatForAPI, getCurrentVietnamTime } from "../utils/timezone.js";
+>>>>>>> Stashed changes
 
 export const registerStaff = async (req, res, next) => {
   try {
@@ -57,6 +62,16 @@ export const loginStaff = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác" });
     }
+    
+    // Kiểm tra trạng thái tài khoản
+    if (user.status === "locked") {
+      return res.status(403).json({ message: "Tài khoản đã bị khóa" });
+    }
+    
+    if (user.status === "suspended") {
+      return res.status(403).json({ message: "Tài khoản đã bị tạm khóa" });
+    }
+    
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
       return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác" });
@@ -72,8 +87,10 @@ export const loginStaff = async (req, res, next) => {
         username: user.username,
         email: user.email,
         fullName: user.full_name,
-        role: user.role
-      }
+        role: user.role,
+        status: user.status
+      },
+      loginTime: getCurrentVietnamTime().toISOString()
     });
   } catch (error) {
     next(error);
@@ -111,6 +128,16 @@ export const loginCustomer = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác" });
     }
+    
+    // Kiểm tra trạng thái tài khoản
+    if (user.status === "locked") {
+      return res.status(403).json({ message: "Tài khoản đã bị khóa" });
+    }
+    
+    if (user.status === "suspended") {
+      return res.status(403).json({ message: "Tài khoản đã bị tạm khóa" });
+    }
+    
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
       return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác" });
@@ -126,8 +153,10 @@ export const loginCustomer = async (req, res, next) => {
         username: user.username,
         email: user.email,
         fullName: user.full_name,
-        role: user.role
-      }
+        role: user.role,
+        status: user.status
+      },
+      loginTime: getCurrentVietnamTime().toISOString()
     });
   } catch (error) {
     next(error);
@@ -397,6 +426,301 @@ export const getUserById = async (req, res, next) => {
   }
 };
 
+<<<<<<< Updated upstream
+=======
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Validation dữ liệu đầu vào
+    if (!email) {
+      return res.status(400).json({ 
+        message: "Email là bắt buộc" 
+      });
+    }
+
+    // Kiểm tra format email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        message: "Email không hợp lệ" 
+      });
+    }
+
+    // Tìm user theo email
+    const user = await User.findOne({ email });
+    
+    // Trả về thành công dù email không tồn tại (bảo mật)
+    if (!user) {
+      return res.status(200).json({ 
+        message: "Nếu email tồn tại, bạn sẽ nhận được mã OTP" 
+      });
+    }
+
+    // Kiểm tra rate limiting - chỉ cho phép 1 OTP mỗi 2 phút
+    const now = new Date();
+    if (user.otp_expires && user.otp_expires > now) {
+      const remainingTime = Math.ceil((user.otp_expires - now) / 1000 / 60);
+      return res.status(429).json({ 
+        message: `Vui lòng đợi ${remainingTime} phút trước khi yêu cầu OTP mới` 
+      });
+    }
+
+    // Tạo OTP 6 số
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Lưu OTP vào user với thời hạn 5 phút
+    user.otp_code = otp;
+    user.otp_expires = new Date(now.getTime() + 5 * 60 * 1000); // 5 phút
+    user.otp_attempts = 0;
+    await user.save();
+
+    // Gửi email OTP
+    try {
+      await sendOTPEmail(email, otp);
+      
+      res.status(200).json({ 
+        message: "Mã OTP đã được gửi đến email của bạn",
+        expiresIn: 5 // phút
+      });
+    } catch (emailError) {
+      // Nếu gửi email thất bại, xóa OTP
+      user.otp_code = undefined;
+      user.otp_expires = undefined;
+      await user.save();
+      
+      console.error('Email sending failed:', emailError);
+      return res.status(500).json({ 
+        message: "Không thể gửi email OTP. Vui lòng thử lại sau" 
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    // Validation dữ liệu đầu vào
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ 
+        message: "Email, OTP và mật khẩu mới là bắt buộc" 
+      });
+    }
+
+    // Kiểm tra format email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        message: "Email không hợp lệ" 
+      });
+    }
+
+    // Kiểm tra độ mạnh mật khẩu
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        message: "Mật khẩu phải có ít nhất 6 ký tự" 
+      });
+    }
+
+    // Tìm user theo email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+    }
+
+    // Kiểm tra OTP có tồn tại không
+    if (!user.otp_code) {
+      return res.status(400).json({ 
+        message: "Không có mã OTP nào được tạo. Vui lòng yêu cầu OTP mới" 
+      });
+    }
+
+    // Kiểm tra OTP có hết hạn không
+    const now = new Date();
+    if (!user.otp_expires || user.otp_expires < now) {
+      // Xóa OTP hết hạn
+      user.otp_code = undefined;
+      user.otp_expires = undefined;
+      user.otp_attempts = 0;
+      await user.save();
+      
+      return res.status(400).json({ 
+        message: "Mã OTP đã hết hạn. Vui lòng yêu cầu OTP mới" 
+      });
+    }
+
+    // Kiểm tra số lần nhập sai
+    if (user.otp_attempts >= 3) {
+      // Xóa OTP sau 3 lần nhập sai
+      user.otp_code = undefined;
+      user.otp_expires = undefined;
+      user.otp_attempts = 0;
+      await user.save();
+      
+      return res.status(400).json({ 
+        message: "Bạn đã nhập sai quá 3 lần. Vui lòng yêu cầu OTP mới" 
+      });
+    }
+
+    // Kiểm tra OTP có chính xác không
+    if (user.otp_code !== otp) {
+      // Tăng số lần nhập sai
+      user.otp_attempts += 1;
+      await user.save();
+      
+      const remainingAttempts = 3 - user.otp_attempts;
+      return res.status(400).json({ 
+        message: `Mã OTP không chính xác. Bạn còn ${remainingAttempts} lần thử` 
+      });
+    }
+
+    // Kiểm tra mật khẩu mới có khác mật khẩu cũ không
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({ 
+        message: "Mật khẩu mới phải khác mật khẩu hiện tại" 
+      });
+    }
+
+    // Cập nhật mật khẩu mới
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    
+    // Xóa OTP sau khi sử dụng thành công
+    user.otp_code = undefined;
+    user.otp_expires = undefined;
+    user.otp_attempts = 0;
+    
+    await user.save();
+
+    res.status(200).json({ 
+      message: "Đặt lại mật khẩu thành công. Bạn có thể đăng nhập với mật khẩu mới" 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// API thay đổi trạng thái tài khoản người dùng (chỉ admin)
+export const updateUserStatus = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { status } = req.body;
+    const adminId = req.user._id;
+
+    // Validation
+    if (!userId) {
+      return res.status(400).json({ 
+        message: "ID người dùng là bắt buộc" 
+      });
+    }
+
+    if (!status) {
+      return res.status(400).json({ 
+        message: "Trạng thái là bắt buộc" 
+      });
+    }
+
+    // Kiểm tra ID có hợp lệ không
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        message: "ID người dùng không hợp lệ" 
+      });
+    }
+
+    // Kiểm tra trạng thái có hợp lệ không
+    const validStatuses = ["active", "locked", "suspended"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        message: `Trạng thái không hợp lệ. Các trạng thái cho phép: ${validStatuses.join(", ")}` 
+      });
+    }
+
+    // Tìm user cần thay đổi trạng thái
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ 
+        message: "Không tìm thấy người dùng" 
+      });
+    }
+
+    // Không cho phép admin thay đổi trạng thái của chính mình
+    if (targetUser._id.toString() === adminId.toString()) {
+      return res.status(400).json({ 
+        message: "Không thể thay đổi trạng thái tài khoản của chính mình" 
+      });
+    }
+
+    // Không cho phép thay đổi trạng thái admin khác
+    if (targetUser.role === "admin") {
+      return res.status(403).json({ 
+        message: "Không thể thay đổi trạng thái tài khoản admin khác" 
+      });
+    }
+
+    // Kiểm tra trạng thái hiện tại
+    if (targetUser.status === status) {
+      const statusMessages = {
+        active: "hoạt động",
+        locked: "bị khóa",
+        suspended: "bị tạm khóa"
+      };
+      
+      return res.status(200).json({ 
+        message: `Tài khoản đã ở trạng thái ${statusMessages[status]}`,
+        data: {
+          id: targetUser._id,
+          username: targetUser.username,
+          email: targetUser.email,
+          status: targetUser.status
+        }
+      });
+    }
+
+    // Cập nhật trạng thái
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { status },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    // Tạo thông báo phù hợp
+    const statusMessages = {
+      active: "Mở khóa tài khoản thành công",
+      locked: "Khóa tài khoản thành công", 
+      suspended: "Tạm khóa tài khoản thành công"
+    };
+
+    const actionMessages = {
+      active: "unlockedAt",
+      locked: "lockedAt",
+      suspended: "suspendedAt"
+    };
+
+    const currentTime = getCurrentVietnamTime();
+    const responseData = {
+      id: updatedUser._id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      fullName: updatedUser.full_name,
+      role: updatedUser.role,
+      status: updatedUser.status,
+      [actionMessages[status]]: currentTime.toISOString()
+    };
+
+    res.status(200).json({
+      message: statusMessages[status],
+      data: responseData
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+>>>>>>> Stashed changes
 
 
 
