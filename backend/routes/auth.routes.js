@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { registerStaff, loginStaff, registerCustomer, loginCustomer, changePassword, logout, updateProfile, getUsers, getUserById, forgotPassword, resetPassword, updateUserStatus } from "../controllers/auth.controller.js";
-import { verifyToken, requireAdmin } from "../middlewares/auth.js";
+import { registerStaff, loginStaff, registerCustomer, loginCustomer, changePassword, logout, updateProfile, getUsers, getUserById, forgotPasswordLink, resetPasswordWithToken, getMyProfile } from "../controllers/auth.controller.js";
+import { verifyToken } from "../middlewares/auth.js";
 
 const router = Router();
 
@@ -11,15 +11,12 @@ router.post("/login-customer", loginCustomer);
 router.post("/logout", verifyToken, logout);
 router.put("/change-password", verifyToken, changePassword);
 router.put("/update-profile", verifyToken, updateProfile);
+router.get("/profile-detail", verifyToken, getMyProfile);
+// Forgot/reset with email link (JWT, stateless)
+router.post("/forgot-password-link", forgotPasswordLink);
+router.post("/reset-password-link", resetPasswordWithToken);
 router.post("/users", verifyToken, getUsers);
 router.get("/users/:id", verifyToken, getUserById);
-
-// Forgot password routes
-router.post("/forgot-password", forgotPassword);
-router.post("/reset-password", resetPassword);
-
-// Admin routes for user management
-router.patch("/users/:userId/status", verifyToken, requireAdmin, updateUserStatus);
 
 export default router;
 
