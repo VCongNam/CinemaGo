@@ -1,11 +1,8 @@
 import bcrypt from "bcryptjs";
 import User from "../models/user.js";
 import { signAccessToken } from "../utils/jwt.js";
-<<<<<<< Updated upstream
-=======
 import { sendOTPEmail } from "../utils/email.js";
 import { formatForAPI, getCurrentVietnamTime } from "../utils/timezone.js";
->>>>>>> Stashed changes
 
 export const registerStaff = async (req, res, next) => {
   try {
@@ -426,8 +423,7 @@ export const getUserById = async (req, res, next) => {
   }
 };
 
-<<<<<<< Updated upstream
-=======
+
 export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -720,7 +716,6 @@ export const updateUserStatus = async (req, res, next) => {
   }
 };
 
->>>>>>> Stashed changes
 
 
 
