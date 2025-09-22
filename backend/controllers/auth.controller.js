@@ -1,7 +1,11 @@
 import bcrypt from "bcryptjs";
 import User from "../models/user.js";
 import { signAccessToken } from "../utils/jwt.js";
+<<<<<<< Updated upstream
+=======
 import { sendOTPEmail } from "../utils/email.js";
+import { formatForAPI, getCurrentVietnamTime } from "../utils/timezone.js";
+>>>>>>> Stashed changes
 
 export const registerStaff = async (req, res, next) => {
   try {
@@ -58,6 +62,16 @@ export const loginStaff = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác" });
     }
+    
+    // Kiểm tra trạng thái tài khoản
+    if (user.status === "locked") {
+      return res.status(403).json({ message: "Tài khoản đã bị khóa" });
+    }
+    
+    if (user.status === "suspended") {
+      return res.status(403).json({ message: "Tài khoản đã bị tạm khóa" });
+    }
+    
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
       return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác" });
@@ -73,8 +87,10 @@ export const loginStaff = async (req, res, next) => {
         username: user.username,
         email: user.email,
         fullName: user.full_name,
-        role: user.role
-      }
+        role: user.role,
+        status: user.status
+      },
+      loginTime: getCurrentVietnamTime().toISOString()
     });
   } catch (error) {
     next(error);
@@ -112,6 +128,16 @@ export const loginCustomer = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác" });
     }
+    
+    // Kiểm tra trạng thái tài khoản
+    if (user.status === "locked") {
+      return res.status(403).json({ message: "Tài khoản đã bị khóa" });
+    }
+    
+    if (user.status === "suspended") {
+      return res.status(403).json({ message: "Tài khoản đã bị tạm khóa" });
+    }
+    
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
       return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác" });
@@ -127,8 +153,10 @@ export const loginCustomer = async (req, res, next) => {
         username: user.username,
         email: user.email,
         fullName: user.full_name,
-        role: user.role
-      }
+        role: user.role,
+        status: user.status
+      },
+      loginTime: getCurrentVietnamTime().toISOString()
     });
   } catch (error) {
     next(error);
@@ -398,6 +426,8 @@ export const getUserById = async (req, res, next) => {
   }
 };
 
+<<<<<<< Updated upstream
+=======
 export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -574,6 +604,123 @@ export const resetPassword = async (req, res, next) => {
   }
 };
 
+// API thay đổi trạng thái tài khoản người dùng (chỉ admin)
+export const updateUserStatus = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { status } = req.body;
+    const adminId = req.user._id;
+
+    // Validation
+    if (!userId) {
+      return res.status(400).json({ 
+        message: "ID người dùng là bắt buộc" 
+      });
+    }
+
+    if (!status) {
+      return res.status(400).json({ 
+        message: "Trạng thái là bắt buộc" 
+      });
+    }
+
+    // Kiểm tra ID có hợp lệ không
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        message: "ID người dùng không hợp lệ" 
+      });
+    }
+
+    // Kiểm tra trạng thái có hợp lệ không
+    const validStatuses = ["active", "locked", "suspended"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        message: `Trạng thái không hợp lệ. Các trạng thái cho phép: ${validStatuses.join(", ")}` 
+      });
+    }
+
+    // Tìm user cần thay đổi trạng thái
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ 
+        message: "Không tìm thấy người dùng" 
+      });
+    }
+
+    // Không cho phép admin thay đổi trạng thái của chính mình
+    if (targetUser._id.toString() === adminId.toString()) {
+      return res.status(400).json({ 
+        message: "Không thể thay đổi trạng thái tài khoản của chính mình" 
+      });
+    }
+
+    // Không cho phép thay đổi trạng thái admin khác
+    if (targetUser.role === "admin") {
+      return res.status(403).json({ 
+        message: "Không thể thay đổi trạng thái tài khoản admin khác" 
+      });
+    }
+
+    // Kiểm tra trạng thái hiện tại
+    if (targetUser.status === status) {
+      const statusMessages = {
+        active: "hoạt động",
+        locked: "bị khóa",
+        suspended: "bị tạm khóa"
+      };
+      
+      return res.status(200).json({ 
+        message: `Tài khoản đã ở trạng thái ${statusMessages[status]}`,
+        data: {
+          id: targetUser._id,
+          username: targetUser.username,
+          email: targetUser.email,
+          status: targetUser.status
+        }
+      });
+    }
+
+    // Cập nhật trạng thái
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { status },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    // Tạo thông báo phù hợp
+    const statusMessages = {
+      active: "Mở khóa tài khoản thành công",
+      locked: "Khóa tài khoản thành công", 
+      suspended: "Tạm khóa tài khoản thành công"
+    };
+
+    const actionMessages = {
+      active: "unlockedAt",
+      locked: "lockedAt",
+      suspended: "suspendedAt"
+    };
+
+    const currentTime = getCurrentVietnamTime();
+    const responseData = {
+      id: updatedUser._id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      fullName: updatedUser.full_name,
+      role: updatedUser.role,
+      status: updatedUser.status,
+      [actionMessages[status]]: currentTime.toISOString()
+    };
+
+    res.status(200).json({
+      message: statusMessages[status],
+      data: responseData
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+>>>>>>> Stashed changes
 
 
 

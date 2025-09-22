@@ -41,6 +41,7 @@ const userSchema = new mongoose.Schema({
     },
     status: {
         type: String,
+        enum: ["active", "locked", "suspended"],
         default: "active"
     },
     reset_token: {
