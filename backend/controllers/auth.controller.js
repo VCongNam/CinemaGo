@@ -415,6 +415,120 @@ export const getUserById = async (req, res, next) => {
   }
 };
 
+// OTP flow dành cho khách hàng (song song với link reset)
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email là bắt buộc" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Email không hợp lệ" });
+    }
+
+    const user = await User.findOne({ email });
+    // Luôn trả 200 để tránh lộ thông tin
+    if (!user) {
+      return res.status(200).json({ message: "Nếu email tồn tại, bạn sẽ nhận được mã OTP" });
+    }
+
+    // Chỉ cho phép customer dùng OTP flow
+    if (user.role !== "customer") {
+      return res.status(403).json({ message: "Chỉ khách hàng mới sử dụng được OTP reset" });
+    }
+
+    const now = new Date();
+    // Rate limit: nếu vẫn còn thời hạn trước đó thì yêu cầu đợi
+    if (user.otp_expires && user.otp_expires > now) {
+      const waitSeconds = Math.ceil((user.otp_expires - now) / 1000);
+      return res.status(429).json({ message: `Vui lòng đợi ${waitSeconds} giây trước khi yêu cầu OTP mới` });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp_code = otp;
+    user.otp_expires = new Date(now.getTime() + 5 * 60 * 1000); // 5 phút
+    user.otp_attempts = 0;
+    await user.save();
+
+    try {
+      // Tận dụng util email hiện có
+      const { sendOTPEmail } = await import("../utils/email.js");
+      await sendOTPEmail(user.email, otp);
+    } catch (_) {
+      // Không lộ chi tiết lỗi gửi mail
+    }
+
+    return res.status(200).json({ message: "Nếu email tồn tại, bạn sẽ nhận được mã OTP" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: "Email, OTP và mật khẩu mới là bắt buộc" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+    }
+
+    if (user.role !== "customer") {
+      return res.status(403).json({ message: "Chỉ khách hàng mới sử dụng được OTP reset" });
+    }
+
+    const now = new Date();
+    if (!user.otp_code || !user.otp_expires || user.otp_expires < now) {
+      user.otp_code = undefined;
+      user.otp_expires = undefined;
+      user.otp_attempts = 0;
+      await user.save();
+      return res.status(400).json({ message: "Mã OTP đã hết hạn hoặc không tồn tại" });
+    }
+
+    if (user.otp_attempts >= 3) {
+      user.otp_code = undefined;
+      user.otp_expires = undefined;
+      user.otp_attempts = 0;
+      await user.save();
+      return res.status(400).json({ message: "Bạn đã nhập sai quá nhiều lần. Vui lòng yêu cầu OTP mới" });
+    }
+
+    if (user.otp_code !== otp) {
+      user.otp_attempts += 1;
+      await user.save();
+      const remain = Math.max(0, 3 - user.otp_attempts);
+      return res.status(400).json({ message: `OTP không chính xác. Bạn còn ${remain} lần thử` });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "Mật khẩu phải có ít nhất 6 ký tự" });
+    }
+
+    const isSame = await bcrypt.compare(newPassword, user.password);
+    if (isSame) {
+      return res.status(400).json({ message: "Mật khẩu mới phải khác mật khẩu hiện tại" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.otp_code = undefined;
+    user.otp_expires = undefined;
+    user.otp_attempts = 0;
+    await user.save();
+
+    return res.status(200).json({ message: "Đặt lại mật khẩu thành công" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getMyProfile = async (req, res, next) => {
   try {
     const userId = req.user?._id;

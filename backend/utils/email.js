@@ -95,3 +95,34 @@ export const testEmailConnection = async () => {
     return false;
   }
 };
+
+// Gửi email chứa link reset mật khẩu
+export const sendResetLinkEmail = async (email, resetLink, displayName) => {
+  const safeName = displayName || 'bạn';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 10px; border: 1px solid #eee;">
+      <div style="background: linear-gradient(90deg,#007bff,#00c6ff); padding: 20px 24px; border-radius: 10px 10px 0 0; color: #fff;">
+        <h2 style="margin: 0;">CinemaGo</h2>
+      </div>
+      <div style="padding: 24px;">
+        <p>Xin chào ${safeName},</p>
+        <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
+        <p>Vui lòng nhấn nút bên dưới để đặt lại mật khẩu. Liên kết này sẽ hết hạn sau 15 phút.</p>
+        <div style="text-align:center; margin: 24px 0;">
+          <a href="${resetLink}" style="display:inline-block; background:#007bff; color:#fff; text-decoration:none; padding:12px 20px; border-radius:6px; font-weight:600;">Đặt lại mật khẩu</a>
+        </div>
+        <p>Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email này.</p>
+      </div>
+      <div style="padding: 12px 24px; color:#888; font-size:12px; border-top:1px solid #eee;">
+        © ${new Date().getFullYear()} CinemaGo
+      </div>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Đặt lại mật khẩu - CinemaGo',
+    html
+  });
+};
