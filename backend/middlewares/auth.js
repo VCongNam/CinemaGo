@@ -24,6 +24,15 @@ export const verifyToken = async (req, res, next) => {
       return res.status(401).json({ message: "Token không hợp lệ" });
     }
 
+    // Kiểm tra trạng thái tài khoản
+    if (user.status === "locked") {
+      return res.status(403).json({ message: "Tài khoản đã bị khóa" });
+    }
+
+    if (user.status === "suspended") {
+      return res.status(403).json({ message: "Tài khoản đã bị tạm khóa" });
+    }
+
     // Gắn thông tin user vào request
     req.user = user;
     next();
