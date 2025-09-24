@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { registerStaff, loginStaff, registerCustomer, loginCustomer, changePassword, logout, updateProfile, getUsers, getUserById } from "../controllers/auth.controller.js";
+import { registerStaff, loginStaff, registerCustomer, loginCustomer, changePassword, logout, updateProfile } from "../controllers/auth.controller.js";
 import { verifyToken } from "../middlewares/auth.js";
 
 const router = Router();
@@ -11,8 +11,6 @@ router.post("/login-customer", loginCustomer);
 router.post("/logout", verifyToken, logout);
 router.put("/change-password", verifyToken, changePassword);
 router.put("/update-profile", verifyToken, updateProfile);
-router.post("/users", verifyToken, getUsers);
-router.get("/users/:id", verifyToken, getUserById);
 
 export default router;
 
