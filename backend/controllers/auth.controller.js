@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 import { signAccessToken } from "../utils/jwt.js";
+import { sendResetLinkEmail } from "../utils/email.js";
 
 export const registerStaff = async (req, res, next) => {
   try {
@@ -57,6 +59,14 @@ export const loginStaff = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác" });
     }
+    // Chỉ cho phép staff/admin đăng nhập qua cổng staff
+    if (user.role === "customer") {
+      return res.status(403).json({ message: "Bạn không có quyền đăng nhập tại cổng nhân viên" });
+    }
+    // Chặn tài khoản không hoạt động
+    if (user.status && user.status !== "active") {
+      return res.status(403).json({ message: "Tài khoản của bạn đang bị hạn chế. Vui lòng liên hệ quản trị viên" });
+    }
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
       return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác" });
@@ -110,6 +120,14 @@ export const loginCustomer = async (req, res, next) => {
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(401).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác" });
+    }
+    // Chỉ cho phép customer đăng nhập qua cổng customer
+    if (user.role !== "customer") {
+      return res.status(403).json({ message: "Vui lòng sử dụng cổng đăng nhập nhân viên" });
+    }
+    // Chặn tài khoản không hoạt động
+    if (user.status && user.status !== "active") {
+      return res.status(403).json({ message: "Tài khoản của bạn đang bị hạn chế. Vui lòng liên hệ quản trị viên" });
     }
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
@@ -397,6 +415,241 @@ export const getUserById = async (req, res, next) => {
   }
 };
 
+// OTP flow dành cho khách hàng (song song với link reset)
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email là bắt buộc" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Email không hợp lệ" });
+    }
+
+    const user = await User.findOne({ email });
+    // Luôn trả 200 để tránh lộ thông tin
+    if (!user) {
+      return res.status(200).json({ message: "Nếu email tồn tại, bạn sẽ nhận được mã OTP" });
+    }
+
+    // Chỉ cho phép customer dùng OTP flow
+    if (user.role !== "customer") {
+      return res.status(403).json({ message: "Chỉ khách hàng mới sử dụng được OTP reset" });
+    }
+
+    const now = new Date();
+    // Rate limit: nếu vẫn còn thời hạn trước đó thì yêu cầu đợi
+    if (user.otp_expires && user.otp_expires > now) {
+      const waitSeconds = Math.ceil((user.otp_expires - now) / 1000);
+      return res.status(429).json({ message: `Vui lòng đợi ${waitSeconds} giây trước khi yêu cầu OTP mới` });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp_code = otp;
+    user.otp_expires = new Date(now.getTime() + 5 * 60 * 1000); // 5 phút
+    user.otp_attempts = 0;
+    await user.save();
+
+    try {
+      // Tận dụng util email hiện có
+      const { sendOTPEmail } = await import("../utils/email.js");
+      await sendOTPEmail(user.email, otp);
+    } catch (_) {
+      // Không lộ chi tiết lỗi gửi mail
+    }
+
+    return res.status(200).json({ message: "Nếu email tồn tại, bạn sẽ nhận được mã OTP" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: "Email, OTP và mật khẩu mới là bắt buộc" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+    }
+
+    if (user.role !== "customer") {
+      return res.status(403).json({ message: "Chỉ khách hàng mới sử dụng được OTP reset" });
+    }
+
+    const now = new Date();
+    if (!user.otp_code || !user.otp_expires || user.otp_expires < now) {
+      user.otp_code = undefined;
+      user.otp_expires = undefined;
+      user.otp_attempts = 0;
+      await user.save();
+      return res.status(400).json({ message: "Mã OTP đã hết hạn hoặc không tồn tại" });
+    }
+
+    if (user.otp_attempts >= 3) {
+      user.otp_code = undefined;
+      user.otp_expires = undefined;
+      user.otp_attempts = 0;
+      await user.save();
+      return res.status(400).json({ message: "Bạn đã nhập sai quá nhiều lần. Vui lòng yêu cầu OTP mới" });
+    }
+
+    if (user.otp_code !== otp) {
+      user.otp_attempts += 1;
+      await user.save();
+      const remain = Math.max(0, 3 - user.otp_attempts);
+      return res.status(400).json({ message: `OTP không chính xác. Bạn còn ${remain} lần thử` });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "Mật khẩu phải có ít nhất 6 ký tự" });
+    }
+
+    const isSame = await bcrypt.compare(newPassword, user.password);
+    if (isSame) {
+      return res.status(400).json({ message: "Mật khẩu mới phải khác mật khẩu hiện tại" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.otp_code = undefined;
+    user.otp_expires = undefined;
+    user.otp_attempts = 0;
+    await user.save();
+
+    return res.status(200).json({ message: "Đặt lại mật khẩu thành công" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMyProfile = async (req, res, next) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: "Chưa xác thực" });
+    }
+
+    const user = await User.findById(userId).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    const data = {
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      fullName: user.full_name,
+      phone: user.phone,
+      address: user.address,
+      dateOfBirth: user.date_of_birth,
+      role: user.role,
+      status: user.status,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: "Lấy thông tin cá nhân thành công",
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// Reset password via email link (JWT, stateless)
+export const forgotPasswordLink = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email là bắt buộc" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Email không hợp lệ" });
+    }
+
+    const user = await User.findOne({ email });
+
+    // Luôn trả 200 để tránh lộ thông tin tồn tại email
+    if (!user) {
+      return res.status(200).json({ message: "Nếu email tồn tại, chúng tôi đã gửi link đặt lại mật khẩu" });
+    }
+
+    // Tạo JWT reset token ngắn hạn
+    const token = jwt.sign(
+      { sub: user._id.toString(), type: "password_reset", username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+
+    const resetLink = `${process.env.FRONTEND_URL || "http://localhost:3000"}/reset-password?token=${token}`;
+
+    try {
+      await sendResetLinkEmail(user.email, resetLink, user.full_name || user.username);
+    } catch (e) {
+      // Không tiết lộ thất bại gửi mail, vẫn trả 200
+    }
+
+    return res.status(200).json({ message: "Nếu email tồn tại, chúng tôi đã gửi link đặt lại mật khẩu" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPasswordWithToken = async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "Token và mật khẩu mới là bắt buộc" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "Mật khẩu phải có ít nhất 6 ký tự" });
+    }
+
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(400).json({ message: "Token không hợp lệ hoặc đã hết hạn" });
+    }
+
+    if (payload.type !== "password_reset" || !payload.sub) {
+      return res.status(400).json({ message: "Token không hợp lệ" });
+    }
+
+    const user = await User.findById(payload.sub);
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({ message: "Mật khẩu mới phải khác mật khẩu hiện tại" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({ message: "Đặt lại mật khẩu thành công" });
+  } catch (error) {
+    next(error);
+  }
+};
 
 
 

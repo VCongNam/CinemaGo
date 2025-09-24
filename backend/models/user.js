@@ -43,6 +43,22 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: ["active", "locked", "suspended"],
         default: "active"
+    },
+    reset_token: {
+        type: String
+    },
+    reset_token_expires: {
+        type: Date
+    },
+    otp_code: {
+        type: String
+    },
+    otp_expires: {
+        type: Date
+    },
+    otp_attempts: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
