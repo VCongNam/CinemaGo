@@ -1,14 +1,33 @@
 import Movie from "../models/movie.js";
 
-// Lấy tất cả movies
+// Lấy tất cả movies (có phân trang và tìm kiếm)
 export const getAllMovies = async (req, res, next) => {
   try {
-    const movies = await Movie.find({ status: "active" }).sort({ created_at: -1 });
+    const { page = 1, limit = 10, search = '' } = req.query;
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const query = { status: "active" };
+    if (search) {
+      // Tìm kiếm không phân biệt chữ hoa/thường
+      query.title = { $regex: search, $options: 'i' };
+    }
+
+    const [movies, totalCount] = await Promise.all([
+      Movie.find(query)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      Movie.countDocuments(query)
+    ]);
     
     res.status(200).json({
       message: "Lấy danh sách phim thành công",
       data: movies,
-      count: movies.length
+      page: pageNum,
+      limit: limitNum,
+      totalCount
     });
   } catch (error) {
     next(error);
@@ -43,13 +62,13 @@ export const createMovie = async (req, res, next) => {
     
     // Create movie with validated data
     const movie = await Movie.create({
-      title: title.trim(),
-      description: description?.trim(),
+      title,
+      description,
       duration,
       genre,
       release_date,
-      trailer_url: trailer_url?.trim(),
-      poster_url: poster_url?.trim(),
+      trailer_url,
+      poster_url,
       status: status || "active" // Default to active if not provided
     });
     
@@ -58,20 +77,6 @@ export const createMovie = async (req, res, next) => {
       data: movie
     });
   } catch (error) {
-    // Handle mongoose validation errors
-    if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map(err => ({
-        field: err.path,
-        message: err.message
-      }));
-      
-      return res.status(400).json({
-        message: "Dữ liệu không hợp lệ",
-        error: "MONGOOSE_VALIDATION_ERROR",
-        details: validationErrors
-      });
-    }
-    
     next(error);
   }
 };
@@ -80,13 +85,7 @@ export const createMovie = async (req, res, next) => {
 export const updateMovie = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updateData = { ...req.body };
-    
-    // Trim string fields if they exist
-    if (updateData.title) updateData.title = updateData.title.trim();
-    if (updateData.description) updateData.description = updateData.description.trim();
-    if (updateData.trailer_url) updateData.trailer_url = updateData.trailer_url.trim();
-    if (updateData.poster_url) updateData.poster_url = updateData.poster_url.trim();
+    const updateData = req.body;
     
     const movie = await Movie.findByIdAndUpdate(
       id,
@@ -105,30 +104,20 @@ export const updateMovie = async (req, res, next) => {
       data: movie
     });
   } catch (error) {
-    // Handle mongoose validation errors
-    if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map(err => ({
-        field: err.path,
-        message: err.message
-      }));
-      
-      return res.status(400).json({
-        message: "Dữ liệu không hợp lệ",
-        error: "MONGOOSE_VALIDATION_ERROR",
-        details: validationErrors
-      });
-    }
-    
     next(error);
   }
 };
 
-// Xóa movie (chỉ staff/admin)
+// Xóa movie (chỉ staff/admin) - Chuyển thành xóa mềm
 export const deleteMovie = async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    const movie = await Movie.findByIdAndDelete(id);
+    const movie = await Movie.findByIdAndUpdate(
+      id,
+      { status: 'inactive' }, // Đánh dấu là không hoạt động thay vì xóa
+      { new: true }
+    );
     
     if (!movie) {
       return res.status(404).json({
@@ -137,7 +126,7 @@ export const deleteMovie = async (req, res, next) => {
     }
     
     res.status(200).json({
-      message: "Xóa phim thành công"
+      message: "Xóa phim thành công (chuyển sang trạng thái không hoạt động)"
     });
   } catch (error) {
     next(error);
@@ -184,20 +173,6 @@ export const updateMovieStatus = async (req, res, next) => {
       }
     });
   } catch (error) {
-    // Handle mongoose validation errors
-    if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map(err => ({
-        field: err.path,
-        message: err.message
-      }));
-      
-      return res.status(400).json({
-        message: "Trạng thái không hợp lệ",
-        error: "MONGOOSE_VALIDATION_ERROR",
-        details: validationErrors
-      });
-    }
-    
     next(error);
   }
 };
