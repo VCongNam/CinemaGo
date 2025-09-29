@@ -21,7 +21,13 @@ const showtimeSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        default: "active"
+        enum: {
+            values: ["active", "inactive"],
+            message: "Trạng thái phải là 'active' hoặc 'inactive'. Giá trị nhận được: '{VALUE}'"
+        },
+        default: "active",
+        lowercase: true,
+        trim: true
     }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
