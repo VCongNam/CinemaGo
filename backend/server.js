@@ -8,12 +8,19 @@ import theaterRoutes from "./routes/theater.routes.js";
 import roomRoutes from "./routes/room.routes.js";
 import seatRoutes from "./routes/seat.routes.js";
 import errorHandler from "./middlewares/errorHandler.js";
+import cors from "cors";
 
 dotenv.config();
 
 const app = express();
 
 app.use(express.json());
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+    credentials: true,
+  })
+);
 
 // Mount routes
 app.use("/", authRoutes); // Public auth routes
