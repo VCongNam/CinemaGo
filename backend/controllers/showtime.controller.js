@@ -1,5 +1,6 @@
 import Showtime from "../models/showtime.js";
 import Movie from "../models/movie.js";
+import { formatForAPI, formatVietnamTime, getDayRangeVietnam } from "../utils/timezone.js";
 
 // Helper: check overlap for a room between [start,end)
 const hasOverlap = async ({ roomId, startTime, endTime, excludeId = null }) => {
@@ -24,16 +25,34 @@ export const listShowtimes = async (req, res, next) => {
     if (movie_id) filter.movie_id = movie_id;
     if (date) {
       const d = new Date(date);
-      const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
-      filter.start_time = { $gte: startOfDay, $lt: endOfDay };
+      const dayRange = getDayRangeVietnam(d);
+      filter.start_time = { $gte: new Date(dayRange.startOfDay), $lt: new Date(dayRange.endOfDay) };
     }
 
     const items = await Showtime.find(filter)
       .populate("movie_id", "title duration poster_url status")
       .populate("room_id", "name theater_id status")
       .sort({ start_time: 1 });
-    res.json({ success: true, data: items });
+    
+    // Format dates to Vietnam timezone
+    const formattedItems = items.map(item => {
+      const itemObj = item.toObject();
+      if (itemObj.start_time) {
+        itemObj.start_time = formatForAPI(itemObj.start_time);
+      }
+      if (itemObj.end_time) {
+        itemObj.end_time = formatForAPI(itemObj.end_time);
+      }
+      if (itemObj.created_at) {
+        itemObj.created_at = formatForAPI(itemObj.created_at);
+      }
+      if (itemObj.updated_at) {
+        itemObj.updated_at = formatForAPI(itemObj.updated_at);
+      }
+      return itemObj;
+    });
+    
+    res.json({ success: true, data: formattedItems });
   } catch (err) {
     next(err);
   }
@@ -46,7 +65,23 @@ export const getShowtimeById = async (req, res, next) => {
       .populate("movie_id", "title duration poster_url status")
       .populate("room_id", "name theater_id status");
     if (!st) return res.status(404).json({ message: "Không tìm thấy suất chiếu" });
-    res.json({ success: true, data: st });
+    
+    // Format dates to Vietnam timezone
+    const stObj = st.toObject();
+    if (stObj.start_time) {
+      stObj.start_time = formatForAPI(stObj.start_time);
+    }
+    if (stObj.end_time) {
+      stObj.end_time = formatForAPI(stObj.end_time);
+    }
+    if (stObj.created_at) {
+      stObj.created_at = formatForAPI(stObj.created_at);
+    }
+    if (stObj.updated_at) {
+      stObj.updated_at = formatForAPI(stObj.updated_at);
+    }
+    
+    res.json({ success: true, data: stObj });
   } catch (err) {
     next(err);
   }
@@ -70,7 +105,23 @@ export const createShowtime = async (req, res, next) => {
     const populated = await created
       .populate("movie_id", "title duration poster_url status")
       .populate("room_id", "name theater_id status");
-    res.status(201).json({ success: true, data: populated });
+    
+    // Format dates to Vietnam timezone
+    const populatedObj = populated.toObject();
+    if (populatedObj.start_time) {
+      populatedObj.start_time = formatForAPI(populatedObj.start_time);
+    }
+    if (populatedObj.end_time) {
+      populatedObj.end_time = formatForAPI(populatedObj.end_time);
+    }
+    if (populatedObj.created_at) {
+      populatedObj.created_at = formatForAPI(populatedObj.created_at);
+    }
+    if (populatedObj.updated_at) {
+      populatedObj.updated_at = formatForAPI(populatedObj.updated_at);
+    }
+    
+    res.status(201).json({ success: true, data: populatedObj });
   } catch (err) {
     next(err);
   }
@@ -106,7 +157,23 @@ export const updateShowtime = async (req, res, next) => {
     const populated = await existing
       .populate("movie_id", "title duration poster_url status")
       .populate("room_id", "name theater_id status");
-    res.json({ success: true, data: populated });
+    
+    // Format dates to Vietnam timezone
+    const populatedObj = populated.toObject();
+    if (populatedObj.start_time) {
+      populatedObj.start_time = formatForAPI(populatedObj.start_time);
+    }
+    if (populatedObj.end_time) {
+      populatedObj.end_time = formatForAPI(populatedObj.end_time);
+    }
+    if (populatedObj.created_at) {
+      populatedObj.created_at = formatForAPI(populatedObj.created_at);
+    }
+    if (populatedObj.updated_at) {
+      populatedObj.updated_at = formatForAPI(populatedObj.updated_at);
+    }
+    
+    res.json({ success: true, data: populatedObj });
   } catch (err) {
     next(err);
   }
@@ -142,7 +209,23 @@ export const updateShowtimeStatus = async (req, res, next) => {
       .populate("movie_id", "title duration poster_url status")
       .populate("room_id", "name theater_id status");
     if (!updated) return res.status(404).json({ message: "Không tìm thấy suất chiếu" });
-    res.json({ success: true, data: updated });
+    
+    // Format dates to Vietnam timezone
+    const updatedObj = updated.toObject();
+    if (updatedObj.start_time) {
+      updatedObj.start_time = formatForAPI(updatedObj.start_time);
+    }
+    if (updatedObj.end_time) {
+      updatedObj.end_time = formatForAPI(updatedObj.end_time);
+    }
+    if (updatedObj.created_at) {
+      updatedObj.created_at = formatForAPI(updatedObj.created_at);
+    }
+    if (updatedObj.updated_at) {
+      updatedObj.updated_at = formatForAPI(updatedObj.updated_at);
+    }
+    
+    res.json({ success: true, data: updatedObj });
   } catch (err) {
     next(err);
   }
