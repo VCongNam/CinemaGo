@@ -30,9 +30,9 @@ router.use(verifyToken, requireAdmin);
 // POST /api/seats/list
 router.post("/list", getAllSeats);
 
-// Lấy danh sách ghế theo phòng
-// GET /api/seats/room/:roomId?page=1&pageSize=10&status=active&type=vip
-router.get("/room/:roomId", validateRoomId, getSeatsByRoom);
+// Lấy danh sách ghế theo phòng (body pagination)
+// POST /api/seats/room/:roomId/list
+router.post("/room/:roomId/list", validateRoomId, getSeatsByRoom);
 
 // Lấy layout ghế theo phòng (theo hàng)
 // GET /api/seats/room/:roomId/layout
