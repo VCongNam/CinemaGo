@@ -1,5 +1,6 @@
 import Showtime from "../models/showtime.js";
 import Movie from "../models/movie.js";
+import Room from "../models/room.js";
 import { formatForAPI, formatVietnamTime, getDayRangeVietnam } from "../utils/timezone.js";
 
 // Helper: check overlap for a room between [start,end)
@@ -19,8 +20,21 @@ const hasOverlap = async ({ roomId, startTime, endTime, excludeId = null }) => {
 
 export const listShowtimes = async (req, res, next) => {
   try {
-    const { room_id, movie_id, date } = req.body || {};
+    // Support both POST (body) and GET (query) filters
+    const source = req.method === 'GET' ? (req.query || {}) : (req.body || {});
+    const { room_id, movie_id, theater_id, date } = source;
     const filter = {};
+
+    // Theater filter expands to rooms unless a specific room_id is provided
+    if (theater_id && !room_id) {
+      const rooms = await Room.find({ theater_id }).select("_id");
+      const roomIds = rooms.map(r => r._id);
+      if (roomIds.length === 0) {
+        return res.json({ success: true, data: [] });
+      }
+      filter.room_id = { $in: roomIds };
+    }
+
     if (room_id) filter.room_id = room_id;
     if (movie_id) filter.movie_id = movie_id;
     if (date) {
@@ -53,6 +67,84 @@ export const listShowtimes = async (req, res, next) => {
     });
     
     res.json({ success: true, data: formattedItems });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/showtimes/theater/:theaterId/movie/:movieId
+export const getShowtimesByTheaterAndMovie = async (req, res, next) => {
+  try {
+    const { theaterId, movieId } = req.params;
+    const { date } = req.query || {};
+
+    const rooms = await Room.find({ theater_id: theaterId }).select("_id");
+    const roomIds = rooms.map(r => r._id);
+    if (roomIds.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const filter = { room_id: { $in: roomIds }, movie_id: movieId };
+    if (date) {
+      const d = new Date(date);
+      const dayRange = getDayRangeVietnam(d);
+      filter.start_time = { $gte: new Date(dayRange.startOfDay), $lt: new Date(dayRange.endOfDay) };
+    }
+
+    const items = await Showtime.find(filter)
+      .populate("movie_id", "title duration poster_url status")
+      .populate("room_id", "name theater_id status")
+      .sort({ start_time: 1 });
+
+    const formatted = items.map(item => {
+      const obj = item.toObject();
+      if (obj.start_time) obj.start_time = formatForAPI(obj.start_time);
+      if (obj.end_time) obj.end_time = formatForAPI(obj.end_time);
+      if (obj.created_at) obj.created_at = formatForAPI(obj.created_at);
+      if (obj.updated_at) obj.updated_at = formatForAPI(obj.updated_at);
+      return obj;
+    });
+
+    res.json({ success: true, data: formatted });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/showtimes/theater/:theaterId/room/:roomId/movie/:movieId
+export const getShowtimesByTheaterRoomAndMovie = async (req, res, next) => {
+  try {
+    const { theaterId, roomId, movieId } = req.params;
+    const { date } = req.query || {};
+
+    // Optional: ensure room belongs to theater
+    const room = await Room.findOne({ _id: roomId, theater_id: theaterId }).select("_id theater_id");
+    if (!room) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const filter = { room_id: roomId, movie_id: movieId };
+    if (date) {
+      const d = new Date(date);
+      const dayRange = getDayRangeVietnam(d);
+      filter.start_time = { $gte: new Date(dayRange.startOfDay), $lt: new Date(dayRange.endOfDay) };
+    }
+
+    const items = await Showtime.find(filter)
+      .populate("movie_id", "title duration poster_url status")
+      .populate("room_id", "name theater_id status")
+      .sort({ start_time: 1 });
+
+    const formatted = items.map(item => {
+      const obj = item.toObject();
+      if (obj.start_time) obj.start_time = formatForAPI(obj.start_time);
+      if (obj.end_time) obj.end_time = formatForAPI(obj.end_time);
+      if (obj.created_at) obj.created_at = formatForAPI(obj.created_at);
+      if (obj.updated_at) obj.updated_at = formatForAPI(obj.updated_at);
+      return obj;
+    });
+
+    res.json({ success: true, data: formatted });
   } catch (err) {
     next(err);
   }
@@ -102,7 +194,7 @@ export const createShowtime = async (req, res, next) => {
     }
 
     const created = await Showtime.create({ movie_id, room_id, start_time, end_time, status });
-    const populated = await created
+    const populated = await Showtime.findById(created._id)
       .populate("movie_id", "title duration poster_url status")
       .populate("room_id", "name theater_id status");
     

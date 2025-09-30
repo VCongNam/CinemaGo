@@ -6,7 +6,9 @@ import {
   createShowtime,
   updateShowtime,
   deleteShowtime,
-  updateShowtimeStatus
+  updateShowtimeStatus,
+  getShowtimesByTheaterAndMovie,
+  getShowtimesByTheaterRoomAndMovie
 } from "../controllers/showtime.controller.js";
 import {
   validateCreateShowtime,
@@ -15,26 +17,23 @@ import {
 
 const router = Router();
 
-// Admin-only for management
-router.use(verifyToken, requireAdmin);
-
-// POST /api/showtimes/list - filter by room/movie/date
+// PUBLIC
+// GET /api/showtimes - filter by room/movie/date via query
+router.get("/", listShowtimes);
+// POST /api/showtimes/list - keep POST variant for complex filters
 router.post("/list", listShowtimes);
-
 // GET /api/showtimes/:id
 router.get("/:id", getShowtimeById);
+// GET /api/showtimes/theater/:theaterId/movie/:movieId
+router.get("/theater/:theaterId/movie/:movieId", getShowtimesByTheaterAndMovie);
+// GET /api/showtimes/theater/:theaterId/room/:roomId/movie/:movieId
+router.get("/theater/:theaterId/room/:roomId/movie/:movieId", getShowtimesByTheaterRoomAndMovie);
 
-// POST /api/showtimes
-router.post("/", validateCreateShowtime, createShowtime);
-
-// PUT /api/showtimes/:id
-router.put("/:id", validateUpdateShowtime, updateShowtime);
-
-// PATCH /api/showtimes/:id/status
-router.patch("/:id/status", updateShowtimeStatus);
-
-// DELETE /api/showtimes/:id
-router.delete("/:id", deleteShowtime);
+// PROTECTED admin-only write operations
+router.post("/", verifyToken, requireAdmin, validateCreateShowtime, createShowtime);
+router.put("/:id", verifyToken, requireAdmin, validateUpdateShowtime, updateShowtime);
+router.patch("/:id/status", verifyToken, requireAdmin, updateShowtimeStatus);
+router.delete("/:id", verifyToken, requireAdmin, deleteShowtime);
 
 export default router;
 
