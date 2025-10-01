@@ -20,7 +20,7 @@ import { Link as RouterLink, useNavigate } from "react-router-dom"
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    fullName: "",
+    username: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -57,9 +57,9 @@ const Register = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: formData.fullName,
-          password: formData.password,
+          username: formData.username,
           email: formData.email,
+          password: formData.password,
         }),
       })
       const data = await res.json()
@@ -112,18 +112,17 @@ const Register = () => {
               <form onSubmit={handleSubmit} style={{ width: "100%" }}>
                 <VStack spacing={4}>
                   <FormControl isRequired>
-                    <FormLabel>Họ và tên</FormLabel>
+                    <FormLabel>Tên đăng nhập</FormLabel>
                     <Input
-                      name="fullName"
-                      value={formData.fullName}
+                      name="username"
+                      value={formData.username}
                       onChange={handleChange}
                       bg="gray.700"
                       border="none"
                       _focus={{ bg: "gray.600" }}
-                      placeholder="Nhập họ và tên"
+                      placeholder="Nhập tên đăng nhập"
                     />
                   </FormControl>
-
                   <FormControl isRequired>
                     <FormLabel>Email</FormLabel>
                     <Input
