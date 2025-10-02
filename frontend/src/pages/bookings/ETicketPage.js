@@ -1,5 +1,4 @@
 import { Box, Heading, Text, Center } from "@chakra-ui/react";
-import CustomerLayout from "../layouts/CustomerLayout";
 import QRCode from "react-qr-code";
 
 export default function ETicketPage() {
@@ -11,7 +10,7 @@ export default function ETicketPage() {
   };
 
   return (
-    <CustomerLayout>
+    <Box p={6}>
       <Box bg="white" p={6} borderRadius="lg" shadow="sm" maxW="400px">
         <Heading size="md" mb={4}>
           Vé điện tử
@@ -23,6 +22,6 @@ export default function ETicketPage() {
           <QRCode value={`ticket-${mockTicket.id}`} size={150} />
         </Center>
       </Box>
-    </CustomerLayout>
+    </Box>
   );
 }

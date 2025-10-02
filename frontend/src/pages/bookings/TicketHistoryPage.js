@@ -10,9 +10,6 @@ import {
   Td,
 } from "@chakra-ui/react";
 
-
-import CustomerLayout from "../layouts/CustomerLayout";
-
 const mockTransactions = [
   {
     id: "TXN001",
@@ -34,7 +31,7 @@ const mockTransactions = [
 
 export default function TicketHistoryPage() {
   return (
-    <CustomerLayout>
+    <Box p={6}>
       <Heading mb={4}>Lịch sử giao dịch</Heading>
       <Box bg="white" p={4} borderRadius="lg" shadow="sm">
         <Table variant="simple">
@@ -66,6 +63,6 @@ export default function TicketHistoryPage() {
           </Tbody>
         </Table>
       </Box>
-    </CustomerLayout>
+    </Box>
   );
 }
