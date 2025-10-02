@@ -1,9 +1,36 @@
 import { ChakraProvider, Box } from "@chakra-ui/react"
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
-import Homepage from "./pages/HomePage"
-import Login from "./pages/Login"
-import Register from "./pages/Register"
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
+
+// Admin pages
+import DashboardPage from "./pages/admin/DashboardPage"
+import StaffManagementPage from "./pages/admin/StaffManagementPage"
+import CustomerManagementPage from "./pages/admin/CustomerManagementPage"
+import ReportsPage from "./pages/admin/ReportsPage"
+import AdminLoginPage from "./pages/admin/AdminLoginPage"
+import UserDetailPage from "./pages/admin/UserDetailPage"
+
+
+// Booking pages
+import CartPage from "./pages/bookings/CartCheckoutPage"
+import PaymentPage from "./pages/bookings/PaymentPage"
+import TicketHistoryPage from "./pages/bookings/TicketHistoryPage"
+import TicketPage from "./pages/bookings/TicketInfo"
+import ETicketPage from "./pages/bookings/ETicketPage"
+import ShowtimeSelection from "./pages/bookings/ShowtimeSelection"
+import SeatSelection from "./pages/bookings/SeatSelection"
+import ComboSelection from "./pages/bookings/ComboSelection"
+
+// Staff pages
+import StaffL1Page from "./pages/staff/StaffL1Page"
+import StaffL2Page from "./pages/staff/StaffL2Page"
+
+// Homepage & Auth
+import HomePage from "./pages/HomePage"
+import LoginPage from "./pages/Login"
+import RegisterPage from "./pages/Register"
+
 import Header from "./pages/Navbar/Header"
+import AdminHeader from "./pages/Navbar/AdminHeader"
 import Footer from "./pages/Navbar/Footer"
 
 function App() {
@@ -11,12 +38,47 @@ function App() {
     <ChakraProvider>
       <Router>
         <Box minHeight="100vh" display="flex" flexDirection="column">
-          <Header />
+          {/* Hiển thị AdminHeader cho các route admin dashboard, customers, reports, staffs, user/:id. Các route khác dùng Header */}
+          {/^\/admin\/(dashboard|customers|reports|staffs|user)/.test(window.location.pathname) ? <AdminHeader /> : <Header />}
           <Box flex="1">
             <Routes>
-              <Route path="/" element={<Homepage />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+              {/* Root */}
+              <Route index element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/admin/login" element={<AdminLoginPage />} />
+
+
+              {/* Booking */}
+              <Route path="/bookings/cart" element={<CartPage />} />
+              <Route path="/bookings/payment" element={<PaymentPage />} />
+              <Route path="/bookings/history" element={<TicketHistoryPage />} />
+              <Route path="/bookings/ticket" element={<TicketPage />} />
+              <Route path="/bookings/eticket" element={<ETicketPage />} />
+
+              {/* Booking flow with params */}
+              <Route path="/bookings/showtimes/:movieId" element={<ShowtimeSelection />} />
+              <Route path="/bookings/seats/:showtimeId" element={<SeatSelection />} />
+              <Route path="/bookings/combos/:showtimeId" element={<ComboSelection />} />
+              <Route path="/bookings/payment/:showtimeId" element={<PaymentPage />} />
+              <Route path="/bookings/ticket/:bookingId" element={<TicketPage />} />
+
+              {/* Staff */}
+              <Route path="/staff/l1" element={<StaffL1Page />} />
+              <Route path="/staff/l2" element={<StaffL2Page />} />
+
+              {/* Admin */}
+              <Route path="/admin/dashboard" element={<DashboardPage />} />
+              <Route path="/admin/customers" element={<CustomerManagementPage />} />
+              <Route path="/admin/reports" element={<ReportsPage />} />
+              <Route path="/admin/user/:id" element={<UserDetailPage />} />
+              <Route path="/admin/staffs" element={<StaffManagementPage />} />
+
+              {/* Redirect */}
+              <Route path="/" element={<Navigate to="/bookings/cart" replace />} />
+
+              {/* Not found */}
+              <Route path="*" element={<h1>404 - Not Found</h1>} />
             </Routes>
           </Box>
           <Footer />

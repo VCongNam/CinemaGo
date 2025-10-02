@@ -1,5 +1,3 @@
-"use client"
-
 import { useState } from "react"
 import {
   Box,
@@ -34,17 +32,13 @@ const Login = () => {
     setIsLoading(true)
 
     try {
-      // Gọi API login
       apiService.post('/login-customer', {
         username: username,
         password: password
       }, (response, success) => {
         setIsLoading(false)
-        
         if (success && response) {
-          // Lưu token và user info
           authService.setAuthData(response.accessToken, response.user)
-          
           toast({
             title: "Đăng nhập thành công!",
             description: `Chào mừng ${response.user.username}`,
@@ -52,12 +46,9 @@ const Login = () => {
             duration: 3000,
             isClosable: true,
           })
-          
-          // Chuyển hướng về trang chủ và reload để hiển thị Profile
           navigate('/')
-          window.location.reload()
+          setTimeout(() => window.location.reload(), 0)
         } else {
-          // Xử lý lỗi
           const errorMessage = response?.message || "Đăng nhập thất bại"
           toast({
             title: "Lỗi đăng nhập",
@@ -128,6 +119,16 @@ const Login = () => {
                     loadingText="Đang đăng nhập..."
                   >
                     Đăng nhập
+                  </Button>
+                  {/* Nút chuyển sang trang đăng nhập admin */}
+                  <Button
+                    as={RouterLink}
+                    to="/admin/login"
+                    variant="outline"
+                    colorScheme="orange"
+                    w="full"
+                  >
+                    Đăng nhập Admin
                   </Button>
                 </VStack>
               </form>
