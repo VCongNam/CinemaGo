@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Input, Select, Box, Flex, useToast } from "@chakra-ui/react"
-import AdminLayout from "../layouts/AdminLayout"
+import Sidebar from "../Navbar/Sidebar";
 import UserTable from "../Navbar/UserTable"
 
 export default function CustomerManagementPage() {
@@ -93,39 +93,53 @@ export default function CustomerManagementPage() {
     )
   }
 
-  if (loading) return <AdminLayout><p>Đang tải...</p></AdminLayout>
-  if (error) return <AdminLayout><p>Lỗi: {error}</p></AdminLayout>
+  if (loading) return <p>Đang tải...</p>
+  if (error) return <p>Lỗi: {error}</p>
+
+  const adminLinks = [
+    { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
+    { to: "/admin/customers", label: "Thông tin khách hàng" },
+    { to: "/admin/staffs", label: "Thông tin nhân viên" },
+    { to: "/admin/reports", label: "Báo cáo khác" },
+  ];
 
   return (
-    <AdminLayout>
-      <Box mb={4}>
-        <Flex gap={4}>
-          <Input
-            placeholder="Tìm theo tên hoặc email..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            maxW="300px"
-            bg="white"
-            color="black"
-          />
-          <Select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            maxW="200px"
-            bg="white"
-            color="black"
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
-            <option value="deactive">Khóa</option>
-          </Select>
-        </Flex>
+    <Flex flex="1" bg="#0f1117" color="white">
+      <Sidebar links={adminLinks} />
+      <Box flex="1" p={6}>
+        <Box mb={4}>
+          <Flex gap={4}>
+            <Input
+              placeholder="Tìm theo tên hoặc email..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              maxW="300px"
+              bg="gray.800"
+              color="white"
+              border="none"
+              _focus={{ bg: "gray.700" }}
+            />
+            <Select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              maxW="200px"
+              bg="#181a20"
+              color="#fff"
+              border="1px solid #23242a"
+              _focus={{ bg: "#23242a" }}
+            >
+              <option value="all" style={{background:'#181a20', color:'#fff'}}>Tất cả trạng thái</option>
+              <option value="active" style={{background:'#181a20', color:'#fff'}}>Hoạt động</option>
+              <option value="deactive" style={{background:'#181a20', color:'#fff'}}>Khóa</option>
+            </Select>
+          </Flex>
+        </Box>
+        <UserTable
+          users={customerUsers}
+          onViewInfo={handleViewInfo}
+          onToggleStatus={handleToggleStatus}
+        />
       </Box>
-      <UserTable
-        users={customerUsers}
-        onViewInfo={handleViewInfo}
-        onToggleStatus={handleToggleStatus}
-      />
-    </AdminLayout>
+    </Flex>
   )
 }

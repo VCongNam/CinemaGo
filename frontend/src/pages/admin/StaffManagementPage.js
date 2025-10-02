@@ -19,7 +19,7 @@ import {
   Flex,
 } from "@chakra-ui/react"
 import { useNavigate } from "react-router-dom"
-import AdminLayout from "../layouts/AdminLayout"
+import Sidebar from "../Navbar/Sidebar";
 import UserTable from "../Navbar/UserTable"
 
 export default function StaffManagementPage() {
@@ -80,64 +80,74 @@ export default function StaffManagementPage() {
     navigate(`/admin/user/${user.id}`)
   }
 
+  const adminLinks = [
+    { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
+    { to: "/admin/customers", label: "Thông tin khách hàng" },
+    { to: "/admin/staffs", label: "Thông tin nhân viên" },
+    { to: "/admin/reports", label: "Báo cáo khác" },
+  ];
+
   return (
-    <AdminLayout>
-      <Flex justify="space-between" align="center" mb={4}>
-        <Heading size="md">Danh sách nhân viên</Heading>
-        <Button colorScheme="orange" onClick={onOpen}>
-          Thêm nhân viên mới
-        </Button>
-      </Flex>
-      {loading && <Spinner />}
-      {error && <Text color="red.400">{error}</Text>}
-      <UserTable users={staffs} onViewInfo={handleViewInfo} />
-      {/* Modal tạo tài khoản staff */}
-      <Modal isOpen={isOpen} onClose={onClose} isCentered>
-        <ModalOverlay />
-        <ModalContent bg="gray.900" color="white">
-          <ModalHeader>Tạo tài khoản nhân viên mới</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <FormControl mb={3}>
-              <FormLabel>Tên đăng nhập</FormLabel>
-              <Input
-                value={form.username}
-                onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
-                bg="gray.800"
-                color="white"
-              />
-            </FormControl>
-            <FormControl mb={3}>
-              <FormLabel>Email</FormLabel>
-              <Input
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                bg="gray.800"
-                color="white"
-              />
-            </FormControl>
-            <FormControl mb={3}>
-              <FormLabel>Mật khẩu</FormLabel>
-              <Input
-                type="password"
-                value={form.password}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                bg="gray.800"
-                color="white"
-              />
-            </FormControl>
-            {error && <Text color="red.400">{error}</Text>}
-          </ModalBody>
-          <ModalFooter>
-            <Button onClick={onClose} mr={3}>
-              Hủy
-            </Button>
-            <Button colorScheme="orange" onClick={handleCreateStaff} isLoading={creating}>
-              Tạo mới
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-    </AdminLayout>
+    <Flex flex="1" bg="#0f1117" color="white">
+      <Sidebar links={adminLinks} />
+      <Box flex="1" p={6}>
+        <Flex justify="space-between" align="center" mb={4}>
+          <Heading size="md">Danh sách nhân viên</Heading>
+          <Button colorScheme="orange" onClick={onOpen}>
+            Thêm nhân viên mới
+          </Button>
+        </Flex>
+        {loading && <Spinner />}
+        {error && <Text color="red.400">{error}</Text>}
+        <UserTable users={staffs} onViewInfo={handleViewInfo} />
+        {/* Modal tạo tài khoản staff */}
+        <Modal isOpen={isOpen} onClose={onClose} isCentered>
+          <ModalOverlay />
+          <ModalContent bg="gray.900" color="white">
+            <ModalHeader>Tạo tài khoản nhân viên mới</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <FormControl mb={3}>
+                <FormLabel>Tên đăng nhập</FormLabel>
+                <Input
+                  value={form.username}
+                  onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                  bg="gray.800"
+                  color="white"
+                />
+              </FormControl>
+              <FormControl mb={3}>
+                <FormLabel>Email</FormLabel>
+                <Input
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  bg="gray.800"
+                  color="white"
+                />
+              </FormControl>
+              <FormControl mb={3}>
+                <FormLabel>Mật khẩu</FormLabel>
+                <Input
+                  type="password"
+                  value={form.password}
+                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  bg="gray.800"
+                  color="white"
+                />
+              </FormControl>
+              {error && <Text color="red.400">{error}</Text>}
+            </ModalBody>
+            <ModalFooter>
+              <Button onClick={onClose} mr={3}>
+                Hủy
+              </Button>
+              <Button colorScheme="orange" onClick={handleCreateStaff} isLoading={creating}>
+                Tạo mới
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      </Box>
+    </Flex>
   )
 }

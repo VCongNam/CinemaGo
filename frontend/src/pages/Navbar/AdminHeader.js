@@ -27,9 +27,10 @@ const AdminHeader = () => {
   const cancelRef = useRef()
 
   const handleLogout = () => {
-    // TODO: clear token / session
+    localStorage.removeItem("token")
     onClose()
     navigate("/login")
+    window.location.reload()
   }
 
   return (

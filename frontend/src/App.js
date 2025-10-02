@@ -30,6 +30,7 @@ import LoginPage from "./pages/Login"
 import RegisterPage from "./pages/Register"
 
 import Header from "./pages/Navbar/Header"
+import AdminHeader from "./pages/Navbar/AdminHeader"
 import Footer from "./pages/Navbar/Footer"
 
 function App() {
@@ -37,7 +38,8 @@ function App() {
     <ChakraProvider>
       <Router>
         <Box minHeight="100vh" display="flex" flexDirection="column">
-          <Header />
+          {/* Hiển thị AdminHeader cho các route admin dashboard, customers, reports, staffs, user/:id. Các route khác dùng Header */}
+          {/^\/admin\/(dashboard|customers|reports|staffs|user)/.test(window.location.pathname) ? <AdminHeader /> : <Header />}
           <Box flex="1">
             <Routes>
               {/* Root */}

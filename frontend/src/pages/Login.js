@@ -47,7 +47,7 @@ const Login = () => {
             isClosable: true,
           })
           navigate('/')
-          window.location.reload()
+          setTimeout(() => window.location.reload(), 0)
         } else {
           const errorMessage = response?.message || "Đăng nhập thất bại"
           toast({

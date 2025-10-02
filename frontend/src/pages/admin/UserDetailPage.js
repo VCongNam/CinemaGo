@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
-import AdminLayout from "../layouts/AdminLayout"
-import { Box, Heading, Text, Spinner } from "@chakra-ui/react"
+import Sidebar from "../Navbar/Sidebar";
+import { Box, Heading, Text, Spinner, Flex } from "@chakra-ui/react"
 
 const UserDetailPage = () => {
   const { id } = useParams()
@@ -27,9 +27,16 @@ const UserDetailPage = () => {
       .finally(() => setLoading(false))
   }, [id])
 
+  const adminLinks = [
+    { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
+    { to: "/admin/customers", label: "Thông tin khách hàng" },
+    { to: "/admin/staffs", label: "Thông tin nhân viên" },
+    { to: "/admin/reports", label: "Báo cáo khác" },
+  ];
   return (
-    <AdminLayout>
-      <Box p={6}>
+    <Flex flex="1" bg="#0f1117" color="white">
+      <Sidebar links={adminLinks} />
+      <Box flex="1" p={6}>
         <Heading mb={4}>Thông tin tài khoản</Heading>
         {loading && <Spinner />}
         {error && <Text color="red.400">{error}</Text>}
@@ -44,7 +51,7 @@ const UserDetailPage = () => {
           </Box>
         )}
       </Box>
-    </AdminLayout>
+    </Flex>
   )
 }
 

@@ -1,6 +1,5 @@
 import { Flex, Box } from "@chakra-ui/react";
 import Sidebar from "../Navbar/Sidebar";
-import Navbar from "../Navbar/Navbar";
 
 const staffLinks = [
   { to: "/staff/l1", label: "Bán vé Offline (L1)" },
