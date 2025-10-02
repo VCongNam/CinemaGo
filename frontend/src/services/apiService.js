@@ -5,7 +5,10 @@
 
 class ApiService {
   constructor() {
-    this.baseURL = process.env.REACT_APP_API_URL || '/api';
+    const envBase = process.env.REACT_APP_API_URL
+    const isDev = typeof window !== 'undefined' && window.location && window.location.port === '3000'
+    // Prefer env, else if in dev default to backend at 5000, else use relative /api (for production with reverse proxy)
+    this.baseURL = envBase || (isDev ? 'http://localhost:5000' : '/api')
   }
 
   /**
@@ -53,8 +56,16 @@ class ApiService {
     }
 
     try {
-      const data = await response.json();
-      if (callback) callback(data, response.ok);
+      const contentType = response.headers.get('content-type') || ''
+      let parsed
+      if (contentType.includes('application/json')) {
+        parsed = await response.json()
+      } else {
+        const text = await response.text()
+        // Wrap non-JSON as error-like object to show clearer message
+        parsed = { message: `Phản hồi không phải JSON (status ${response.status})`, raw: text }
+      }
+      if (callback) callback(parsed, response.ok)
     } catch (error) {
       if (callback) callback(error, false);
     }

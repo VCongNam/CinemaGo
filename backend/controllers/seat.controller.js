@@ -162,7 +162,7 @@ export const getAllSeats = async (req, res, next) => {
 export const getSeatsByRoom = async (req, res, next) => {
   try {
     const { roomId } = req.params;
-    const { page = 1, pageSize = 10, status = '', type = '' } = req.query;
+    const { page = 1, pageSize = 10, status = '', type = '', orderBy = 'seat_number', orderDir = 'ASC' } = req.body || {};
 
     if (!roomId.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({ 
@@ -190,6 +190,11 @@ export const getSeatsByRoom = async (req, res, next) => {
     if (status) filter.status = status;
     if (type) filter.type = type;
 
+    // Build sort
+    const sort = {};
+    const sortOrder = (String(orderDir).toUpperCase() === 'DESC') ? -1 : 1;
+    sort[orderBy] = sortOrder;
+
     // Query with aggregation
     const [seats, totalCount] = await Promise.all([
       Seat.aggregate([
@@ -199,7 +204,7 @@ export const getSeatsByRoom = async (req, res, next) => {
             base_price_float: { $toDouble: "$base_price" }
           }
         },
-        { $sort: { seat_number: 1 } },
+        { $sort: sort },
         { $skip: skip },
         { $limit: limit }
       ]),
