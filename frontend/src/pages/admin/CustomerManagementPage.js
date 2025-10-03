@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Input, Select, Box, Flex, useToast } from "@chakra-ui/react"
+import { Input, Select, Box, Flex, useToast, Button } from "@chakra-ui/react"
 import Sidebar from "../Navbar/Sidebar";
 import UserTable from "../Navbar/UserTable"
+
+const PAGE_SIZE = 8
 
 export default function CustomerManagementPage() {
   const [users, setUsers] = useState([])
@@ -10,26 +12,41 @@ export default function CustomerManagementPage() {
   const [error, setError] = useState(null)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPage, setTotalPage] = useState(1)
+  const [refresh, setRefresh] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
 
+  // Fetch user list (phân trang từ backend, filter/search ở backend)
   useEffect(() => {
+    setLoading(true)
     const token = localStorage.getItem("token")
     fetch("http://localhost:5000/users", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(token && { Authorization: `Bearer ${token}` })
-      }
+      },
+      body: JSON.stringify({
+        page: currentPage,
+        pageSize: PAGE_SIZE,
+        role: "customer",
+        search: search.trim(),
+        status: statusFilter !== "all" ? statusFilter : undefined
+      })
     })
       .then(res => {
         if (!res.ok) throw new Error("Network response was not ok")
         return res.json()
       })
-      .then(data => setUsers(data.list || []))
+      .then(data => {
+        setUsers(data.list || [])
+        setTotalPage(Math.ceil((data.totalCount || 1) / PAGE_SIZE))
+      })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [currentPage, refresh, search, statusFilter])
 
   const handleViewInfo = (user) => {
     navigate(`/admin/user/${user.id}`)
@@ -52,12 +69,7 @@ export default function CustomerManagementPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || "Cập nhật trạng thái thất bại")
-      // Cập nhật lại danh sách user
-      setUsers(users =>
-        users.map(u =>
-          u.id === user.id ? { ...u, status: data.status } : u
-        )
-      )
+      setRefresh(r => !r) // reload lại danh sách
       toast({
         title: "Thành công",
         description: "Cập nhật trạng thái tài khoản thành công",
@@ -76,22 +88,10 @@ export default function CustomerManagementPage() {
     }
   }
 
-  // Lọc chỉ lấy user có role là "customer"
-  let customerUsers = users.filter(user => user.role === "customer")
-
-  // Lọc theo trạng thái
-  if (statusFilter !== "all") {
-    customerUsers = customerUsers.filter(user => user.status === statusFilter)
-  }
-
-  // Tìm kiếm theo tên hoặc email
-  if (search.trim()) {
-    customerUsers = customerUsers.filter(
-      user =>
-        user.username.toLowerCase().includes(search.toLowerCase()) ||
-        user.email.toLowerCase().includes(search.toLowerCase())
-    )
-  }
+  // Khi search/filter đổi thì về trang 1
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, statusFilter])
 
   if (loading) return <p>Đang tải...</p>
   if (error) return <p>Lỗi: {error}</p>
@@ -135,10 +135,38 @@ export default function CustomerManagementPage() {
           </Flex>
         </Box>
         <UserTable
-          users={customerUsers}
+          users={users}
           onViewInfo={handleViewInfo}
           onToggleStatus={handleToggleStatus}
         />
+        {/* PHÂN TRANG */}
+        <Flex mt={6} justify="center" gap={2}>
+          <Button
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            isDisabled={currentPage === 1}
+          >
+            Trang trước
+          </Button>
+          {[...Array(totalPage)].map((_, idx) => (
+            <Button
+              key={idx}
+              size="sm"
+              variant={currentPage === idx + 1 ? "solid" : "outline"}
+              colorScheme="orange"
+              onClick={() => setCurrentPage(idx + 1)}
+            >
+              {idx + 1}
+            </Button>
+          ))}
+          <Button
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.min(totalPage, p + 1))}
+            isDisabled={currentPage === totalPage || totalPage === 0}
+          >
+            Trang sau
+          </Button>
+        </Flex>
       </Box>
     </Flex>
   )
