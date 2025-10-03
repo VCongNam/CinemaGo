@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { registerStaff, loginStaff, registerCustomer, loginCustomer, changePassword, logout, updateProfile, getUsers, getUserById, forgotPasswordLink, resetPasswordWithToken, getMyProfile, forgotPassword, resetPassword } from "../controllers/auth.controller.js";
-import { verifyToken } from "../middlewares/auth.js";
+import { registerStaff, loginStaff, registerCustomer, loginCustomer, changePassword, logout, updateProfile, getUsers, getUserById, forgotPasswordLink, resetPasswordWithToken, getMyProfile, forgotPassword, resetPassword, updateUserStatus  } from "../controllers/auth.controller.js";
+import { verifyToken,requireAdmin } from "../middlewares/auth.js";
+
 
 const router = Router();
 
@@ -20,6 +21,8 @@ router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.post("/users", verifyToken, getUsers);
 router.get("/users/:id", verifyToken, getUserById);
+router.patch("/users/:userId/status", verifyToken, requireAdmin, updateUserStatus);
+
 
 export default router;
 
