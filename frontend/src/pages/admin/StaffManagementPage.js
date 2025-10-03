@@ -22,34 +22,45 @@ import { useNavigate } from "react-router-dom"
 import Sidebar from "../Navbar/Sidebar";
 import UserTable from "../Navbar/UserTable"
 
+const PAGE_SIZE = 8
+
 export default function StaffManagementPage() {
   const [staffs, setStaffs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [form, setForm] = useState({ username: "", password: "", email: "" })
   const [creating, setCreating] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPage, setTotalPage] = useState(1)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const navigate = useNavigate()
 
   useEffect(() => {
+    setLoading(true)
     const token = localStorage.getItem("token")
     fetch("http://localhost:5000/users", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(token && { Authorization: `Bearer ${token}` })
-      }
+      },
+      body: JSON.stringify({
+        page: currentPage,
+        pageSize: PAGE_SIZE,
+        role: "staff"
+      })
     })
       .then(res => {
         if (!res.ok) throw new Error("Network response was not ok")
         return res.json()
       })
       .then(data => {
-        setStaffs((data.list || []).filter(u => u.role === "staff"))
+        setStaffs(data.list || [])
+        setTotalPage(Math.ceil((data.totalCount || 1) / PAGE_SIZE))
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
-  }, [creating])
+  }, [currentPage, creating])
 
   const handleCreateStaff = async () => {
     setCreating(true)
@@ -75,7 +86,6 @@ export default function StaffManagementPage() {
     }
   }
 
-  // Thêm hàm chuyển màn xem chi tiết nhân viên
   const handleViewInfo = (user) => {
     navigate(`/admin/user/${user.id}`)
   }
@@ -100,6 +110,34 @@ export default function StaffManagementPage() {
         {loading && <Spinner />}
         {error && <Text color="red.400">{error}</Text>}
         <UserTable users={staffs} onViewInfo={handleViewInfo} />
+        {/* PHÂN TRANG */}
+        <Flex mt={6} justify="center" gap={2}>
+          <Button
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            isDisabled={currentPage === 1}
+          >
+            Trang trước
+          </Button>
+          {[...Array(totalPage)].map((_, idx) => (
+            <Button
+              key={idx}
+              size="sm"
+              variant={currentPage === idx + 1 ? "solid" : "outline"}
+              colorScheme="orange"
+              onClick={() => setCurrentPage(idx + 1)}
+            >
+              {idx + 1}
+            </Button>
+          ))}
+          <Button
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.min(totalPage, p + 1))}
+            isDisabled={currentPage === totalPage || totalPage === 0}
+          >
+            Trang sau
+          </Button>
+        </Flex>
         {/* Modal tạo tài khoản staff */}
         <Modal isOpen={isOpen} onClose={onClose} isCentered>
           <ModalOverlay />
