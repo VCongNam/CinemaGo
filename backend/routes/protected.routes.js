@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { verifyToken, requireAdmin, requireStaff, requireCustomer } from "../middlewares/auth.js";
+import { updateUserRole } from "../controllers/auth.controller.js";
 import { 
   createMovie, 
   updateMovie, 
@@ -55,6 +56,9 @@ router.get("/admin/users", verifyToken, requireAdmin, (req, res) => {
     data: "Đây là dữ liệu nhạy cảm chỉ admin mới thấy"
   });
 });
+
+// Route chỉ dành cho admin để cập nhật vai trò của staff
+router.patch("/admin/users/:userId/role", verifyToken, requireAdmin, updateUserRole);
 
 // Route dành cho staff và admin
 router.get("/staff/dashboard", verifyToken, requireStaff, (req, res) => {
