@@ -24,6 +24,11 @@ const Login = () => {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showForgot, setShowForgot] = useState(false)
+  const [fpEmail, setFpEmail] = useState("")
+  const [otp, setOtp] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [fpStep, setFpStep] = useState(1) // 1 = request OTP, 2 = submit OTP+newPwd
   const toast = useToast()
   const navigate = useNavigate()
 
@@ -93,6 +98,7 @@ const Login = () => {
                       border="none"
                       _focus={{ bg: "gray.600" }}
                       placeholder="Nhập tên đăng nhập"
+                      autoComplete="username"
                     />
                   </FormControl>
 
@@ -106,6 +112,7 @@ const Login = () => {
                       border="none"
                       _focus={{ bg: "gray.600" }}
                       placeholder="Nhập mật khẩu"
+                      autoComplete="current-password"
                     />
                   </FormControl>
 
@@ -132,11 +139,70 @@ const Login = () => {
                   </Button>
                 </VStack>
               </form>
-
               <VStack spacing={3}>
-                <Link href="#" color="orange.400" fontSize="sm">
-                  Quên mật khẩu?
-                </Link>
+                {!showForgot ? (
+                  <Link href="#" color="orange.400" fontSize="sm" onClick={() => { setShowForgot(true); setFpStep(1); }}>
+                    Quên mật khẩu?
+                  </Link>
+                ) : (
+                  <Box w="full">
+                    {fpStep === 1 && (
+                      <VStack spacing={3} align="start">
+                        <Text fontSize="sm">Nhập email để nhận mã OTP</Text>
+                        <Input
+                          value={fpEmail}
+                          onChange={(e) => setFpEmail(e.target.value)}
+                          bg="gray.700"
+                          border="none"
+                        />
+                        <HStack>
+                          <Button colorScheme="orange" onClick={() => {
+                            if (!fpEmail) return toast({ title: 'Nhập email', status: 'warning' })
+                            setIsLoading(true)
+                            apiService.post('/forgot-password', { email: fpEmail }, (res, success) => {
+                              setIsLoading(false)
+                              if (success) {
+                                toast({ title: res?.message || 'Yêu cầu OTP thành công', status: 'success' })
+                                setFpStep(2)
+                              } else {
+                                toast({ title: res?.message || 'Lỗi', status: 'error' })
+                              }
+                            })
+                          }}>Gửi OTP</Button>
+                          <Button variant="ghost" onClick={() => { setShowForgot(false); setFpEmail(''); setOtp(''); setNewPassword(''); }}>Hủy</Button>
+                        </HStack>
+                      </VStack>
+                    )}
+
+                    {fpStep === 2 && (
+                      <VStack spacing={3} align="start">
+                        <Text fontSize="sm">Nhập mã OTP và mật khẩu mới</Text>
+                        <Input value={otp} onChange={(e) => setOtp(e.target.value)} bg="gray.700" border="none" placeholder="OTP" />
+                        <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} bg="gray.700" border="none" placeholder="Mật khẩu mới" type="password" />
+                        <HStack>
+                          <Button colorScheme="orange" onClick={() => {
+                            if (!fpEmail || !otp || !newPassword) return toast({ title: 'Nhập đầy đủ thông tin', status: 'warning' })
+                            setIsLoading(true)
+                            apiService.post('/reset-password', { email: fpEmail, otp, newPassword }, (res, success) => {
+                              setIsLoading(false)
+                              if (success) {
+                                toast({ title: res?.message || 'Đổi mật khẩu thành công', status: 'success' })
+                                setShowForgot(false)
+                                setFpEmail('')
+                                setOtp('')
+                                setNewPassword('')
+                                setFpStep(1)
+                              } else {
+                                toast({ title: res?.message || 'Lỗi', status: 'error' })
+                              }
+                            })
+                          }}>Đổi mật khẩu</Button>
+                          <Button variant="ghost" onClick={() => { setShowForgot(false); setFpEmail(''); setOtp(''); setNewPassword(''); setFpStep(1); }}>Hủy</Button>
+                        </HStack>
+                      </VStack>
+                    )}
+                  </Box>
+                )}
 
                 <Divider borderColor="gray.600" />
 
