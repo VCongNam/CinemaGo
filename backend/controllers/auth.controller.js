@@ -6,13 +6,18 @@ import { sendResetLinkEmail } from "../utils/email.js";
 
 export const registerStaff = async (req, res, next) => {
   try {
-    const { username, password, email, fullName } = req.body;
+    const { username, password, email, fullName, role } = req.body;
 
     // Validation dữ liệu đầu vào
-    if (!username || !password || !email) {
+    if (!username || !password || !email || !role) {
       return res.status(400).json({
-        message: "Username, password và email là bắt buộc"
+        message: "Username, password, email và role là bắt buộc"
       });
+    }
+
+    const validStaffRoles = ["LV1", "LV2"];
+    if (!validStaffRoles.includes(role)) {
+      return res.status(400).json({ message: `Vai trò không hợp lệ. Chỉ chấp nhận: ${validStaffRoles.join(", ")}` });
     }
 
     if (password.length < 6) {
@@ -41,11 +46,63 @@ export const registerStaff = async (req, res, next) => {
       password: hashedPassword,
       email,
       full_name: fullName || '',
-      role: "staff"
+      role: role
     });
 
     res.status(201).json({
       message: "Tạo tài khoản nhân viên thành công"
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUserRole = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+    const adminId = req.user._id;
+
+    // Validation
+    if (!userId || !role) {
+      return res.status(400).json({ message: "ID người dùng và vai trò là bắt buộc" });
+    }
+
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "ID người dùng không hợp lệ" });
+    }
+
+    const validStaffRoles = ["LV1", "LV2"];
+    if (!validStaffRoles.includes(role)) {
+      return res.status(400).json({ message: `Vai trò không hợp lệ. Chỉ chấp nhận: ${validStaffRoles.join(", ")}` });
+    }
+
+    // Tìm user cần thay đổi vai trò
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    // Không cho phép admin thay đổi vai trò của chính mình
+    if (targetUser._id.toString() === adminId.toString()) {
+      return res.status(400).json({ message: "Không thể thay đổi vai trò của chính mình" });
+    }
+
+    // Chỉ cho phép thay đổi vai trò của staff
+    if (!["staff", "LV1", "LV2"].includes(targetUser.role)) {
+      return res.status(403).json({ message: "Chỉ có thể thay đổi vai trò cho tài khoản nhân viên" });
+    }
+
+    // Cập nhật vai trò
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { role },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    res.status(200).json({
+      message: "Cập nhật vai trò người dùng thành công",
+      data: updatedUser
     });
   } catch (error) {
     next(error);
@@ -765,6 +822,3 @@ export const resetPasswordWithToken = async (req, res, next) => {
     next(error);
   }
 };
-
-
-
