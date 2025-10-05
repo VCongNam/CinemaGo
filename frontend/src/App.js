@@ -26,8 +26,11 @@ import StaffL2Page from "./pages/staff/StaffL2Page"
 
 // Homepage & Auth
 import HomePage from "./pages/HomePage"
+import MovieDetail from "./pages/MovieDetail"
 import LoginPage from "./pages/Login"
 import RegisterPage from "./pages/Register"
+import ProfilePage from "./pages/ProfilePage"
+import ChangePasswordPage from "./pages/ChangePasswordPage"
 
 import Header from "./pages/Navbar/Header"
 import AdminHeader from "./pages/Navbar/AdminHeader"
@@ -73,6 +76,12 @@ function App() {
               <Route path="/admin/reports" element={<ReportsPage />} />
               <Route path="/admin/user/:id" element={<UserDetailPage />} />
               <Route path="/admin/staffs" element={<StaffManagementPage />} />
+
+              {/* Movie detail */}
+              <Route path="/movies/:id" element={<MovieDetail />} />
+
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/change-password" element={<ChangePasswordPage />} />
 
               {/* Redirect */}
               <Route path="/" element={<Navigate to="/bookings/cart" replace />} />

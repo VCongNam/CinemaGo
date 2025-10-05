@@ -5,6 +5,7 @@ import {
   Button,
   Input,
   InputGroup,
+  InputRightElement,
   InputLeftElement,
   HStack,
   Link,
@@ -29,7 +30,7 @@ import {
   AlertDialogBody,
   AlertDialogFooter,
 } from "@chakra-ui/react"
-import { SearchIcon, HamburgerIcon } from "@chakra-ui/icons"
+import { SearchIcon, HamburgerIcon, CloseIcon } from "@chakra-ui/icons"
 import { FaUserCircle } from "react-icons/fa"
 import { Link as RouterLink, useNavigate } from "react-router-dom"
 import { useState, useEffect, useRef } from "react"
@@ -42,6 +43,12 @@ const Header = ({ isAdmin = false }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const navigate = useNavigate()
   const cancelRef = useRef()
+  const [searchText, setSearchText] = useState("")
+
+  const clearSearch = () => {
+    setSearchText("")
+    navigate('/')
+  }
 
   useEffect(() => {
     // Kiểm tra trạng thái đăng nhập
@@ -57,6 +64,7 @@ const Header = ({ isAdmin = false }) => {
       window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
+
 
   const handleLogout = () => {
     localStorage.removeItem("token")
@@ -164,19 +172,41 @@ const Header = ({ isAdmin = false }) => {
         )}
         <HStack spacing={4}>
           {!isMobile && (
-            <InputGroup maxW="300px">
-              <InputLeftElement pointerEvents="none">
-                <SearchIcon color="gray.400" />
-              </InputLeftElement>
-              <Input
-                placeholder="Tìm phim..."
-                bg="gray.800"
-                border="none"
-                color="white"
-                _placeholder={{ color: "gray.400" }}
-                _focus={{ bg: "gray.700" }}
-              />
-            </InputGroup>
+            <>
+              <InputGroup maxW="300px">
+                <InputLeftElement pointerEvents="none">
+                  <SearchIcon color="gray.400" />
+                </InputLeftElement>
+                <Input
+                  placeholder="Tìm phim..."
+                  bg="gray.800"
+                  border="none"
+                  color="white"
+                  _placeholder={{ color: "gray.400" }}
+                  _focus={{ bg: "gray.700" }}
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const params = new URLSearchParams()
+                      if (searchText) params.set('q', searchText)
+                      navigate(`/?${params.toString()}`)
+                    }
+                  }}
+                  type="search"
+                  name="site-search"
+                  autoComplete="off"
+                />
+                  <InputRightElement>
+                    {searchText && (
+                      <Button size="sm" variant="ghost" onClick={clearSearch} aria-label="Clear search">
+                        <CloseIcon color="gray.400" />
+                      </Button>
+                    )}
+                  </InputRightElement>
+              </InputGroup>
+              
+            </>
           )}
           {isAuthenticated ? (
             <ProfileDropdown />
@@ -203,13 +233,37 @@ const Header = ({ isAdmin = false }) => {
           <DrawerBody>
             <VStack spacing={4} align="start">
               <NavLinks />
-              <Input
-                placeholder="Tìm phim..."
-                bg="gray.800"
-                border="none"
-                color="white"
-                _placeholder={{ color: "gray.400" }}
-              />
+              <InputGroup>
+                <InputLeftElement pointerEvents="none">
+                  <SearchIcon color="gray.400" />
+                </InputLeftElement>
+                <Input
+                  placeholder="Tìm phim..."
+                  bg="gray.800"
+                  border="none"
+                  color="white"
+                  _placeholder={{ color: "gray.400" }}
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const params = new URLSearchParams()
+                      if (searchText) params.set('q', searchText)
+                      navigate(`/?${params.toString()}`)
+                    }
+                  }}
+                  type="search"
+                  name="site-search"
+                  autoComplete="off"
+                />
+                <InputRightElement>
+                  {searchText && (
+                    <Button size="sm" variant="ghost" onClick={clearSearch} aria-label="Clear search">
+                      <CloseIcon color="gray.400" />
+                    </Button>
+                  )}
+                </InputRightElement>
+              </InputGroup>
               {isAuthenticated ? (
                 <ProfileDropdown />
               ) : (

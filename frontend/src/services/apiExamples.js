@@ -62,7 +62,7 @@ export const updateProfileExample = async (profileData) => {
  */
 export const changePasswordExample = async (passwordData) => {
   return new Promise((resolve, reject) => {
-    apiService.put('/auth/change-password', passwordData, (data, success) => {
+  apiService.put('/change-password', passwordData, (data, success) => {
       if (success) {
         resolve(data);
       } else {
@@ -76,7 +76,7 @@ export const changePasswordExample = async (passwordData) => {
 
 /**
  * Lấy danh sách movies
- */
+ */ 
 export const getMoviesExample = async (params = {}) => {
   return new Promise((resolve, reject) => {
     apiService.get('/movies', params, (data, success) => {
