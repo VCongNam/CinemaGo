@@ -11,8 +11,12 @@ import {
   validateUpdateMovie,
   validateStatusUpdate
 } from "../middlewares/movieValidation.js";
+import bookingRoutes from './booking.routes.js';
 
 const router = Router();
+
+// Booking routes
+router.use('/bookings', bookingRoutes);
 
 // Route lấy thông tin profile (cần đăng nhập)
 router.get("/profile", verifyToken, (req, res) => {
