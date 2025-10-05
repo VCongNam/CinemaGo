@@ -53,7 +53,7 @@ export default function ChangePasswordPage() {
               <InputGroup>
                 <Input type={showCurrent ? 'text' : 'password'} value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} autoComplete="current-password" bg="#0f1720" color="#ffffff" />
                 <InputRightElement>
-                  <IconButton variant="ghost" aria-label={showCurrent ? 'Hide' : 'Show'} icon={showCurrent ? <ViewOffIcon /> : <ViewIcon />} onClick={() => setShowCurrent(s => !s)} />
+                  <IconButton color="white" variant="ghost" aria-label={showCurrent ? 'Hide' : 'Show'} icon={showCurrent ? <ViewOffIcon /> : <ViewIcon />} onClick={() => setShowCurrent(s => !s)} />
                 </InputRightElement>
               </InputGroup>
             </FormControl>
@@ -62,7 +62,7 @@ export default function ChangePasswordPage() {
               <InputGroup>
                 <Input type={showNew ? 'text' : 'password'} value={newPwd} onChange={(e) => setNewPwd(e.target.value)} autoComplete="new-password" bg="#0f1720" color="#ffffff" />
                 <InputRightElement>
-                  <IconButton variant="ghost" aria-label={showNew ? 'Hide' : 'Show'} icon={showNew ? <ViewOffIcon /> : <ViewIcon />} onClick={() => setShowNew(s => !s)} />
+                  <IconButton color="white" variant="ghost" aria-label={showNew ? 'Hide' : 'Show'} icon={showNew ? <ViewOffIcon /> : <ViewIcon />} onClick={() => setShowNew(s => !s)} />
                 </InputRightElement>
               </InputGroup>
             </FormControl>
@@ -71,7 +71,7 @@ export default function ChangePasswordPage() {
               <InputGroup>
                 <Input type={showConfirm ? 'text' : 'password'} value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} autoComplete="new-password" bg="#0f1720" color="#ffffff" />
                 <InputRightElement>
-                  <IconButton variant="ghost" aria-label={showConfirm ? 'Hide' : 'Show'} icon={showConfirm ? <ViewOffIcon /> : <ViewIcon />} onClick={() => setShowConfirm(s => !s)} />
+                  <IconButton color="white" variant="ghost" aria-label={showConfirm ? 'Hide' : 'Show'} icon={showConfirm ? <ViewOffIcon /> : <ViewIcon />} onClick={() => setShowConfirm(s => !s)} />
                 </InputRightElement>
               </InputGroup>
             </FormControl>

@@ -15,7 +15,11 @@ import {
   Divider,
   HStack,
   useToast,
+  InputGroup,
+  InputRightElement,
+  IconButton,
 } from "@chakra-ui/react"
+import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons'
 import { Link as RouterLink, useNavigate } from "react-router-dom"
 import apiService from "../services/apiService"
 import authService from "../services/authService"
@@ -23,11 +27,13 @@ import authService from "../services/authService"
 const Login = () => {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [showForgot, setShowForgot] = useState(false)
   const [fpEmail, setFpEmail] = useState("")
   const [otp, setOtp] = useState("")
   const [newPassword, setNewPassword] = useState("")
+  const [showNewPassword, setShowNewPassword] = useState(false)
   const [fpStep, setFpStep] = useState(1) // 1 = request OTP, 2 = submit OTP+newPwd
   const toast = useToast()
   const navigate = useNavigate()
@@ -104,16 +110,21 @@ const Login = () => {
 
                   <FormControl isRequired>
                     <FormLabel>Mật khẩu</FormLabel>
-                    <Input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      bg="gray.700"
-                      border="none"
-                      _focus={{ bg: "gray.600" }}
-                      placeholder="Nhập mật khẩu"
-                      autoComplete="current-password"
-                    />
+                    <InputGroup>
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        bg="gray.700"
+                        border="none"
+                        _focus={{ bg: "gray.600" }}
+                        placeholder="Nhập mật khẩu"
+                        autoComplete="current-password"
+                      />
+                      <InputRightElement>
+                        <IconButton color="white" variant="ghost" aria-label={showPassword ? 'Hide' : 'Show'} icon={showPassword ? <ViewOffIcon /> : <ViewIcon />} onClick={() => setShowPassword(s => !s)} />
+                      </InputRightElement>
+                    </InputGroup>
                   </FormControl>
 
                   <Button
@@ -178,7 +189,12 @@ const Login = () => {
                       <VStack spacing={3} align="start">
                         <Text fontSize="sm">Nhập mã OTP và mật khẩu mới</Text>
                         <Input value={otp} onChange={(e) => setOtp(e.target.value)} bg="gray.700" border="none" placeholder="OTP" />
-                        <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} bg="gray.700" border="none" placeholder="Mật khẩu mới" type="password" />
+                        <InputGroup>
+                          <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} bg="gray.700" border="none" placeholder="Mật khẩu mới" type={showNewPassword ? 'text' : 'password'} />
+                          <InputRightElement>
+                            <IconButton color="white" variant="ghost" aria-label={showNewPassword ? 'Hide' : 'Show'} icon={showNewPassword ? <ViewOffIcon /> : <ViewIcon />} onClick={() => setShowNewPassword(s => !s)} />
+                          </InputRightElement>
+                        </InputGroup>
                         <HStack>
                           <Button colorScheme="orange" onClick={() => {
                             if (!fpEmail || !otp || !newPassword) return toast({ title: 'Nhập đầy đủ thông tin', status: 'warning' })
