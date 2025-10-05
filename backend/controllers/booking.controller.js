@@ -61,6 +61,13 @@ export const createBooking = async (req, res) => {
 
         await BookingSeat.insertMany(bookingSeats, { session });
 
+        // Cập nhật danh sách ghế đã đặt vào trong chính suất chiếu đó
+        await Showtime.updateOne(
+            { _id: showtime_id },
+            { $push: { booked_seats: { $each: seat_ids } } },
+            { session }
+        );
+      
         await session.commitTransaction();
         res.status(201).json({ message: "Tạo đặt vé thành công", booking: savedBooking });
     } catch (error) {
