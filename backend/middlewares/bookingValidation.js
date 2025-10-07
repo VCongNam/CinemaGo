@@ -1,6 +1,14 @@
-import { body, param } from 'express-validator';
-import { handleValidationErrors } from './errorHandler.js';
+import { body, param, validationResult } from 'express-validator';
 import mongoose from 'mongoose';
+
+// Middleware to check for validation errors
+const handleValidationErrors = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+};
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
