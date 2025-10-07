@@ -155,7 +155,7 @@ export const cancelBooking = async (req, res) => {
         booking.payment_status = 'refunded'; // Cân nhắc thêm trạng thái hoàn tiền
         await booking.save({ session });
 
-     
+
         // Xóa các ghế đã hủy khỏi mảng booked_seats của Showtime
         if (seatIdsToRelease.length > 0) {
             await Showtime.updateOne(
@@ -164,7 +164,7 @@ export const cancelBooking = async (req, res) => {
                 { session }
             );
         }
-       
+
 
         await session.commitTransaction();
         res.status(200).json({ message: "Hủy đặt vé thành công", booking });
@@ -173,5 +173,105 @@ export const cancelBooking = async (req, res) => {
         res.status(400).json({ message: "Hủy đặt vé thất bại", error: error.message });
     } finally {
         session.endSession();
+    }
+};
+
+/**
+ * @desc    Get all bookings (for Admin)
+ * @route   GET /api/bookings
+ * @access  Private/Admin
+ */
+export const getAllBookings = async (req, res) => {
+    try {
+        const bookings = await Booking.find({}) // Lấy tất cả
+            .populate('user_id', 'username email')
+            .populate({
+                path: 'showtime_id',
+                populate: { path: 'movie_id room_id' }
+            })
+            .sort({ created_at: -1 });
+
+        res.status(200).json({ bookings });
+    } catch (error) {
+        res.status(500).json({ message: "Lấy danh sách đặt vé thất bại", error: error.message });
+    }
+};
+
+/**
+ * @desc    Update booking status (e.g., after payment)
+ * @route   PATCH /api/bookings/:id/status
+ * @access  Private/Admin
+ */
+export const updateBookingStatus = async (req, res) => {
+    const { status, payment_status } = req.body;
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        // Các trạng thái hợp lệ
+        const allowedStatus = ['pending', 'confirmed', 'cancelled', 'failed'];
+        if (status && !allowedStatus.includes(status)) {
+            throw new Error(`Trạng thái '${status}' không hợp lệ.`);
+        }
+
+        const booking = await Booking.findById(req.params.id).session(session);
+        if (!booking) {
+            throw new Error("Không tìm thấy đặt vé");
+        }
+
+        booking.status = status || booking.status;
+        booking.payment_status = payment_status || booking.payment_status;
+
+        // Nếu trạng thái bị hủy hoặc thất bại, giải phóng ghế
+        if (status === 'cancelled' || status === 'failed') {
+            const bookingSeats = await BookingSeat.find({ booking_id: booking._id }).session(session);
+            const seatIdsToRelease = bookingSeats.map(bs => bs.seat_id);
+
+            if (seatIdsToRelease.length > 0) {
+                await Showtime.updateOne(
+                    { _id: booking.showtime_id },
+                    { $pull: { booked_seats: { $in: seatIdsToRelease } } },
+                    { session }
+                );
+            }
+        }
+
+        const updatedBooking = await booking.save({ session });
+        await session.commitTransaction();
+        res.status(200).json({ message: "Cập nhật trạng thái đặt vé thành công", booking: updatedBooking });
+    } catch (error) {
+        await session.abortTransaction();
+        res.status(500).json({ message: "Cập nhật trạng thái thất bại", error: error.message });
+    } finally {
+        session.endSession();
+    }
+};
+
+/**
+ * @desc    Get all bookings for a specific user (Admin only)
+ * @route   GET /api/bookings/user/:userId
+ * @access  Private/Admin
+ */
+export const getBookingsByUserId = async (req, res) => {
+    try {
+        const bookings = await Booking.find({ user_id: req.params.userId })
+            .populate({
+                path: 'showtime_id',
+                populate: {
+                    path: 'movie_id room_id',
+                    populate: {
+                        path: 'theater_id'
+                    }
+                }
+            })
+            .populate('user_id', 'username email')
+            .sort({ created_at: -1 });
+
+        if (!bookings || bookings.length === 0) {
+            return res.status(404).json({ message: "Không tìm thấy đặt vé nào cho người dùng này" });
+        }
+
+        res.status(200).json(bookings);
+    } catch (error) {
+        res.status(500).json({ message: "Lấy danh sách đặt vé thất bại", error: error.message });
     }
 };

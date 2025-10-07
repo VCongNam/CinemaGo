@@ -1,9 +1,22 @@
 import express from 'express';
-import { createBooking, getMyBookings, getBookingDetails, cancelBooking } from '../controllers/booking.controller.js';
-import { verifyToken } from '../middlewares/auth.js';
+import { 
+    createBooking, 
+    getMyBookings, 
+    getBookingDetails, 
+    cancelBooking,
+    getAllBookings,
+    updateBookingStatus,
+    getBookingsByUserId
+} from '../controllers/booking.controller.js';
+import { verifyToken, requireAdmin } from '../middlewares/auth.js';
 import { validateCreateBooking, validateBookingId } from '../middlewares/bookingValidation.js';
 
 const router = express.Router();
+
+// @route   GET api/bookings
+// @desc    Get all bookings (Admin only)
+// @access  Private/Admin
+router.get('/', verifyToken, requireAdmin, getAllBookings);
 
 // @route   POST api/bookings
 // @desc    Create a new booking
@@ -15,6 +28,11 @@ router.post('/', verifyToken, validateCreateBooking, createBooking);
 // @access  Private
 router.get('/my-bookings', verifyToken, getMyBookings);
 
+// @route   GET api/bookings/user/:userId
+// @desc    Get all bookings for a specific user (Admin only)
+// @access  Private/Admin
+router.get('/user/:userId', verifyToken, requireAdmin, getBookingsByUserId);
+
 // @route   GET api/bookings/:id
 // @desc    Get a single booking by ID
 // @access  Private
@@ -24,5 +42,10 @@ router.get('/:id', verifyToken, validateBookingId, getBookingDetails);
 // @desc    Cancel a booking
 // @access  Private
 router.put('/:id/cancel', verifyToken, validateBookingId, cancelBooking);
+
+// @route   PATCH api/bookings/:id/status
+// @desc    Update booking status (Admin only)
+// @access  Private/Admin
+router.patch('/:id/status', verifyToken, requireAdmin, validateBookingId, updateBookingStatus);
 
 export default router;
