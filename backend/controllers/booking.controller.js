@@ -61,13 +61,6 @@ export const createBooking = async (req, res) => {
 
         await BookingSeat.insertMany(bookingSeats, { session });
 
-        // Cập nhật danh sách ghế đã đặt vào trong chính suất chiếu đó
-        await Showtime.updateOne(
-            { _id: showtime_id },
-            { $push: { booked_seats: { $each: seat_ids } } },
-            { session }
-        );
-      
         await session.commitTransaction();
         res.status(201).json({ message: "Tạo đặt vé thành công", booking: savedBooking });
     } catch (error) {
@@ -145,7 +138,8 @@ export const cancelBooking = async (req, res) => {
             throw new Error("Không tìm thấy đặt vé");
         }
 
-        if (booking.user_id.toString() !== req.user._id.toString()) {
+        // Sửa lại: Cho phép cả admin hủy vé
+        if (booking.user_id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
             throw new Error("Bạn không có quyền hủy đặt vé này");
         }
 
@@ -153,16 +147,24 @@ export const cancelBooking = async (req, res) => {
             throw new Error("Đặt vé đã được hủy trước đó");
         }
 
-        // Kiểm tra điều kiện có thể hủy (ví dụ: trước khi suất chiếu bắt đầu)
-        // const showtime = await Showtime.findById(booking.showtime_id).session(session);
-        // if (new Date() > new Date(showtime.start_time)) {
-        //     throw new Error("Cannot cancel booking after the show has started");
-        // }
+        // Lấy danh sách seat_id từ BookingSeat để cập nhật lại Showtime
+        const bookingSeats = await BookingSeat.find({ booking_id: booking._id }).session(session);
+        const seatIdsToRelease = bookingSeats.map(bs => bs.seat_id);
 
         booking.status = 'cancelled';
+        booking.payment_status = 'refunded'; // Cân nhắc thêm trạng thái hoàn tiền
         await booking.save({ session });
 
-        // The associated BookingSeat records remain for historical purposes but the booking status is now 'cancelled'.
+     
+        // Xóa các ghế đã hủy khỏi mảng booked_seats của Showtime
+        if (seatIdsToRelease.length > 0) {
+            await Showtime.updateOne(
+                { _id: booking.showtime_id },
+                { $pull: { booked_seats: { $in: seatIdsToRelease } } },
+                { session }
+            );
+        }
+       
 
         await session.commitTransaction();
         res.status(200).json({ message: "Hủy đặt vé thành công", booking });
