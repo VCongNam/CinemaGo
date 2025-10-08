@@ -9,7 +9,12 @@ import {
     getBookingsByUserId
 } from '../controllers/booking.controller.js';
 import { verifyToken, requireAdmin } from '../middlewares/auth.js';
-import { validateCreateBooking, validateBookingId } from '../middlewares/bookingValidation.js';
+import { 
+    validateCreateBooking, 
+    validateBookingId,
+    validateUpdateStatus,
+    validateUserId
+} from '../middlewares/bookingValidation.js';
 
 const router = express.Router();
 
@@ -31,7 +36,7 @@ router.get('/my-bookings', verifyToken, getMyBookings);
 // @route   GET api/bookings/user/:userId
 // @desc    Get all bookings for a specific user (Admin only)
 // @access  Private/Admin
-router.get('/user/:userId', verifyToken, requireAdmin, getBookingsByUserId);
+router.get('/user/:userId', verifyToken, requireAdmin, validateUserId, getBookingsByUserId);
 
 // @route   GET api/bookings/:id
 // @desc    Get a single booking by ID
@@ -46,6 +51,6 @@ router.put('/:id/cancel', verifyToken, validateBookingId, cancelBooking);
 // @route   PATCH api/bookings/:id/status
 // @desc    Update booking status (Admin only)
 // @access  Private/Admin
-router.patch('/:id/status', verifyToken, requireAdmin, validateBookingId, updateBookingStatus);
+router.patch('/:id/status', verifyToken, requireAdmin, validateUpdateStatus, updateBookingStatus);
 
 export default router;
