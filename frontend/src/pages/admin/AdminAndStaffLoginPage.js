@@ -14,8 +14,7 @@ import {
   Alert,
 } from "@chakra-ui/react"
 
-
-export default function AdminLoginPage() {
+export default function AdminAndStaffLoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -35,9 +34,19 @@ export default function AdminLoginPage() {
       const data = await res.json();
       setIsLoading(false);
       if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại");
-  localStorage.setItem("token", data.accessToken);
-  navigate("/admin/dashboard");
-  window.location.reload();
+      localStorage.setItem("token", data.accessToken);
+      // Lấy role từ data.user.role
+      const role = data.user?.role;
+      if (role === "admin") {
+        navigate("/admin/dashboard");
+      } else if (role === "LV1") {
+        navigate("/staff/l1");
+      } else if (role === "LV2") {
+        navigate("/staff/l2");
+      } else {
+        navigate("/admin/dashboard");
+      }
+      window.location.reload();
     } catch (err) {
       setIsLoading(false);
       setError(err.message);
@@ -51,7 +60,7 @@ export default function AdminLoginPage() {
           <CardBody p={8}>
             <VStack spacing={6}>
               <Heading color="orange.400" textAlign="center">
-                Đăng nhập Admin
+                Đăng nhập Admin/Staff
               </Heading>
               <form onSubmit={handleSubmit} style={{ width: "100%" }}>
                 <VStack spacing={4}>

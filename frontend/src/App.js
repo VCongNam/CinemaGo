@@ -6,7 +6,7 @@ import DashboardPage from "./pages/admin/DashboardPage"
 import StaffManagementPage from "./pages/admin/StaffManagementPage"
 import CustomerManagementPage from "./pages/admin/CustomerManagementPage"
 import ReportsPage from "./pages/admin/ReportsPage"
-import AdminLoginPage from "./pages/admin/AdminLoginPage"
+import AdminLoginPage from "./pages/admin/AdminAndStaffLoginPage"
 import UserDetailPage from "./pages/admin/UserDetailPage"
 
 
