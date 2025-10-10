@@ -1,6 +1,6 @@
 import { Box, Heading, Divider } from "@chakra-ui/react";
 import ShowtimeManagement from "./ShowtimeManagement";
-import TicketSales from "./TicketSales";
+import TicketSales from "./TicketSeatSelectPage";
 import FoodBeverageSales from "./FoodBeverageSales";
 
 const StaffL2Page = () => {

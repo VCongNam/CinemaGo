@@ -114,6 +114,7 @@ useEffect(() => {
     navigate(`/admin/user/${user.id}`)
   }
 
+<<<<<<< Updated upstream
   // ...existing code...
 
   // Hàm gọi API đổi trạng thái
@@ -121,6 +122,12 @@ useEffect(() => {
     const token = localStorage.getItem("token")
     try {
       // Đổi trạng thái tuần tự: active -> locked -> suspended -> active
+=======
+  // Đổi trạng thái tuần tự: active -> locked -> suspended -> active
+  const handleToggleStatus = async (user) => {
+    const token = localStorage.getItem("token")
+    try {
+>>>>>>> Stashed changes
       let newStatus = "active";
       if (user.status === "active") newStatus = "locked";
       else if (user.status === "locked") newStatus = "suspended";
@@ -137,7 +144,10 @@ useEffect(() => {
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || "Cập nhật trạng thái thất bại")
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       setRefresh(r => !r) // reload lại danh sách
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
       toast({
@@ -147,10 +157,16 @@ useEffect(() => {
         duration: 3000,
         isClosable: true,
       })
+<<<<<<< Updated upstream
       // Cập nhật trạng thái user trong danh sách hiện tại ngay lập tức
       setUsers(prev =>
         prev.map(u =>
           u.id === user.id ? { ...u, status: newStatus } : u
+=======
+      setUsers(prev =>
+        prev.map(u =>
+          u.id === user.id ? { ...u, status: data.data.status } : u
+>>>>>>> Stashed changes
         )
       )
     } catch (err) {
@@ -165,12 +181,31 @@ useEffect(() => {
   }
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   // Khi search/filter đổi thì về trang 1
   useEffect(() => {
     setCurrentPage(1)
   }, [search, statusFilter])
 =======
 // ...existing code...
+>>>>>>> Stashed changes
+=======
+  // Lọc chỉ lấy user có role là "customer"
+  let customerUsers = users.filter(user => user.role === "customer")
+
+  // Lọc theo trạng thái (active, locked, suspended)
+  if (statusFilter !== "all") {
+    customerUsers = customerUsers.filter(user => user.status === statusFilter)
+  }
+
+  // Tìm kiếm theo tên hoặc email
+  if (search.trim()) {
+    customerUsers = customerUsers.filter(
+      user =>
+        user.username.toLowerCase().includes(search.toLowerCase()) ||
+        user.email.toLowerCase().includes(search.toLowerCase())
+    )
+  }
 >>>>>>> Stashed changes
 
   if (loading) return <p>Đang tải...</p>
