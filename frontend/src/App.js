@@ -34,6 +34,7 @@ import ChangePasswordPage from "./pages/ChangePasswordPage"
 import Header from "./pages/Navbar/Header"
 import AdminHeader from "./pages/Navbar/AdminHeader"
 import Footer from "./pages/Navbar/Footer"
+import AdminAndStaffLoginPage from "./pages/admin/AdminAndStaffLoginPage"
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
               <Route index element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/admin/login" element={<AdminAndStaffLoginPage />} />
 
 
               {/* Booking */}
