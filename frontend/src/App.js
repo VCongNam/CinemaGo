@@ -6,7 +6,6 @@ import DashboardPage from "./pages/admin/DashboardPage"
 import StaffManagementPage from "./pages/admin/StaffManagementPage"
 import CustomerManagementPage from "./pages/admin/CustomerManagementPage"
 import ReportsPage from "./pages/admin/ReportsPage"
-import AdminLoginPage from "./pages/admin/AdminLoginPage"
 import UserDetailPage from "./pages/admin/UserDetailPage"
 
 
@@ -49,7 +48,6 @@ function App() {
               <Route index element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
-              <Route path="/admin/login" element={<AdminLoginPage />} />
 
 
               {/* Booking */}
