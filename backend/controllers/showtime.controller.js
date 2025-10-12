@@ -188,7 +188,7 @@ export const createShowtime = async (req, res, next) => {
     if (!movie) return res.status(404).json({ message: "Không tìm thấy phim" });
     if (movie.status !== "active") return res.status(400).json({ message: "Phim không ở trạng thái active" });
 
-    const overlap = await hasOverlap({ roomId: room_id, startTime: new Date(start_time), endTime: new Date(end_time) });
+    const overlap = await hasOverlap({ roomId: room_id, startTime: start_time, endTime: end_time });
     if (overlap) {
       return res.status(409).json({ message: "Trùng lịch: Phòng đã có suất chiếu trong khung giờ này" });
     }
@@ -235,8 +235,8 @@ export const updateShowtime = async (req, res, next) => {
     }
 
     const nextRoom = update.room_id || existing.room_id;
-    const nextStart = update.start_time ? new Date(update.start_time) : existing.start_time;
-    const nextEnd = update.end_time ? new Date(update.end_time) : existing.end_time;
+    const nextStart = update.start_time ? update.start_time : existing.start_time;
+    const nextEnd = update.end_time ? update.end_time : existing.end_time;
 
     // overlap check excluding current id
     const overlap = await hasOverlap({ roomId: nextRoom, startTime: nextStart, endTime: nextEnd, excludeId: id });
@@ -322,5 +322,3 @@ export const updateShowtimeStatus = async (req, res, next) => {
     next(err);
   }
 };
-
-
