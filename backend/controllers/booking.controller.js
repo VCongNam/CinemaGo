@@ -77,12 +77,15 @@ export const getMyBookings = async (req, res) => {
         const bookings = await Booking.find({ user_id: req.user.id })
             .populate({
                 path: 'showtime_id',
-                populate: {
-                    path: 'movie_id room_id',
-                    populate: {
-                        path: 'theater_id'
+                populate: [
+                    { path: 'movie_id' },
+                    { 
+                        path: 'room_id',
+                        populate: {
+                            path: 'theater_id'
+                        }
                     }
-                }
+                ]
             })
             .sort({ created_at: -1 });
 
@@ -102,12 +105,15 @@ export const getBookingDetails = async (req, res) => {
         const booking = await Booking.findById(req.params.id)
             .populate({
                 path: 'showtime_id',
-                populate: {
-                    path: 'movie_id room_id',
-                    populate: {
-                        path: 'theater_id'
+                populate: [
+                    { path: 'movie_id' },
+                    { 
+                        path: 'room_id',
+                        populate: {
+                            path: 'theater_id'
+                        }
                     }
-                }
+                ]
             })
             .populate('user_id', 'username email');
 
@@ -256,12 +262,15 @@ export const getBookingsByUserId = async (req, res) => {
         const bookings = await Booking.find({ user_id: req.params.userId })
             .populate({
                 path: 'showtime_id',
-                populate: {
-                    path: 'movie_id room_id',
-                    populate: {
-                        path: 'theater_id'
+                populate: [
+                    { path: 'movie_id' },
+                    { 
+                        path: 'room_id',
+                        populate: {
+                            path: 'theater_id'
+                        }
                     }
-                }
+                ]
             })
             .populate('user_id', 'username email')
             .sort({ created_at: -1 });
