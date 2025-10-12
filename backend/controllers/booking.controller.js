@@ -3,6 +3,7 @@ import BookingSeat from '../models/bookingSeat.js';
 import Showtime from '../models/showtime.js';
 import Seat from '../models/seat.js';
 import mongoose from 'mongoose';
+import { formatForAPI } from '../utils/timezone.js';
 
 // Create a new booking
 export const createBooking = async (req, res) => {
@@ -93,7 +94,24 @@ export const getMyBookings = async (req, res) => {
             return res.status(404).json({ message: "Không tìm thấy đặt vé nào cho người dùng này" });
         }
 
-        res.status(200).json(bookings);
+        const formattedBookings = bookings.map(booking => {
+            const bookingObj = booking.toObject();
+            if (bookingObj.created_at) {
+                bookingObj.created_at = formatForAPI(bookingObj.created_at);
+            }
+            if (bookingObj.updated_at) {
+                bookingObj.updated_at = formatForAPI(bookingObj.updated_at);
+            }
+            if (bookingObj.showtime_id && bookingObj.showtime_id.start_time) {
+                bookingObj.showtime_id.start_time = formatForAPI(bookingObj.showtime_id.start_time);
+            }
+            if (bookingObj.showtime_id && bookingObj.showtime_id.end_time) {
+                bookingObj.showtime_id.end_time = formatForAPI(bookingObj.showtime_id.end_time);
+            }
+            return bookingObj;
+        });
+
+        res.status(200).json(formattedBookings);
     } catch (error) {
         res.status(500).json({ message: "Lấy danh sách đặt vé thất bại", error: error.message });
     }
@@ -128,7 +146,21 @@ export const getBookingDetails = async (req, res) => {
 
         const bookingSeats = await BookingSeat.find({ booking_id: req.params.id }).populate('seat_id');
 
-        res.status(200).json({ booking, seats: bookingSeats });
+        const bookingObj = booking.toObject();
+        if (bookingObj.created_at) {
+            bookingObj.created_at = formatForAPI(bookingObj.created_at);
+        }
+        if (bookingObj.updated_at) {
+            bookingObj.updated_at = formatForAPI(bookingObj.updated_at);
+        }
+        if (bookingObj.showtime_id && bookingObj.showtime_id.start_time) {
+            bookingObj.showtime_id.start_time = formatForAPI(bookingObj.showtime_id.start_time);
+        }
+        if (bookingObj.showtime_id && bookingObj.showtime_id.end_time) {
+            bookingObj.showtime_id.end_time = formatForAPI(bookingObj.showtime_id.end_time);
+        }
+
+        res.status(200).json({ booking: bookingObj, seats: bookingSeats });
     } catch (error) {
         res.status(500).json({ message: "Lấy chi tiết đặt vé thất bại", error: error.message });
     }
@@ -279,7 +311,24 @@ export const getBookingsByUserId = async (req, res) => {
             return res.status(404).json({ message: "Không tìm thấy đặt vé nào cho người dùng này" });
         }
 
-        res.status(200).json(bookings);
+        const formattedBookings = bookings.map(booking => {
+            const bookingObj = booking.toObject();
+            if (bookingObj.created_at) {
+                bookingObj.created_at = formatForAPI(bookingObj.created_at);
+            }
+            if (bookingObj.updated_at) {
+                bookingObj.updated_at = formatForAPI(bookingObj.updated_at);
+            }
+            if (bookingObj.showtime_id && bookingObj.showtime_id.start_time) {
+                bookingObj.showtime_id.start_time = formatForAPI(bookingObj.showtime_id.start_time);
+            }
+            if (bookingObj.showtime_id && bookingObj.showtime_id.end_time) {
+                bookingObj.showtime_id.end_time = formatForAPI(bookingObj.showtime_id.end_time);
+            }
+            return bookingObj;
+        });
+
+        res.status(200).json(formattedBookings);
     } catch (error) {
         res.status(500).json({ message: "Lấy danh sách đặt vé thất bại", error: error.message });
     }
