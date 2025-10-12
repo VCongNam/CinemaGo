@@ -1,12 +1,15 @@
 import mongoose from "mongoose";
 import Movie from "../models/movie.js";
+import Showtime from "../models/showtime.js";
 import { toVietnamTime, getCurrentVietnamTime, formatVietnamTime, getDayRangeVietnam } from '../utils/timezone.js';
 
 const isValidObjectId = (id) => typeof id === "string" && id.match(/^[0-9a-fA-F]{24}$/);
 
 export const validateCreateShowtime = async (req, res, next) => {
   try {
-    const { movie_id, room_id, start_time, end_time, status } = req.body;
+    const { movie_id, room_id, date, time, status } = req.body;
+    const errors = [];
+
     // Validate and normalize status if provided
     if (status !== undefined) {
       if (typeof status !== "string") {
@@ -20,7 +23,6 @@ export const validateCreateShowtime = async (req, res, next) => {
         }
       }
     }
-    const errors = [];
 
     if (!movie_id || !isValidObjectId(movie_id)) {
       errors.push({ field: "movie_id", message: "movie_id bắt buộc và phải là ObjectId hợp lệ" });
@@ -28,62 +30,49 @@ export const validateCreateShowtime = async (req, res, next) => {
     if (!room_id || !isValidObjectId(room_id)) {
       errors.push({ field: "room_id", message: "room_id bắt buộc và phải là ObjectId hợp lệ" });
     }
-    if (!start_time) {
-      errors.push({ field: "start_time", message: "start_time là bắt buộc" });
-    } else {
-      const parsedStartTime = new Date(start_time);
-      if (isNaN(parsedStartTime.getTime())) {
-        errors.push({ field: "start_time", message: "start_time phải là ngày hợp lệ" });
-      } else {
-        // Convert to Vietnam timezone and validate
-        const vietnamStartTime = toVietnamTime(parsedStartTime);
-        const currentVietnamTime = getCurrentVietnamTime();
-        
-        // Check if start_time is in the past (allow at least 1 hour in advance)
-        const oneHourFromNow = new Date(currentVietnamTime.getTime() + 60 * 60 * 1000);
-        if (vietnamStartTime < oneHourFromNow) {
-          errors.push({ 
-            field: "start_time", 
-            message: "Thời gian bắt đầu phải ít nhất 1 giờ từ bây giờ" 
-          });
-        }
-      }
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      errors.push({ field: "date", message: "date là bắt buộc và phải có định dạng YYYY-MM-DD" });
+    }
+    if (!time || !/^\d{2}:\d{2}$/.test(time)) {
+      errors.push({ field: "time", message: "time là bắt buộc và phải có định dạng HH:MM" });
     }
 
     if (errors.length > 0) {
       return res.status(400).json({ message: "Dữ liệu không hợp lệ", errors });
     }
 
-    // Normalize times to Vietnam timezone
-    const parsedStartTime = new Date(start_time);
-    const normalizedStart = toVietnamTime(parsedStartTime);
+    // Combine date and time to create start_time
+    // The input is Vietnam time, so we append the Vietnam timezone offset (+07:00)
+    const startTimeString = `${date}T${time}:00.000+07:00`;
+    const vietnamStartTime = new Date(startTimeString);
 
-    // If end_time not provided, compute from movie.duration (minutes)
-    let normalizedEnd = null;
-    if (end_time !== undefined && end_time !== null && String(end_time).trim() !== "") {
-      const parsedEndTime = new Date(end_time);
-      if (isNaN(parsedEndTime.getTime())) {
-        return res.status(400).json({ message: "end_time phải là ngày hợp lệ" });
-      }
-      normalizedEnd = toVietnamTime(parsedEndTime);
-    } else {
-      // fetch movie duration
-      const movie = await Movie.findById(movie_id).select("duration");
-      if (!movie) {
-        return res.status(404).json({ message: "Không tìm thấy phim" });
-      }
-      const minutes = Number(movie.duration);
-      if (!Number.isFinite(minutes) || minutes <= 0) {
-        return res.status(400).json({ message: "Thời lượng phim không hợp lệ" });
-      }
-      normalizedEnd = new Date(normalizedStart.getTime() + minutes * 60 * 1000);
+    if (isNaN(vietnamStartTime.getTime())) {
+      return res.status(400).json({ message: "Date hoặc time không hợp lệ" });
     }
 
-    if (normalizedEnd <= normalizedStart) {
-      return res.status(400).json({ message: "end_time phải lớn hơn start_time" });
+    // Get current time for validation
+    const currentVietnamTime = getCurrentVietnamTime();
+
+    // Check if start_time is in the past (allow at least 1 hour in advance)
+    const oneHourFromNow = new Date(currentVietnamTime.getTime() + 60 * 60 * 1000);
+    if (vietnamStartTime < oneHourFromNow) {
+      return res.status(400).json({ 
+        message: "Thời gian bắt đầu phải ít nhất 1 giờ từ bây giờ" 
+      });
     }
 
-    req.body.start_time = normalizedStart;
+    // Compute end_time from movie.duration (minutes)
+    const movie = await Movie.findById(movie_id).select("duration");
+    if (!movie) {
+      return res.status(404).json({ message: "Không tìm thấy phim" });
+    }
+    const minutes = Number(movie.duration);
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      return res.status(400).json({ message: "Thời lượng phim không hợp lệ" });
+    }
+    const normalizedEnd = new Date(vietnamStartTime.getTime() + minutes * 60 * 1000);
+
+    req.body.start_time = vietnamStartTime;
     req.body.end_time = normalizedEnd;
 
     next();
@@ -94,7 +83,7 @@ export const validateCreateShowtime = async (req, res, next) => {
 
 export const validateUpdateShowtime = async (req, res, next) => {
   try {
-    const { movie_id, room_id, start_time, end_time, status } = req.body;
+    const { movie_id, room_id, date, time, status } = req.body;
     const errors = [];
 
     if (movie_id !== undefined && !isValidObjectId(movie_id)) {
@@ -103,34 +92,13 @@ export const validateUpdateShowtime = async (req, res, next) => {
     if (room_id !== undefined && !isValidObjectId(room_id)) {
       errors.push({ field: "room_id", message: "room_id phải là ObjectId hợp lệ" });
     }
-    let normalizedStart = undefined;
-    let normalizedEnd = undefined;
-    if (start_time !== undefined) {
-      const parsedStartTime = new Date(start_time);
-      if (isNaN(parsedStartTime.getTime())) {
-        errors.push({ field: "start_time", message: "start_time phải là ngày hợp lệ" });
-      } else {
-        normalizedStart = toVietnamTime(parsedStartTime);
-        
-        // Validate start_time is not in the past (allow at least 1 hour in advance)
-        const currentVietnamTime = getCurrentVietnamTime();
-        const oneHourFromNow = new Date(currentVietnamTime.getTime() + 60 * 60 * 1000);
-        if (normalizedStart < oneHourFromNow) {
-          errors.push({ 
-            field: "start_time", 
-            message: "Thời gian bắt đầu phải ít nhất 1 giờ từ bây giờ" 
-          });
-        }
-      }
+    if (date !== undefined && (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))) {
+      errors.push({ field: "date", message: "date phải có định dạng YYYY-MM-DD" });
     }
-    if (end_time !== undefined) {
-      const parsedEndTime = new Date(end_time);
-      if (isNaN(parsedEndTime.getTime())) {
-        errors.push({ field: "end_time", message: "end_time phải là ngày hợp lệ" });
-      } else {
-        normalizedEnd = toVietnamTime(parsedEndTime);
-      }
+    if (time !== undefined && (!time || !/^\d{2}:\d{2}$/.test(time))) {
+      errors.push({ field: "time", message: "time phải có định dạng HH:MM" });
     }
+
     if (status !== undefined) {
       if (typeof status !== "string") {
         errors.push({ field: "status", message: "status phải là chuỗi" });
@@ -148,17 +116,41 @@ export const validateUpdateShowtime = async (req, res, next) => {
       return res.status(400).json({ message: "Dữ liệu không hợp lệ", errors });
     }
 
-    if (normalizedStart && normalizedEnd && normalizedEnd <= normalizedStart) {
-      return res.status(400).json({ message: "end_time phải lớn hơn start_time" });
-    }
+    if (date && time) {
+      const startTimeString = `${date}T${time}:00.000+07:00`;
+      const vietnamStartTime = new Date(startTimeString);
 
-    if (normalizedStart) req.body.start_time = normalizedStart;
-    if (normalizedEnd) req.body.end_time = normalizedEnd;
+      if (isNaN(vietnamStartTime.getTime())) {
+        return res.status(400).json({ message: "Date hoặc time không hợp lệ" });
+      }
+
+      const currentVietnamTime = getCurrentVietnamTime();
+
+      const oneHourFromNow = new Date(currentVietnamTime.getTime() + 60 * 60 * 1000);
+      if (vietnamStartTime < oneHourFromNow) {
+        return res.status(400).json({ 
+          message: "Thời gian bắt đầu phải ít nhất 1 giờ từ bây giờ" 
+        });
+      }
+
+      // Use the movie_id from the request, or fall back to the existing one if not provided
+      const targetMovieId = movie_id || (await Showtime.findById(req.params.id).select("movie_id")).movie_id;
+      const movie = await Movie.findById(targetMovieId).select("duration");
+      if (!movie) {
+        return res.status(404).json({ message: "Không tìm thấy phim" });
+      }
+      const minutes = Number(movie.duration);
+      if (!Number.isFinite(minutes) || minutes <= 0) {
+        return res.status(400).json({ message: "Thời lượng phim không hợp lệ" });
+      }
+      const normalizedEnd = new Date(vietnamStartTime.getTime() + minutes * 60 * 1000);
+
+      req.body.start_time = vietnamStartTime;
+      req.body.end_time = normalizedEnd;
+    }
 
     next();
   } catch (err) {
     next(err);
   }
 };
-
-
