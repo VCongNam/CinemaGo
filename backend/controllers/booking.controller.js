@@ -2,6 +2,7 @@ import Booking from '../models/booking.js';
 import BookingSeat from '../models/bookingSeat.js';
 import Showtime from '../models/showtime.js';
 import Seat from '../models/seat.js';
+import User from '../models/user.js';
 import mongoose from 'mongoose';
 import { formatForAPI } from '../utils/timezone.js';
 
@@ -114,6 +115,77 @@ export const getMyBookings = async (req, res) => {
         res.status(200).json(formattedBookings);
     } catch (error) {
         res.status(500).json({ message: "Lấy danh sách đặt vé thất bại", error: error.message });
+    }
+};
+
+// Create a new offline booking
+export const createOfflineBooking = async (req, res) => {
+    const { showtime_id, seat_ids, payment_method, phone } = req.body;
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const user = await User.findOne({ phone }).session(session);
+        if (!user) {
+            throw new Error('Không tìm thấy người dùng với số điện thoại này');
+        }
+        const user_id = user._id.toString();
+
+        const showtime = await Showtime.findById(showtime_id).session(session);
+        if (!showtime) {
+            throw new Error('Không tìm thấy suất chiếu');
+        }
+
+        const seats = await Seat.find({ _id: { $in: seat_ids }, room_id: showtime.room_id }).session(session);
+        if (seats.length !== seat_ids.length) {
+            throw new Error('Một hoặc nhiều ghế không hợp lệ đối với phòng của suất chiếu này');
+        }
+
+        // Kiểm tra ghế đã được đặt cho suất chiếu hay chưa
+        const existingBookings = await Booking.find({ showtime_id, status: { $in: ['confirmed', 'pending'] } }).session(session);
+        const existingBookingIds = existingBookings.map(b => b._id);
+        const bookedSeats = await BookingSeat.find({ booking_id: { $in: existingBookingIds }, seat_id: { $in: seat_ids } }).session(session);
+
+        if (bookedSeats.length > 0) {
+            const bookedSeatIds = bookedSeats.map(bs => bs.seat_id.toString());
+            const alreadyBooked = seat_ids.filter(id => bookedSeatIds.includes(id));
+            throw new Error(`Ghế đã được đặt: ${alreadyBooked.join(', ')}`);
+        }
+
+        let totalPrice = 0;
+        seats.forEach((seat) => {
+            const priceNumber = typeof seat.base_price?.toString === 'function'
+                ? parseFloat(seat.base_price.toString())
+                : Number(seat.base_price);
+            totalPrice += Number.isFinite(priceNumber) ? priceNumber : 0;
+        });
+
+        const newBooking = new Booking({
+            user_id,
+            showtime_id,
+            total_price: totalPrice,
+            payment_method,
+            status: 'pending', // Or 'confirmed' if payment is immediate
+            payment_status: 'pending',
+        });
+
+        const savedBooking = await newBooking.save({ session });
+
+        const bookingSeats = seat_ids.map(seat_id => ({
+            booking_id: savedBooking._id,
+            seat_id: seat_id
+        }));
+
+        await BookingSeat.insertMany(bookingSeats, { session });
+
+        await session.commitTransaction();
+        res.status(201).json({ message: "Tạo đặt vé thành công", booking: savedBooking });
+    } catch (error) {
+        await session.abortTransaction();
+        res.status(400).json({ message: "Tạo đặt vé thất bại", error: error.message });
+    } finally {
+        session.endSession();
     }
 };
 
