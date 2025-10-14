@@ -22,6 +22,7 @@ import ComboSelection from "./pages/bookings/ComboSelection"
 // Staff pages
 import StaffL1Page from "./pages/staff/StaffL1Page"
 import StaffL2Page from "./pages/staff/StaffL2Page"
+import TicketSeatSelectPage from "./pages/staff/TicketSeatSelectPage"
 
 // Homepage & Auth
 import HomePage from "./pages/HomePage"
@@ -69,6 +70,7 @@ function App() {
               {/* Staff */}
               <Route path="/staff/l1" element={<StaffL1Page />} />
               <Route path="/staff/l2" element={<StaffL2Page />} />
+              <Route path="/staff/ticket" element={<TicketSeatSelectPage />} />
 
               {/* Admin */}
               <Route path="/admin/dashboard" element={<DashboardPage />} />

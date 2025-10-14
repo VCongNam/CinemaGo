@@ -12,15 +12,16 @@ import {
   Badge,
   Spinner,
   useToast,
+  IconButton,
 } from "@chakra-ui/react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { ChevronLeftIcon, CloseIcon } from "@chakra-ui/icons";
 
 const seatTypes = {
-  booked: { color: "#ff4d4d", label: "Đã đặt" },
+  booked: { color: "#1f2937", label: "Đã đặt" },
   selected: { color: "#ff66ff", label: "Ghế bạn chọn" },
-  normal: { color: "#444", label: "Ghế thường" },
-  vip: { color: "#a54aff", label: "Ghế VIP" },
-  couple: { color: "#00b3b3", label: "Ghế đôi" },
+  normal: { color: "#7c3aed", label: "Ghế thường" },
+  vip: { color: "#ef4444", label: "Ghế VIP" },
 };
 
 export default function MovieSeatBookingPage() {
@@ -60,12 +61,24 @@ export default function MovieSeatBookingPage() {
 
   // 🔹 Handle seat selection
   const handleSelect = (seat) => {
-    if (seat.isBooked || seat.isDisabled) return;
-    setSelectedSeats((prev) =>
-      prev.some((s) => s._id === seat._id)
-        ? prev.filter((s) => s._id !== seat._id)
-        : [...prev, seat]
-    );
+    if (seat.isBooked) return;
+    
+    setSelectedSeats((prev) => {
+      const index = prev.findIndex((s) => s._id === seat._id);
+      
+      if (index !== -1) {
+        const newSeats = [...prev];
+        newSeats.splice(index, 1);
+        return newSeats;
+      } else {
+        return [...prev, seat];
+      }
+    });
+  };
+
+  // 🔹 Remove a selected seat
+  const removeSeat = (seatId) => {
+    setSelectedSeats((prev) => prev.filter((s) => s._id !== seatId));
   };
 
   // 🔹 Group seats by row
@@ -78,13 +91,24 @@ export default function MovieSeatBookingPage() {
   });
   Object.keys(seatsByRow)
     .sort()
-    .forEach((row) => seatGrid.push({ row, seats: seatsByRow[row] }));
+    .forEach((row) => {
+      seatGrid.push({ 
+        row, 
+        seats: seatsByRow[row].sort((a, b) => {
+          const numA = parseInt(a.seat_number.slice(1));
+          const numB = parseInt(b.seat_number.slice(1));
+          return numA - numB;
+        })
+      });
+    });
 
   // 🔹 Compute total
-  const total = selectedSeats.reduce(
-    (sum, s) => sum + (s.type === "vip" ? 80000 : 50000),
-    0
-  );
+  const total = selectedSeats.reduce((sum, s) => {
+    let price = 50000;
+    if (s.type === "vip") price = 80000;
+    if (s.type === "couple") price = 150000;
+    return sum + price;
+  }, 0);
 
   // 🔹 Go to next step
   const handleNext = () => {
@@ -110,136 +134,205 @@ export default function MovieSeatBookingPage() {
     );
 
   return (
-    <Box bg="#0f1117" minH="100vh" p={6} color="white">
-      <Heading size="md" textAlign="center" mb={4} color="white">
-        Mua vé xem phim
-      </Heading>
-
-      {/* SCREEN LABEL */}
-      <Box
-        mx="auto"
-        maxW="800px"
-        textAlign="center"
-        borderBottom="3px solid #ff66ff"
-        pb={1}
-        mb={6}
-      >
-        <Text fontSize="sm" color="gray.300">
-          MÀN HÌNH
-        </Text>
-      </Box>
-
-      {/* SEAT GRID */}
-      {loading ? (
-        <Flex justify="center" align="center" minH="200px">
-          <Spinner color="orange.400" />
-        </Flex>
-      ) : (
-        <Box mx="auto" maxW="900px" textAlign="center">
-          <VStack spacing={2}>
-            {seatGrid.map(({ row, seats }) => (
-              <HStack key={row} justify="center" spacing={1}>
-                {seats.map((seat) => {
-                  const isSelected = selectedSeats.some(
-                    (s) => s._id === seat._id
-                  );
-                  const color = seat.isBooked
-                    ? seatTypes.booked.color
-                    : isSelected
-                    ? seatTypes.selected.color
-                    : seat.type === "vip"
-                    ? seatTypes.vip.color
-                    : seatTypes.normal.color;
-
-                  return (
-                    <Button
-                      key={seat._id}
-                      size="sm"
-                      w="36px"
-                      h="36px"
-                      p={0}
-                      fontSize="xs"
-                      fontWeight="bold"
-                      bg={color}
-                      color="white"
-                      _hover={{
-                        bg: seat.isBooked ? color : "#ff66ff",
-                      }}
-                      onClick={() => handleSelect(seat)}
-                      isDisabled={seat.isBooked || seat.isDisabled}
-                    >
-                      {seat.seat_number.slice(1)}
-                    </Button>
-                  );
-                })}
-              </HStack>
-            ))}
-          </VStack>
-        </Box>
-      )}
-
-      {/* LEGEND */}
-      <SimpleGrid columns={[2, 3, 5]} spacing={2} mt={6} mx="auto" maxW="600px">
-        {Object.entries(seatTypes).map(([key, { color, label }]) => (
-          <Flex key={key} align="center" gap={2}>
-            <Box w="16px" h="16px" bg={color} borderRadius="2px" />
-            <Text fontSize="sm" color="gray.300">
-              {label}
-            </Text>
-          </Flex>
-        ))}
-      </SimpleGrid>
-
-      <Divider my={6} borderColor="#23242a" />
-
-      {/* MOVIE INFO & ACTION */}
+    <Box bg="#0f1117" minH="100vh" color="white">
+      {/* HEADER */}
       <Flex
-        justify="space-between"
+        bg="#d53f8c"
+        p={4}
         align="center"
-        flexWrap="wrap"
-        mx="auto"
-        maxW="800px"
-        gap={3}
+        position="relative"
       >
-        <Box>
-          <Badge colorScheme="orange" mb={2}>
-            C16
-          </Badge>
-          <Text fontWeight="bold">{movie.title}</Text>
-          <Text fontSize="sm" color="gray.400">
-            {time} · {new Date(showtime.start_time).toLocaleDateString("vi-VN")}{" "}
-            · {room?.name} · 2D Phụ đề
-          </Text>
-        </Box>
-
-        <Box textAlign="right">
-          <Text fontSize="sm" color="gray.400">
-            Chỗ ngồi
-          </Text>
-          <Text fontWeight="bold" color="white">
-            {selectedSeats.length
-              ? selectedSeats.map((s) => s.seat_number).join(", ")
-              : "Chưa chọn"}
-          </Text>
-          <Text fontSize="sm" color="gray.400" mt={2}>
-            Tạm tính
-          </Text>
-          <Text fontWeight="bold" color="orange.300" fontSize="xl">
-            {total.toLocaleString("vi-VN")} đ
-          </Text>
-        </Box>
-
-        <Button
-          colorScheme="pink"
-          size="lg"
-          mt={[4, 0]}
-          px={8}
-          isDisabled={selectedSeats.length === 0}
-          onClick={handleNext}
+        <IconButton
+          icon={<ChevronLeftIcon boxSize={6} />}
+          variant="ghost"
+          colorScheme="whiteAlpha"
+          aria-label="Back"
+          onClick={() => navigate(-1)}
+          _hover={{ bg: "whiteAlpha.200" }}
+        />
+        <Heading 
+          size="md" 
+          position="absolute" 
+          left="50%" 
+          transform="translateX(-50%)"
         >
-          Mua vé
-        </Button>
+          Mua vé xem phim
+        </Heading>
       </Flex>
+
+      <Box p={6}>
+        {/* SCREEN LABEL */}
+        <Box
+          mx="auto"
+          maxW="800px"
+          textAlign="center"
+          borderBottom="3px solid #d53f8c"
+          pb={1}
+          mb={6}
+        >
+          <Text fontSize="sm" color="gray.300" fontWeight="semibold">
+            MÀN HÌNH
+          </Text>
+        </Box>
+
+        {/* SEAT GRID */}
+        {loading ? (
+          <Flex justify="center" align="center" minH="200px">
+            <Spinner color="orange.400" />
+          </Flex>
+        ) : (
+          <Box mx="auto" maxW="900px" textAlign="center">
+            <VStack spacing={2}>
+              {seatGrid.map(({ row, seats }) => (
+                <HStack key={row} justify="center" spacing={2}>
+                  {seats.map((seat) => {
+                    const isSelected = selectedSeats.findIndex(
+                      (s) => s._id === seat._id
+                    ) !== -1;
+                    
+                    // Xác định màu dựa vào trạng thái
+                    let color;
+                    let hoverColor;
+                    
+                    if (seat.isBooked) {
+                      // Ghế đã đặt - màu xám đen
+                      color = seatTypes.booked.color;
+                      hoverColor = seatTypes.booked.color;
+                    } else if (isSelected) {
+                      // Ghế bạn chọn - màu hồng
+                      color = seatTypes.selected.color;
+                      hoverColor = seatTypes.selected.color;
+                    } else if (seat.type === "vip") {
+                      // Ghế VIP chưa chọn - màu đỏ
+                      color = seatTypes.vip.color;
+                      hoverColor = "#f87171";
+                    } else {
+                      // Ghế thường chưa chọn - màu tím
+                      color = seatTypes.normal.color;
+                      hoverColor = "#8b5cf6";
+                    }
+
+                    return (
+                      <Button
+                        key={seat._id}
+                        size="sm"
+                        w="36px"
+                        h="36px"
+                        p={0}
+                        fontSize="xs"
+                        fontWeight="bold"
+                        bg={color}
+                        color="white"
+                        border="none"
+                        borderRadius="md"
+                        _hover={{
+                          bg: seat.isBooked ? color : hoverColor,
+                          opacity: seat.isBooked ? 0.7 : 1,
+                        }}
+                        onClick={() => handleSelect(seat)}
+                        isDisabled={seat.isBooked}
+                        cursor={seat.isBooked ? "not-allowed" : "pointer"}
+                      >
+                        {seat.seat_number.slice(1)}
+                      </Button>
+                    );
+                  })}
+                </HStack>
+              ))}
+            </VStack>
+          </Box>
+        )}
+
+        {/* LEGEND */}
+        <SimpleGrid columns={2} spacing={3} mt={6} mx="auto" maxW="500px">
+          <Flex align="center" gap={2}>
+            <Box w="20px" h="20px" bg={seatTypes.booked.color} borderRadius="4px" />
+            <Text fontSize="sm" color="gray.300">{seatTypes.booked.label}</Text>
+          </Flex>
+          <Flex align="center" gap={2}>
+            <Box w="20px" h="20px" bg={seatTypes.selected.color} borderRadius="4px" />
+            <Text fontSize="sm" color="gray.300">{seatTypes.selected.label}</Text>
+          </Flex>
+          <Flex align="center" gap={2}>
+            <Box w="20px" h="20px" bg={seatTypes.normal.color} borderRadius="4px" />
+            <Text fontSize="sm" color="gray.300">{seatTypes.normal.label}</Text>
+          </Flex>
+          <Flex align="center" gap={2}>
+            <Box w="20px" h="20px" bg={seatTypes.vip.color} borderRadius="4px" />
+            <Text fontSize="sm" color="gray.300">{seatTypes.vip.label}</Text>
+          </Flex>
+        </SimpleGrid>
+
+        <Divider my={6} borderColor="#23242a" />
+
+        {/* MOVIE INFO & ACTION */}
+        <Box mx="auto" maxW="800px" bg="#1a1b23" borderRadius="lg" p={4}>
+          <Flex align="flex-start" mb={4}>
+            <Badge colorScheme="orange" mr={3} fontSize="xs">
+              C13
+            </Badge>
+            <Box flex="1">
+              <Text fontWeight="bold" fontSize="lg">{movie.title}</Text>
+              <Text fontSize="sm" color="gray.400">
+                {time} · {new Date(showtime.start_time).toLocaleDateString("vi-VN")}{" "}
+                · {room?.name} · 2D Phụ đề
+              </Text>
+            </Box>
+          </Flex>
+
+          <Box borderTop="1px solid" borderColor="#23242a" pt={4}>
+            <Flex justify="space-between" align="center" mb={3}>
+              <Text fontSize="sm" color="gray.400">Chỗ ngồi</Text>
+              <Flex gap={2} flexWrap="wrap" justify="flex-end">
+                {selectedSeats.length === 0 ? (
+                  <Text fontSize="sm" color="gray.500">Chưa chọn</Text>
+                ) : (
+                  selectedSeats.map((s) => (
+                    <Badge
+                      key={s._id}
+                      colorScheme="pink"
+                      display="flex"
+                      alignItems="center"
+                      gap={1}
+                      px={2}
+                      py={1}
+                      borderRadius="md"
+                    >
+                      {s.seat_number}
+                      <CloseIcon 
+                        boxSize={2} 
+                        cursor="pointer" 
+                        onClick={() => removeSeat(s._id)}
+                        _hover={{ color: "white" }}
+                      />
+                    </Badge>
+                  ))
+                )}
+              </Flex>
+            </Flex>
+            
+            <Flex justify="space-between" mb={4}>
+              <Text fontSize="sm" color="gray.400">Tạm tính</Text>
+              <Text fontWeight="bold" color="orange.300" fontSize="xl">
+                {total.toLocaleString("vi-VN")}đ
+              </Text>
+            </Flex>
+
+            <Button
+              bg="#d53f8c"
+              color="white"
+              size="lg"
+              w="full"
+              isDisabled={selectedSeats.length === 0}
+              onClick={handleNext}
+              _hover={{ bg: "#b83280" }}
+              _active={{ bg: "#9c2868" }}
+            >
+              Mua vé
+            </Button>
+          </Box>
+        </Box>
+      </Box>
     </Box>
   );
 }

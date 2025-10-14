@@ -66,21 +66,57 @@ const StaffL1Page = () => {
 
   const handleClearGenres = () => setSelectedGenres([]);
 
-  // Lấy showtime cho từng movie
+  // 🔹 Kiểm tra xem ngày có phải hôm nay không
+  const isToday = (startTimeObj) => {
+    if (!startTimeObj) return false;
+    
+    let dateString;
+    
+    // Xử lý nếu start_time là object có vietnam/utc
+    if (typeof startTimeObj === "object" && startTimeObj !== null) {
+      dateString = startTimeObj.vietnam || startTimeObj.utc;
+    } else if (typeof startTimeObj === "string") {
+      dateString = startTimeObj;
+    }
+    
+    if (!dateString) return false;
+    
+    const showtimeDate = new Date(dateString);
+    const today = new Date();
+    
+    return (
+      showtimeDate.getDate() === today.getDate() &&
+      showtimeDate.getMonth() === today.getMonth() &&
+      showtimeDate.getFullYear() === today.getFullYear()
+    );
+  };
+
+  // Lấy showtime cho từng movie (CHỈ HÔM NAY)
   const getShowtimesForMovie = (movieId) => {
     return showtimes
-      .filter(st => st.movie_id?._id === movieId)
-      .map(st => {
-        if (typeof st.start_time === "string") {
-          return { ...st, time: st.start_time.slice(11, 16) };
-        }
-        if (typeof st.start_time === "object" && st.start_time !== null) {
-          const timeStr = st.start_time.vietnam || st.start_time.utc || "";
-          return { ...st, time: typeof timeStr === "string" ? timeStr.slice(11, 16) : "" };
-        }
-        return { ...st, time: "" };
+      .filter(st => {
+        // Lọc theo movie_id VÀ ngày hôm nay
+        const matchMovie = st.movie_id?._id === movieId;
+        const isTodayShowtime = isToday(st.start_time);
+        return matchMovie && isTodayShowtime;
       })
-      .filter(st => st.time);
+      .map(st => {
+        let timeStr = "";
+        
+        // Xử lý start_time có thể là object hoặc string
+        if (typeof st.start_time === "object" && st.start_time !== null) {
+          const dateStr = st.start_time.vietnam || st.start_time.utc || "";
+          if (typeof dateStr === "string" && dateStr.length >= 16) {
+            timeStr = dateStr.slice(11, 16);
+          }
+        } else if (typeof st.start_time === "string" && st.start_time.length >= 16) {
+          timeStr = st.start_time.slice(11, 16);
+        }
+        
+        return { ...st, time: timeStr };
+      })
+      .filter(st => st.time)
+      .sort((a, b) => a.time.localeCompare(b.time)); // Sắp xếp theo thời gian
   };
 
   const handleToggleShowtimes = (movieId) => {
@@ -215,7 +251,7 @@ const StaffL1Page = () => {
                                     </Button>
                                   ))
                                 ) : (
-                                  <Text color="gray.500" fontSize="sm">Không có suất chiếu</Text>
+                                  <Text color="gray.500" fontSize="sm">Không có suất chiếu hôm nay</Text>
                                 )}
                               </Flex>
                             </Box>
