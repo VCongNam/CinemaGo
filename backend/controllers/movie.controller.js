@@ -69,7 +69,7 @@ export const createMovie = async (req, res, next) => {
       release_date,
       trailer_url,
       poster_url,
-      status: status || "active" // Default to active if not provided
+      status: status || "active" 
     });
     
     res.status(201).json({

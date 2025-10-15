@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon backend/server.js",
     "start": "node backend/server.js",
-    "seed": "node backend/seedMovies.js"
+    "seed": "node backend/seedMovies.js",
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
@@ -15,13 +16,20 @@
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.2",
+    "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.18.1",
+    "mongoose": "^8.18.3",
     "nodemailer": "^7.0.6"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "@babel/core": "^7.28.4",
+    "@babel/preset-env": "^7.28.3",
+    "babel-jest": "^30.2.0",
+    "cross-env": "^10.1.0",
+    "jest": "^30.2.0",
+    "mongodb-memory-server": "^10.2.1",
+    "nodemon": "^3.1.10",
+    "supertest": "^7.1.4"
   }
 }
