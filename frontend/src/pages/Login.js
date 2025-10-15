@@ -37,6 +37,7 @@ const Login = () => {
   const [fpStep, setFpStep] = useState(1) // 1 = request OTP, 2 = submit OTP+newPwd
   const toast = useToast()
   const navigate = useNavigate()
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -147,6 +148,22 @@ const Login = () => {
                     w="full"
                   >
                     Đăng nhập Admin
+                  </Button>
+
+                  <HStack w="full" align="center">
+                    <Divider borderColor="gray.600" />
+                    <Text color="gray.400" whiteSpace="nowrap" px={2}>hoặc</Text>
+                    <Divider borderColor="gray.600" />
+                  </HStack>
+
+                  <Button
+                    as="a"
+                    href={`${backendUrl}/auth/google`}
+                    w="full"
+                    colorScheme="red" // Google's color scheme
+                    leftIcon={<svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor"><path d="M17.64,9.2c0-0.63-0.06-1.25-0.16-1.84H9.18v3.48h4.79c-0.2,1.12-0.84,2.07-1.84,2.72v2.26h2.91C16.8,14.7,17.64,12.14,17.64,9.2z"></path><path d="M9.18,18c2.43,0,4.47-0.8,5.96-2.18l-2.91-2.26c-0.8,0.54-1.84,0.86-2.96,0.86c-2.28,0-4.21-1.54-4.9-3.61H1.28v2.33C2.74,16.1,5.7,18,9.18,18z"></path><path d="M4.28,10.89c-0.11-0.33-0.17-0.68-0.17-1.04s0.06-0.71,0.17-1.04V6.48H1.28C0.47,8.04,0,9.85,0,11.82s0.47,3.78,1.28,5.34L4.28,10.89z"></path><path d="M9.18,3.36c1.32,0,2.52,0.45,3.46,1.35l2.59-2.59C13.65,0.8,11.61,0,9.18,0C5.7,0,2.74,1.9,1.28,4.66l3,2.33C4.97,4.9,6.9,3.36,9.18,3.36z"></path></svg>}
+                  >
+                    Đăng nhập với Google
                   </Button>
                 </VStack>
               </form>

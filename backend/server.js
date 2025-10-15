@@ -11,6 +11,8 @@ import showtimeRoutes from "./routes/showtime.routes.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import publicRoutes from "./routes/public/public.routes.js";
 import cors from "cors";
+import passport from "passport";
+import { configurePassport } from "./config/passport.js";
 
 dotenv.config();
 
@@ -24,7 +26,9 @@ app.use(
   })
 );
 
-// Mount routes
+configurePassport();
+app.use(passport.initialize());
+// Mount routes - Sử dụng tiền tố /api/v1 cho các route xác thực
 app.use("/", authRoutes); // Public auth routes
 app.use("/api", protectedRoutes); // Protected routes
 app.use("/api/movies", publicMovieRoutes); // Public movie routes

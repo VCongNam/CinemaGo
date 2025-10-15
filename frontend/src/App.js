@@ -1,5 +1,6 @@
 import { ChakraProvider, Box } from "@chakra-ui/react"
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
+import LoginPagetest from "./pages/LoginPagetest"
 
 // Admin pages
 import DashboardPage from "./pages/admin/DashboardPage"
@@ -35,6 +36,7 @@ import ChangePasswordPage from "./pages/ChangePasswordPage"
 import Header from "./pages/Navbar/Header"
 import AdminHeader from "./pages/Navbar/AdminHeader"
 import Footer from "./pages/Navbar/Footer"
+import SocialAuthSuccess from './pages/SocialAuthSuccess';
 
 function App() {
   return (
@@ -50,6 +52,8 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/admin/login" element={<AdminLoginPage />} />
+              <Route path="/logintest" element={<LoginPagetest />} />
+        <Route path="/social-auth-success" element={<SocialAuthSuccess />} />
 
 
               {/* Booking */}
@@ -88,6 +92,8 @@ function App() {
 
               {/* Not found */}
               <Route path="*" element={<h1>404 - Not Found</h1>} />
+
+
             </Routes>
           </Box>
           <Footer />

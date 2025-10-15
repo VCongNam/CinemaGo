@@ -823,3 +823,39 @@ export const resetPasswordWithToken = async (req, res, next) => {
     next(error);
   }
 };
+
+export const socialLoginCallback = (req, res) => {
+  // Passport đã xác thực user và gắn vào req.user
+  const user = req.user;
+
+  // Tạo Access Token cho ứng dụng của bạn
+  const accessToken = signAccessToken({
+    sub: user._id.toString(),
+    role: user.role,
+    username: user.username,
+  });
+  const expiresIn = 3600; // 1 giờ
+
+  // Chuẩn bị thông tin user để gửi về frontend
+  const userPayload = {
+    id: user._id,
+    username: user.username,
+    email: user.email,
+    fullName: user.full_name,
+    role: user.role,
+  };
+
+  // Mã hóa thông tin user để gửi an toàn qua URL
+  const encodedUser = Buffer.from(JSON.stringify(userPayload)).toString('base64');
+
+  // Chuyển hướng người dùng về frontend với token
+  // Frontend sẽ lấy token từ URL, lưu lại và chuyển hướng đến trang chính
+  const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/social-auth-success?token=${accessToken}&expiresIn=${expiresIn}&user=${encodedUser}`;
+
+  res.redirect(redirectUrl);
+};
+
+// Hàm này chỉ để chuyển hướng, không cần logic phức tạp
+export const redirectToSocialAuth = (req, res, next) => {
+  // Passport sẽ tự động xử lý việc chuyển hướng
+};
