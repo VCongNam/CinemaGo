@@ -6,11 +6,13 @@ import {
     cancelBooking,
     getAllBookings,
     updateBookingStatus,
-    getBookingsByUserId
+    getBookingsByUserId,
+    createOfflineBooking
 } from '../controllers/booking.controller.js';
-import { verifyToken, requireAdmin } from '../middlewares/auth.js';
+import { verifyToken, requireAdmin, requireStaff } from '../middlewares/auth.js';
 import { 
     validateCreateBooking, 
+    validateOfflineBooking,
     validateBookingId,
     validateUpdateStatus,
     validateUserId
@@ -27,6 +29,11 @@ router.get('/', verifyToken, requireAdmin, getAllBookings);
 // @desc    Create a new booking
 // @access  Private
 router.post('/', verifyToken, validateCreateBooking, createBooking);
+
+// @route   POST api/bookings/offline
+// @desc    Create a new offline booking
+// @access  Private/Staff
+router.post('/offline', verifyToken, requireStaff, validateOfflineBooking, createOfflineBooking);
 
 // @route   GET api/bookings/my-bookings
 // @desc    Get all bookings for the logged-in user
