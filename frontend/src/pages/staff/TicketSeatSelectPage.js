@@ -16,6 +16,7 @@ import {
 } from "@chakra-ui/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronLeftIcon, CloseIcon } from "@chakra-ui/icons";
+import FoodSelection from "./FoodSelection";
 
 const seatTypes = {
   booked: { color: "#1f2937", label: "Đã đặt" },
@@ -33,53 +34,61 @@ export default function MovieSeatBookingPage() {
   const [room, setRoom] = useState(null);
   const [seats, setSeats] = useState([]);
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const [selectedFoods, setSelectedFoods] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // 🔹 Fetch seats from API
   useEffect(() => {
-    if (!showtime?.room_id?._id) return;
-    setLoading(true);
-    fetch(`http://localhost:5000/api/public/rooms/${showtime.room_id._id}/seats`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Không thể tải danh sách ghế");
-        return res.json();
-      })
-      .then((data) => {
-        setSeats(data.list || []);
-        setRoom(showtime.room_id);
-      })
-      .catch((err) =>
-        toast({
-          title: "Lỗi tải ghế",
-          description: err.message,
-          status: "error",
-          duration: 3000,
-        })
-      )
-      .finally(() => setLoading(false));
-  }, [showtime]);
+  if (!showtime?.room_id?._id) return;
+
+  setLoading(true);
+  fetch(`http://localhost:5000/api/public/rooms/${showtime.room_id._id}/seats`)
+    .then((res) => {
+      if (!res.ok) throw new Error("Không thể tải danh sách ghế");
+      return res.json();
+    })
+    .then((data) => {
+      console.log("📦 Dữ liệu seats API:", data);
+      const seatData = data.list || data.seats || data || [];
+      if (!Array.isArray(seatData)) {
+        throw new Error("Dữ liệu ghế không hợp lệ");
+      }
+      setSeats(seatData);
+      setRoom(showtime.room_id);
+    })
+    .catch((err) => {
+      console.error("❌ Lỗi load seats:", err);
+      toast({
+        title: "Lỗi tải ghế",
+        description: err.message,
+        status: "error",
+        duration: 3000,
+      });
+    })
+    .finally(() => setLoading(false));
+}, [showtime]);
+
 
   // 🔹 Handle seat selection
   const handleSelect = (seat) => {
-    if (seat.isBooked) return;
-    
-    setSelectedSeats((prev) => {
-      const index = prev.findIndex((s) => s._id === seat._id);
-      
-      if (index !== -1) {
-        const newSeats = [...prev];
-        newSeats.splice(index, 1);
-        return newSeats;
-      } else {
-        return [...prev, seat];
-      }
-    });
-  };
+  if (seat.isBooked) return;
+
+  setSelectedSeats(prev => {
+    const exists = prev.some(s => s.seat_number === seat.seat_number);
+    if (exists) {
+      return prev.filter(s => s.seat_number !== seat.seat_number);
+    } else {
+      return [...prev, seat];
+    }
+  });
+};
+
 
   // 🔹 Remove a selected seat
-  const removeSeat = (seatId) => {
-    setSelectedSeats((prev) => prev.filter((s) => s._id !== seatId));
-  };
+  const removeSeat = (seatNumber) => {
+  setSelectedSeats(prev => prev.filter(s => s.seat_number !== seatNumber));
+};
+
 
   // 🔹 Group seats by row
   const seatGrid = [];
@@ -92,23 +101,30 @@ export default function MovieSeatBookingPage() {
   Object.keys(seatsByRow)
     .sort()
     .forEach((row) => {
-      seatGrid.push({ 
-        row, 
+      seatGrid.push({
+        row,
         seats: seatsByRow[row].sort((a, b) => {
           const numA = parseInt(a.seat_number.slice(1));
           const numB = parseInt(b.seat_number.slice(1));
           return numA - numB;
-        })
+        }),
       });
     });
 
-  // 🔹 Compute total
-  const total = selectedSeats.reduce((sum, s) => {
+  // 🔹 Compute totals
+  const seatTotal = selectedSeats.reduce((sum, s) => {
     let price = 50000;
     if (s.type === "vip") price = 80000;
     if (s.type === "couple") price = 150000;
     return sum + price;
   }, 0);
+
+  const foodTotal = selectedFoods.reduce(
+    (sum, f) => sum + f.price * f.quantity,
+    0
+  );
+
+  const total = seatTotal + foodTotal;
 
   // 🔹 Go to next step
   const handleNext = () => {
@@ -121,8 +137,8 @@ export default function MovieSeatBookingPage() {
       });
       return;
     }
-    navigate("/staff/food", {
-      state: { movie, time, showtime, room, selectedSeats, total },
+    navigate("/staff/payment", {
+      state: { movie, time, showtime, room, selectedSeats, selectedFoods, total },
     });
   };
 
@@ -136,12 +152,7 @@ export default function MovieSeatBookingPage() {
   return (
     <Box bg="#0f1117" minH="100vh" color="white">
       {/* HEADER */}
-      <Flex
-        bg="#d53f8c"
-        p={4}
-        align="center"
-        position="relative"
-      >
+      <Flex bg="#d53f8c" p={4} align="center" position="relative">
         <IconButton
           icon={<ChevronLeftIcon boxSize={6} />}
           variant="ghost"
@@ -150,10 +161,10 @@ export default function MovieSeatBookingPage() {
           onClick={() => navigate(-1)}
           _hover={{ bg: "whiteAlpha.200" }}
         />
-        <Heading 
-          size="md" 
-          position="absolute" 
-          left="50%" 
+        <Heading
+          size="md"
+          position="absolute"
+          left="50%"
           transform="translateX(-50%)"
         >
           Mua vé xem phim
@@ -185,36 +196,38 @@ export default function MovieSeatBookingPage() {
             <VStack spacing={2}>
               {seatGrid.map(({ row, seats }) => (
                 <HStack key={row} justify="center" spacing={2}>
+                  {/* ✅ Hiển thị tên hàng (A, B, C...) */}
+                  <Text 
+                    fontSize="sm" 
+                    fontWeight="bold" 
+                    color="gray.400" 
+                    w="30px" 
+                    textAlign="right"
+                  >
+                    {row}
+                  </Text>
+                  
                   {seats.map((seat) => {
-                    const isSelected = selectedSeats.findIndex(
-                      (s) => s._id === seat._id
-                    ) !== -1;
-                    
-                    // Xác định màu dựa vào trạng thái
+                    // ✅ So sánh bằng String để tránh lỗi type
+                    const isSelected = selectedSeats.some(s => String(s.seat_number) === String(seat._seat_number));
+
                     let color;
                     let hoverColor;
-                    
-                    if (seat.isBooked) {
-                      // Ghế đã đặt - màu xám đen
-                      color = seatTypes.booked.color;
-                      hoverColor = seatTypes.booked.color;
-                    } else if (isSelected) {
-                      // Ghế bạn chọn - màu hồng
+
+                    if (isSelected) {
                       color = seatTypes.selected.color;
                       hoverColor = seatTypes.selected.color;
                     } else if (seat.type === "vip") {
-                      // Ghế VIP chưa chọn - màu đỏ
                       color = seatTypes.vip.color;
                       hoverColor = "#f87171";
                     } else {
-                      // Ghế thường chưa chọn - màu tím
                       color = seatTypes.normal.color;
                       hoverColor = "#8b5cf6";
                     }
 
                     return (
                       <Button
-                        key={seat._id}
+                        key={seat.seat_number}
                         size="sm"
                         w="36px"
                         h="36px"
@@ -226,12 +239,10 @@ export default function MovieSeatBookingPage() {
                         border="none"
                         borderRadius="md"
                         _hover={{
-                          bg: seat.isBooked ? color : hoverColor,
-                          opacity: seat.isBooked ? 0.7 : 1,
+                          bg: hoverColor,
                         }}
                         onClick={() => handleSelect(seat)}
-                        isDisabled={seat.isBooked}
-                        cursor={seat.isBooked ? "not-allowed" : "pointer"}
+                        cursor="pointer"
                       >
                         {seat.seat_number.slice(1)}
                       </Button>
@@ -299,9 +310,9 @@ export default function MovieSeatBookingPage() {
                       borderRadius="md"
                     >
                       {s.seat_number}
-                      <CloseIcon 
-                        boxSize={2} 
-                        cursor="pointer" 
+                      <CloseIcon
+                        boxSize={2}
+                        cursor="pointer"
                         onClick={() => removeSeat(s._id)}
                         _hover={{ color: "white" }}
                       />
@@ -310,9 +321,29 @@ export default function MovieSeatBookingPage() {
                 )}
               </Flex>
             </Flex>
-            
+
+            {/* ✅ Phần chọn combo bắp nước */}
+            <FoodSelection
+              selectedFoods={selectedFoods}
+              onFoodChange={setSelectedFoods}
+            />
+
+            <Divider my={4} borderColor="#2d2e35" />
+
+            {/* ✅ Tổng tiền */}
+            <Flex justify="space-between" mb={1}>
+              <Text fontSize="sm" color="gray.400">Tiền vé</Text>
+              <Text fontWeight="bold">{seatTotal.toLocaleString("vi-VN")}đ</Text>
+            </Flex>
+            <Flex justify="space-between" mb={2}>
+              <Text fontSize="sm" color="gray.400">Combo bắp nước</Text>
+              <Text fontWeight="bold">{foodTotal.toLocaleString("vi-VN")}đ</Text>
+            </Flex>
+
             <Flex justify="space-between" mb={4}>
-              <Text fontSize="sm" color="gray.400">Tạm tính</Text>
+              <Text fontSize="md" color="orange.300" fontWeight="bold">
+                Tổng cộng
+              </Text>
               <Text fontWeight="bold" color="orange.300" fontSize="xl">
                 {total.toLocaleString("vi-VN")}đ
               </Text>

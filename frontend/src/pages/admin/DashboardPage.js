@@ -4,11 +4,13 @@ import RevenueChart from "../Navbar/RevenueChart";
 import RevenuePieChart from "../Navbar/RevenuePieChart";
 
 const adminLinks = [
-  { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
-  { to: "/admin/customers", label: "Thông tin khách hàng" },
-  { to: "/admin/staffs", label: "Thông tin nhân viên" },
-  { to: "/admin/reports", label: "Báo cáo khác" },
-];
+    { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
+    { to: "/admin/customers", label: "Thông tin khách hàng" },
+    { to: "/admin/staffs", label: "Thông tin nhân viên" },
+    { to: "/moviesmanagement", label: "Quản lý phim" },
+    { to: "/admin/reports", label: "Báo cáo khác" },
+  ]
+
 
 export default function DashboardPage() {
   return (

@@ -28,8 +28,8 @@ export default function CustomerManagementPage() {
             ...(token && { Authorization: `Bearer ${token}` })
           },
           body: JSON.stringify({
-            page: 1, 
-            pageSize: 100, //tùy thay đổi
+            page: 1,
+            pageSize: 100 // Số lớn để lấy tất cả
           })
         })
         
@@ -79,20 +79,17 @@ export default function CustomerManagementPage() {
         })
       })
       
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || "Cập nhật trạng thái thất bại")
-      }
-      
       const data = await res.json()
       
-      // Cập nhật lại danh sách user
+      if (!res.ok) throw new Error(data.message || "Cập nhật trạng thái thất bại")
+      
+      // Cập nhật lại danh sách user với dữ liệu mới từ API
       setUsers(users =>
         users.map(u =>
           u.id === user.id 
             ? { 
                 ...u, 
-                suspendedAt: newStatus === "suspended" ? new Date().toISOString() : null,
+                suspendedAt: data.data?.suspendedAt || null,
                 status: newStatus
               } 
             : u
@@ -162,8 +159,9 @@ export default function CustomerManagementPage() {
     { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
     { to: "/admin/customers", label: "Thông tin khách hàng" },
     { to: "/admin/staffs", label: "Thông tin nhân viên" },
+    { to: "/moviesmanagement", label: "Quản lý phim" },
     { to: "/admin/reports", label: "Báo cáo khác" },
-  ];
+  ]
 
   return (
     <Flex flex="1" bg="#0f1117" color="white">

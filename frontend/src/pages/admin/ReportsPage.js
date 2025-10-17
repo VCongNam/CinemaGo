@@ -6,8 +6,9 @@ export default function ReportsPage() {
     { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
     { to: "/admin/customers", label: "Thông tin khách hàng" },
     { to: "/admin/staffs", label: "Thông tin nhân viên" },
+    { to: "/moviesmanagement", label: "Quản lí phim" },
     { to: "/admin/reports", label: "Báo cáo khác" },
-  ];
+  ]
   return (
     <Flex flex="1" bg="#0f1117" color="white">
       <Sidebar links={adminLinks} />

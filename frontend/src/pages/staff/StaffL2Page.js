@@ -1,7 +1,6 @@
 import { Box, Heading, Divider } from "@chakra-ui/react";
-import ShowtimeManagement from "./ShowtimeManagement";
 import TicketSales from "./TicketSales";
-import FoodBeverageSales from "./FoodBeverageSales";
+import FoodSelection from "./FoodSelection";
 
 const StaffL2Page = () => {
   return (
@@ -10,13 +9,11 @@ const StaffL2Page = () => {
         Staff L2
       </Heading>
 
-      {/* Chức năng Staff L2 */}
-      <ShowtimeManagement />
 
       <Divider my={8} />
       <TicketSales />
       <Divider my={8} />
-      <FoodBeverageSales />
+      <FoodSelection />
     </Box>
   );
 };

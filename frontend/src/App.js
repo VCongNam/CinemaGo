@@ -7,6 +7,7 @@ import StaffManagementPage from "./pages/admin/StaffManagementPage"
 import CustomerManagementPage from "./pages/admin/CustomerManagementPage"
 import ReportsPage from "./pages/admin/ReportsPage"
 import UserDetailPage from "./pages/admin/UserDetailPage"
+import MovieManagementPage from "./pages/admin/MovieManagementPage"
 
 
 // Booking pages
@@ -23,6 +24,7 @@ import ComboSelection from "./pages/bookings/ComboSelection"
 import StaffL1Page from "./pages/staff/StaffL1Page"
 import StaffL2Page from "./pages/staff/StaffL2Page"
 import TicketSeatSelectPage from "./pages/staff/TicketSeatSelectPage"
+import StaffPaymentPage from "./pages/staff/StaffPaymentPage"
 
 // Homepage & Auth
 import HomePage from "./pages/HomePage"
@@ -71,6 +73,7 @@ function App() {
               <Route path="/staff/l1" element={<StaffL1Page />} />
               <Route path="/staff/l2" element={<StaffL2Page />} />
               <Route path="/staff/ticket" element={<TicketSeatSelectPage />} />
+              <Route path="/staff/payment" element={<StaffPaymentPage />} />
 
               {/* Admin */}
               <Route path="/admin/dashboard" element={<DashboardPage />} />
@@ -78,6 +81,7 @@ function App() {
               <Route path="/admin/reports" element={<ReportsPage />} />
               <Route path="/admin/user/:id" element={<UserDetailPage />} />
               <Route path="/admin/staffs" element={<StaffManagementPage />} />
+              <Route path="/moviesmanagement" element={<MovieManagementPage />} />
 
               {/* Movie detail */}
               <Route path="/movies/:id" element={<MovieDetail />} />
