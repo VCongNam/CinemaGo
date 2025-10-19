@@ -8,6 +8,7 @@ import theaterRoutes from "./routes/theater.routes.js";
 import roomRoutes from "./routes/room.routes.js";
 import seatRoutes from "./routes/seat.routes.js";
 import showtimeRoutes from "./routes/showtime.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import publicRoutes from "./routes/public/public.routes.js";
 import cors from "cors";
@@ -37,6 +38,7 @@ app.use("/api/theaters", theaterRoutes); // Theater management routes (admin onl
 app.use("/api/rooms", roomRoutes); // Room management routes (admin only)
 app.use("/api/seats", seatRoutes); // Seat management routes (admin only)
 app.use("/api/showtimes", showtimeRoutes); // Showtime management routes (admin only)
+app.use("/api/payments", paymentRoutes); // Payment routes
 
 // Error handler (last)
 app.use(errorHandler);
