@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 import { signAccessToken } from "../utils/jwt.js";
 import { sendResetLinkEmail } from "../utils/email.js";
+import { logAction } from "../utils/logger.js";
 
 export const registerStaff = async (req, res, next) => {
   try {
@@ -36,13 +37,16 @@ export const registerStaff = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     // Tạo user mới
-    await User.create({ 
+    const newUser = await User.create({ 
       username, 
       password: hashedPassword, 
       email,
       full_name: fullName || '',
       role: "staff" 
     });
+
+    // Ghi log hành động tạo staff (người thực hiện là admin/staff đang đăng nhập)
+    await logAction(req.user.id, 'User', newUser._id, 'document', null, newUser);
     
     res.status(201).json({ 
       message: "Tạo tài khoản nhân viên thành công" 
@@ -101,13 +105,17 @@ export const registerCustomer = async (req, res, next) => {
     }
     
     const hashedPassword = await bcrypt.hash(password, 10);
-    await User.create({ 
+    const newCustomer = await User.create({ 
       username, 
       password: hashedPassword, 
       email,
       full_name: fullName,
       role: "customer" 
     });
+
+    // Ghi log hành động tự đăng ký (người thực hiện là chính user mới)
+    await logAction(newCustomer._id, 'User', newCustomer._id, 'document', null, newCustomer);
+
     res.status(201).json({ message: "Tạo tài khoản khách hàng thành công" });
   } catch (error) {
     next(error);
@@ -243,6 +251,15 @@ export const updateProfile = async (req, res, next) => {
       updateData,
       { new: true, runValidators: true }
     );
+
+    // Ghi log cho các trường đã thay đổi
+    const changes = Object.keys(updateData);
+    for (const field of changes) {
+      const modelField = field === 'fullName' ? 'full_name' : field;
+      if (user[modelField] !== updatedUser[modelField]) {
+        await logAction(req.user.id, 'User', updatedUser._id, modelField, user[modelField], updatedUser[modelField]);
+      }
+    }
 
     res.status(200).json({
       message: "Cập nhật thông tin thành công",
@@ -650,7 +667,3 @@ export const resetPasswordWithToken = async (req, res, next) => {
     next(error);
   }
 };
-
-
-
- 
