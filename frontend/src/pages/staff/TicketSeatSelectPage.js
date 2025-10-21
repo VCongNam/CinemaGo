@@ -39,60 +39,68 @@ export default function MovieSeatBookingPage() {
 
   // 🔹 Fetch seats from API
   useEffect(() => {
-  if (!showtime?.room_id?._id) return;
+    if (!showtime?.room_id?._id) return;
 
-  setLoading(true);
-  fetch(`http://localhost:5000/api/public/rooms/${showtime.room_id._id}/seats`)
-    .then((res) => {
-      if (!res.ok) throw new Error("Không thể tải danh sách ghế");
-      return res.json();
-    })
-    .then((data) => {
-      console.log("📦 Dữ liệu seats API:", data);
-      const seatData = data.list || data.seats || data || [];
-      if (!Array.isArray(seatData)) {
-        throw new Error("Dữ liệu ghế không hợp lệ");
-      }
-      setSeats(seatData);
-      setRoom(showtime.room_id);
-    })
-    .catch((err) => {
-      console.error("❌ Lỗi load seats:", err);
-      toast({
-        title: "Lỗi tải ghế",
-        description: err.message,
-        status: "error",
-        duration: 3000,
-      });
-    })
-    .finally(() => setLoading(false));
-}, [showtime]);
-
+    setLoading(true);
+    fetch(`http://localhost:5000/api/public/rooms/${showtime.room_id._id}/seats`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Không thể tải danh sách ghế");
+        return res.json();
+      })
+      .then((data) => {
+        console.log("📦 Dữ liệu seats API:", data);
+        const seatData = data.list || data.seats || data || [];
+        if (!Array.isArray(seatData)) {
+          throw new Error("Dữ liệu ghế không hợp lệ");
+        }
+        setSeats(seatData);
+        setRoom(showtime.room_id);
+      })
+      .catch((err) => {
+        console.error("❌ Lỗi load seats:", err);
+        toast({
+          title: "Lỗi tải ghế",
+          description: err.message,
+          status: "error",
+          duration: 3000,
+        });
+      })
+      .finally(() => setLoading(false));
+  }, [showtime, toast]);
 
   // 🔹 Handle seat selection
   const handleSelect = (seat) => {
-  if (seat.isBooked) return;
+    // ✅ Kiểm tra ghế đã được đặt chưa
+    if (seat.is_booked || seat.isBooked) return;
 
-  setSelectedSeats(prev => {
-    const exists = prev.some(s => s.seat_number === seat.seat_number);
-    if (exists) {
-      return prev.filter(s => s.seat_number !== seat.seat_number);
-    } else {
-      return [...prev, seat];
-    }
-  });
-};
-
+    setSelectedSeats((prev) => {
+      // So sánh bằng id hoặc _id tùy API
+      const seatId = seat.id || seat._id;
+      const exists = prev.some((s) => (s.id || s._id) === seatId);
+      
+      if (exists) {
+        return prev.filter((s) => (s.id || s._id) !== seatId);
+      } else {
+        return [...prev, seat];
+      }
+    });
+  };
 
   // 🔹 Remove a selected seat
-  const removeSeat = (seatNumber) => {
-  setSelectedSeats(prev => prev.filter(s => s.seat_number !== seatNumber));
-};
-
+  const removeSeat = (seatId) => {
+    setSelectedSeats((prev) => prev.filter((s) => (s.id || s._id) !== seatId));
+  };
 
   // 🔹 Group seats by row
   const seatGrid = [];
   const seatsByRow = {};
+  
+  // Debug: Log ra một ghế mẫu để xem cấu trúc
+  if (seats.length > 0) {
+    console.log("🪑 Mẫu ghế đầu tiên:", seats[0]);
+    console.log("🎯 Selected seats:", selectedSeats);
+  }
+  
   seats.forEach((seat) => {
     const row = seat.seat_number[0];
     if (!seatsByRow[row]) seatsByRow[row] = [];
@@ -197,27 +205,33 @@ export default function MovieSeatBookingPage() {
               {seatGrid.map(({ row, seats }) => (
                 <HStack key={row} justify="center" spacing={2}>
                   {/* ✅ Hiển thị tên hàng (A, B, C...) */}
-                  <Text 
-                    fontSize="sm" 
-                    fontWeight="bold" 
-                    color="gray.400" 
-                    w="30px" 
+                  <Text
+                    fontSize="sm"
+                    fontWeight="bold"
+                    color="gray.400"
+                    w="30px"
                     textAlign="right"
                   >
                     {row}
                   </Text>
-                  
+
                   {seats.map((seat) => {
-                    // ✅ So sánh bằng String để tránh lỗi type
-                    const isSelected = selectedSeats.some(s => String(s.seat_number) === String(seat._seat_number));
+                    // ✅ Kiểm tra trạng thái ghế - hỗ trợ cả id và _id
+                    const seatId = seat.id || seat._id;
+                    const isSelected = selectedSeats.some((s) => (s.id || s._id) === seatId);
+                    const isBooked = seat.is_booked === true || seat.isBooked === true;
 
                     let color;
                     let hoverColor;
 
-                    if (isSelected) {
+                    // Ưu tiên: booked > selected > vip > normal
+                    if (isBooked) {
+                      color = seatTypes.booked.color;
+                      hoverColor = seatTypes.booked.color;
+                    } else if (isSelected) {
                       color = seatTypes.selected.color;
                       hoverColor = seatTypes.selected.color;
-                    } else if (seat.type === "vip") {
+                    } else if (seat.type === "vip" || seat.type === "VIP") {
                       color = seatTypes.vip.color;
                       hoverColor = "#f87171";
                     } else {
@@ -227,7 +241,7 @@ export default function MovieSeatBookingPage() {
 
                     return (
                       <Button
-                        key={seat.seat_number}
+                        key={seatId}
                         size="sm"
                         w="36px"
                         h="36px"
@@ -239,12 +253,14 @@ export default function MovieSeatBookingPage() {
                         border="none"
                         borderRadius="md"
                         _hover={{
-                          bg: hoverColor,
+                          bg: isBooked ? color : hoverColor,
                         }}
-                        onClick={() => handleSelect(seat)}
-                        cursor="pointer"
+                        onClick={() => !isBooked && handleSelect(seat)}
+                        cursor={isBooked ? "not-allowed" : "pointer"}
+                        isDisabled={isBooked}
+                        opacity={isBooked ? 0.5 : 1}
                       >
-                        {seat.seat_number.slice(1)}
+                        {seat.seat_number ? seat.seat_number.slice(1) : "?"}
                       </Button>
                     );
                   })}
@@ -258,19 +274,27 @@ export default function MovieSeatBookingPage() {
         <SimpleGrid columns={2} spacing={3} mt={6} mx="auto" maxW="500px">
           <Flex align="center" gap={2}>
             <Box w="20px" h="20px" bg={seatTypes.booked.color} borderRadius="4px" />
-            <Text fontSize="sm" color="gray.300">{seatTypes.booked.label}</Text>
+            <Text fontSize="sm" color="gray.300">
+              {seatTypes.booked.label}
+            </Text>
           </Flex>
           <Flex align="center" gap={2}>
             <Box w="20px" h="20px" bg={seatTypes.selected.color} borderRadius="4px" />
-            <Text fontSize="sm" color="gray.300">{seatTypes.selected.label}</Text>
+            <Text fontSize="sm" color="gray.300">
+              {seatTypes.selected.label}
+            </Text>
           </Flex>
           <Flex align="center" gap={2}>
             <Box w="20px" h="20px" bg={seatTypes.normal.color} borderRadius="4px" />
-            <Text fontSize="sm" color="gray.300">{seatTypes.normal.label}</Text>
+            <Text fontSize="sm" color="gray.300">
+              {seatTypes.normal.label}
+            </Text>
           </Flex>
           <Flex align="center" gap={2}>
             <Box w="20px" h="20px" bg={seatTypes.vip.color} borderRadius="4px" />
-            <Text fontSize="sm" color="gray.300">{seatTypes.vip.label}</Text>
+            <Text fontSize="sm" color="gray.300">
+              {seatTypes.vip.label}
+            </Text>
           </Flex>
         </SimpleGrid>
 
@@ -283,7 +307,9 @@ export default function MovieSeatBookingPage() {
               C13
             </Badge>
             <Box flex="1">
-              <Text fontWeight="bold" fontSize="lg">{movie.title}</Text>
+              <Text fontWeight="bold" fontSize="lg">
+                {movie.title}
+              </Text>
               <Text fontSize="sm" color="gray.400">
                 {time} · {new Date(showtime.start_time).toLocaleDateString("vi-VN")}{" "}
                 · {room?.name} · 2D Phụ đề
@@ -293,14 +319,18 @@ export default function MovieSeatBookingPage() {
 
           <Box borderTop="1px solid" borderColor="#23242a" pt={4}>
             <Flex justify="space-between" align="center" mb={3}>
-              <Text fontSize="sm" color="gray.400">Chỗ ngồi</Text>
+              <Text fontSize="sm" color="gray.400">
+                Chỗ ngồi
+              </Text>
               <Flex gap={2} flexWrap="wrap" justify="flex-end">
                 {selectedSeats.length === 0 ? (
-                  <Text fontSize="sm" color="gray.500">Chưa chọn</Text>
+                  <Text fontSize="sm" color="gray.500">
+                    Chưa chọn
+                  </Text>
                 ) : (
                   selectedSeats.map((s) => (
                     <Badge
-                      key={s._id}
+                      key={s.id || s._id}
                       colorScheme="pink"
                       display="flex"
                       alignItems="center"
@@ -313,7 +343,7 @@ export default function MovieSeatBookingPage() {
                       <CloseIcon
                         boxSize={2}
                         cursor="pointer"
-                        onClick={() => removeSeat(s._id)}
+                        onClick={() => removeSeat(s.id || s._id)}
                         _hover={{ color: "white" }}
                       />
                     </Badge>
@@ -332,11 +362,15 @@ export default function MovieSeatBookingPage() {
 
             {/* ✅ Tổng tiền */}
             <Flex justify="space-between" mb={1}>
-              <Text fontSize="sm" color="gray.400">Tiền vé</Text>
+              <Text fontSize="sm" color="gray.400">
+                Tiền vé
+              </Text>
               <Text fontWeight="bold">{seatTotal.toLocaleString("vi-VN")}đ</Text>
             </Flex>
             <Flex justify="space-between" mb={2}>
-              <Text fontSize="sm" color="gray.400">Combo bắp nước</Text>
+              <Text fontSize="sm" color="gray.400">
+                Combo bắp nước
+              </Text>
               <Text fontWeight="bold">{foodTotal.toLocaleString("vi-VN")}đ</Text>
             </Flex>
 

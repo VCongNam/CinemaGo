@@ -8,6 +8,7 @@ import CustomerManagementPage from "./pages/admin/CustomerManagementPage"
 import ReportsPage from "./pages/admin/ReportsPage"
 import UserDetailPage from "./pages/admin/UserDetailPage"
 import MovieManagementPage from "./pages/admin/MovieManagementPage"
+import BookingManagementPage from "./pages/admin/BookingManagementPage"
 
 
 // Booking pages
@@ -82,6 +83,7 @@ function App() {
               <Route path="/admin/user/:id" element={<UserDetailPage />} />
               <Route path="/admin/staffs" element={<StaffManagementPage />} />
               <Route path="/moviesmanagement" element={<MovieManagementPage />} />
+              <Route path="/admin/bookings" element={<BookingManagementPage />} />
 
               {/* Movie detail */}
               <Route path="/movies/:id" element={<MovieDetail />} />

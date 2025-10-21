@@ -8,8 +8,8 @@ export default function CustomerManagementPage() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [search, setSearch] = useState(localStorage.getItem("customerSearch") || "")
+  const [statusFilter, setStatusFilter] = useState(localStorage.getItem("customerStatusFilter") || "all")
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
   const navigate = useNavigate()
@@ -20,7 +20,6 @@ export default function CustomerManagementPage() {
     
     const fetchAllUsers = async () => {
       try {
-        // Gọi API lấy tất cả users
         const res = await fetch("http://localhost:5000/users", {
           method: "POST",
           headers: {
@@ -29,7 +28,7 @@ export default function CustomerManagementPage() {
           },
           body: JSON.stringify({
             page: 1,
-            pageSize: 100 // Số lớn để lấy tất cả
+            pageSize: 100 
           })
         })
         
@@ -37,7 +36,6 @@ export default function CustomerManagementPage() {
         
         const data = await res.json()
         
-        // Map dữ liệu để thêm trường status
         const usersWithStatus = (data.list || []).map(user => {
           let status = "active"
           if (user.status === "locked") {
@@ -63,7 +61,6 @@ export default function CustomerManagementPage() {
     navigate(`/admin/user/${user.id}`)
   }
 
-  // Hàm gọi API đổi trạng thái
   const handleToggleStatus = async (user, newStatus) => {
     const token = localStorage.getItem("token")
     
@@ -83,7 +80,6 @@ export default function CustomerManagementPage() {
       
       if (!res.ok) throw new Error(data.message || "Cập nhật trạng thái thất bại")
       
-      // Cập nhật lại danh sách user với dữ liệu mới từ API
       setUsers(users =>
         users.map(u =>
           u.id === user.id 
@@ -120,15 +116,12 @@ export default function CustomerManagementPage() {
     }
   }
 
-  // Lọc chỉ lấy user có role là "customer"
   let customerUsers = users.filter(user => user.role === "customer")
 
-  // Lọc theo trạng thái
   if (statusFilter !== "all") {
     customerUsers = customerUsers.filter(user => user.status === statusFilter)
   }
 
-  // Tìm kiếm theo tên hoặc email
   if (search.trim()) {
     customerUsers = customerUsers.filter(
       user =>
@@ -137,13 +130,11 @@ export default function CustomerManagementPage() {
     )
   }
 
-  // Tính toán phân trang
   const totalPages = Math.ceil(customerUsers.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedUsers = customerUsers.slice(startIndex, endIndex)
 
-  // Reset về trang 1 khi filter thay đổi
   useEffect(() => {
     setCurrentPage(1)
   }, [search, statusFilter])
@@ -151,6 +142,15 @@ export default function CustomerManagementPage() {
   const handlePageChange = (page) => {
     setCurrentPage(page)
   }
+
+  // ✅ Lưu search và filter vào localStorage
+  useEffect(() => {
+    localStorage.setItem("customerSearch", search)
+  }, [search])
+
+  useEffect(() => {
+    localStorage.setItem("customerStatusFilter", statusFilter)
+  }, [statusFilter])
 
   if (loading) return <p>Đang tải...</p>
   if (error) return <p>Lỗi: {error}</p>
@@ -160,6 +160,7 @@ export default function CustomerManagementPage() {
     { to: "/admin/customers", label: "Thông tin khách hàng" },
     { to: "/admin/staffs", label: "Thông tin nhân viên" },
     { to: "/moviesmanagement", label: "Quản lý phim" },
+    { to: "/admin/bookings", label: "Quản lý đặt phim" },
     { to: "/admin/reports", label: "Báo cáo khác" },
   ]
 
@@ -222,7 +223,6 @@ export default function CustomerManagementPage() {
               
               {[...Array(totalPages)].map((_, index) => {
                 const page = index + 1
-                // Hiển thị trang đầu, cuối và các trang gần current
                 if (
                   page === 1 ||
                   page === totalPages ||

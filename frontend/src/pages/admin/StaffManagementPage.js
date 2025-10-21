@@ -201,9 +201,11 @@ export default function StaffManagementPage() {
     { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
     { to: "/admin/customers", label: "Thông tin khách hàng" },
     { to: "/admin/staffs", label: "Thông tin nhân viên" },
-    { to: "/moviesmanagement", label: "Quản lí phim" },
+    { to: "/moviesmanagement", label: "Quản lý phim" },
+    { to: "/admin/bookings", label: "Quản lý đặt phim" },
     { to: "/admin/reports", label: "Báo cáo khác" },
   ]
+
 
   return (
     <Flex flex="1" bg="#0f1117" color="white">

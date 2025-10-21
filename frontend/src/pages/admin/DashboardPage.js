@@ -8,8 +8,10 @@ const adminLinks = [
     { to: "/admin/customers", label: "Thông tin khách hàng" },
     { to: "/admin/staffs", label: "Thông tin nhân viên" },
     { to: "/moviesmanagement", label: "Quản lý phim" },
+    { to: "/admin/bookings", label: "Quản lý đặt phim" },
     { to: "/admin/reports", label: "Báo cáo khác" },
   ]
+
 
 
 export default function DashboardPage() {

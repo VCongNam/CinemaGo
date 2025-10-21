@@ -47,7 +47,7 @@ const UserTable = ({ users, onViewInfo, onToggleStatus }) => {
       <Flex align="center" mb={4} gap={2}>
         <Icon as={FaUsers} color="orange.400" boxSize={5} />
         <Heading size="md" color="orange.400">
-          Danh sách người dùng
+          Danh sách tài khoản
         </Heading>
       </Flex>
       <TableContainer>
