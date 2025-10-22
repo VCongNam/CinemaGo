@@ -49,7 +49,7 @@ export const createBooking = async (req, res) => {
             user_id,
             showtime_id,
             total_price: totalPrice,
-            payment_method,
+            payment_method: 'online',
             status: 'pending', // Or 'confirmed' if payment is immediate
             payment_status: 'pending'
         });
