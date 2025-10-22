@@ -1,48 +1,54 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
+import { getCurrentVietnamTime } from "../utils/timezone.js";
 import { signAccessToken } from "../utils/jwt.js";
 import { sendResetLinkEmail } from "../utils/email.js";
 import { logAction } from "../utils/logger.js";
 
 export const registerStaff = async (req, res, next) => {
   try {
-    const { username, password, email, fullName } = req.body;
+    const { username, password, email, fullName, role } = req.body;
 
     // Validation dữ liệu đầu vào
-    if (!username || !password || !email) {
-      return res.status(400).json({ 
-        message: "Username, password và email là bắt buộc" 
+    if (!username || !password || !email || !role) {
+      return res.status(400).json({
+        message: "Username, password, email và role là bắt buộc"
       });
     }
 
+    const validStaffRoles = ["LV1", "LV2"];
+    if (!validStaffRoles.includes(role)) {
+      return res.status(400).json({ message: `Vai trò không hợp lệ. Chỉ chấp nhận: ${validStaffRoles.join(", ")}` });
+    }
+
     if (password.length < 6) {
-      return res.status(400).json({ 
-        message: "Mật khẩu phải có ít nhất 6 ký tự" 
+      return res.status(400).json({
+        message: "Mật khẩu phải có ít nhất 6 ký tự"
       });
     }
 
     // Kiểm tra username và email đã tồn tại chưa
-    const existingUser = await User.findOne({ 
-      $or: [{ username }, { email }] 
+    const existingUser = await User.findOne({
+      $or: [{ username }, { email }]
     });
-    
+
     if (existingUser) {
-      return res.status(400).json({ 
-        message: "Username hoặc email đã tồn tại" 
+      return res.status(400).json({
+        message: "Username hoặc email đã tồn tại"
       });
     }
 
     // Mã hóa mật khẩu
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     // Tạo user mới
     const newUser = await User.create({ 
       username, 
       password: hashedPassword, 
       email,
       full_name: fullName || '',
-      role: "staff" 
+      role: role
     });
 
     // Ghi log hành động tạo staff (người thực hiện là admin/staff đang đăng nhập)
@@ -97,20 +103,20 @@ export const loginStaff = async (req, res, next) => {
 export const registerCustomer = async (req, res, next) => {
   try {
     const { username, password, email, fullName } = req.body;
-    
+
     // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
     if (existingUser) {
       return res.status(400).json({ message: "Tên đăng nhập hoặc email đã tồn tại" });
     }
-    
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newCustomer = await User.create({ 
       username, 
       password: hashedPassword, 
       email,
       full_name: fullName,
-      role: "customer" 
+      role: "customer"
     });
 
     // Ghi log hành động tự đăng ký (người thực hiện là chính user mới)
@@ -167,20 +173,20 @@ export const changePassword = async (req, res, next) => {
 
     // Validation dữ liệu đầu vào
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ 
-        message: "Mật khẩu hiện tại và mật khẩu mới là bắt buộc" 
+      return res.status(400).json({
+        message: "Mật khẩu hiện tại và mật khẩu mới là bắt buộc"
       });
     }
 
     if (newPassword.length < 6) {
-      return res.status(400).json({ 
-        message: "Mật khẩu mới phải có ít nhất 6 ký tự" 
+      return res.status(400).json({
+        message: "Mật khẩu mới phải có ít nhất 6 ký tự"
       });
     }
 
     if (currentPassword === newPassword) {
-      return res.status(400).json({ 
-        message: "Mật khẩu mới phải khác mật khẩu hiện tại" 
+      return res.status(400).json({
+        message: "Mật khẩu mới phải khác mật khẩu hiện tại"
       });
     }
 
@@ -198,7 +204,7 @@ export const changePassword = async (req, res, next) => {
 
     // Mã hóa mật khẩu mới
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    
+
     // Cập nhật mật khẩu
     user.password = hashedNewPassword;
     await user.save();
@@ -286,11 +292,11 @@ export const getUsers = async (req, res, next) => {
     // Validation
     const pageNum = parseInt(page);
     const limit = parseInt(pageSize);
-    
+
     if (pageNum < 1) {
       return res.status(400).json({ message: "Page phải là số nguyên dương" });
     }
-    
+
     if (limit < 1 || limit > 100) {
       return res.status(400).json({ message: "PageSize phải từ 1 đến 100" });
     }
@@ -299,7 +305,7 @@ export const getUsers = async (req, res, next) => {
 
     // Build filter
     const filter = {};
-    
+
     // Filter by role
     if (role && role.trim() !== '') {
       filter.role = role;
@@ -308,7 +314,7 @@ export const getUsers = async (req, res, next) => {
     // Apply additional filterCriterias
     filterCriterias.forEach(criteria => {
       const { field, operator, value } = criteria;
-      
+
       switch (operator) {
         case 'equals':
           filter[field] = value;

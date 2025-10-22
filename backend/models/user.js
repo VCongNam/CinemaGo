@@ -17,7 +17,10 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: true
+        required: function() {
+            // Mật khẩu không bắt buộc nếu người dùng đăng ký qua Google (hoặc các mạng xã hội khác)
+            return !this.googleId;
+        }
     },
     full_name: {
         type: String,
@@ -36,7 +39,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ["admin", "staff", "customer"],
+        enum: ["admin", "customer", "LV1", "LV2"],
         default: "customer"
     },
     status: {
@@ -59,6 +62,9 @@ const userSchema = new mongoose.Schema({
     otp_attempts: {
         type: Number,
         default: 0
+    },
+    googleId: {
+        type: String
     }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
