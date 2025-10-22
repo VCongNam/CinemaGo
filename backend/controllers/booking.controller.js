@@ -49,9 +49,9 @@ export const createBooking = async (req, res) => {
             user_id,
             showtime_id,
             total_price: totalPrice,
-            payment_method: 'online',
-            status: 'pending', // Or 'confirmed' if payment is immediate
-            payment_status: 'pending'
+            payment_method,
+            status: 'pending',
+            payment_status: payment_method === 'cash' ? 'success' : 'pending'
         });
 
         const savedBooking = await newBooking.save({ session });
@@ -166,8 +166,8 @@ export const createOfflineBooking = async (req, res) => {
             showtime_id,
             total_price: totalPrice,
             payment_method,
-            status: 'pending', // Or 'confirmed' if payment is immediate
-            payment_status: 'pending',
+            status: 'pending',
+            payment_status: payment_method === 'cash' ? 'success' : 'pending',
         });
 
         const savedBooking = await newBooking.save({ session });
