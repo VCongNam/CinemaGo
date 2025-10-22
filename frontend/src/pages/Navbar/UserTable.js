@@ -7,11 +7,41 @@ import {
   Td,
   TableContainer,
   Tooltip,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
 } from "@chakra-ui/react";
 import { Box, Heading, Flex, Button, Icon } from "@chakra-ui/react";
-import { FaUsers, FaEye } from "react-icons/fa";
+import { FaUsers, FaEye, FaChevronDown } from "react-icons/fa";
 
 const UserTable = ({ users, onViewInfo, onToggleStatus }) => {
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "active":
+        return "green.500";
+      case "suspended":
+        return "orange.500";
+      case "locked":
+        return "red.500";
+      default:
+        return "gray.500";
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case "active":
+        return "Hoạt động";
+      case "suspended":
+        return "Tạm ngưng";
+      case "locked":
+        return "Khóa";
+      default:
+        return "Không xác định";
+    }
+  };
+
   return (
     <Box p={6} bg="#1a1d29" borderRadius="lg" shadow="md" color="white">
       <Flex align="center" mb={4} gap={2}>
@@ -44,17 +74,49 @@ const UserTable = ({ users, onViewInfo, onToggleStatus }) => {
                 <Td color="white">{user.email}</Td>
                 <Td color="white">{user.role}</Td>
                 <Td>
-                  <Button
-                    size="sm"
-                    bg={user.status === "active" ? "green.500" : "red.500"}
-                    color="white"
-                    _hover={{
-                      bg: user.status === "active" ? "green.600" : "red.600",
-                    }}
-                    onClick={() => onToggleStatus(user)}
-                  >
-                    {user.status === "active" ? "Hoạt động" : "Khóa"}
-                  </Button>
+                  <Menu>
+                    <MenuButton
+                      as={Button}
+                      size="sm"
+                      bg={getStatusColor(user.status)}
+                      color="white"
+                      rightIcon={<FaChevronDown />}
+                      _hover={{
+                        opacity: 0.8,
+                      }}
+                      _active={{
+                        bg: getStatusColor(user.status),
+                      }}
+                    >
+                      {getStatusLabel(user.status)}
+                    </MenuButton>
+                    <MenuList bg="gray.800" borderColor="gray.700">
+                      <MenuItem
+                        bg="gray.800"
+                        _hover={{ bg: "gray.700" }}
+                        onClick={() => onToggleStatus(user, "active")}
+                        isDisabled={user.status === "active"}
+                      >
+                        Kích hoạt
+                      </MenuItem>
+                      <MenuItem
+                        bg="gray.800"
+                        _hover={{ bg: "gray.700" }}
+                        onClick={() => onToggleStatus(user, "suspended")}
+                        isDisabled={user.status === "suspended"}
+                      >
+                        Tạm ngưng
+                      </MenuItem>
+                      <MenuItem
+                        bg="gray.800"
+                        _hover={{ bg: "gray.700" }}
+                        onClick={() => onToggleStatus(user, "locked")}
+                        isDisabled={user.status === "locked"}
+                      >
+                        Khóa
+                      </MenuItem>
+                    </MenuList>
+                  </Menu>
                 </Td>
                 <Td>
                   <Flex gap={2}>

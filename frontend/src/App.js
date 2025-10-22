@@ -7,7 +7,6 @@ import DashboardPage from "./pages/admin/DashboardPage"
 import StaffManagementPage from "./pages/admin/StaffManagementPage"
 import CustomerManagementPage from "./pages/admin/CustomerManagementPage"
 import ReportsPage from "./pages/admin/ReportsPage"
-import AdminLoginPage from "./pages/admin/AdminLoginPage"
 import UserDetailPage from "./pages/admin/UserDetailPage"
 
 
@@ -24,6 +23,7 @@ import ComboSelection from "./pages/bookings/ComboSelection"
 // Staff pages
 import StaffL1Page from "./pages/staff/StaffL1Page"
 import StaffL2Page from "./pages/staff/StaffL2Page"
+import TicketSeatSelectPage from "./pages/staff/TicketSeatSelectPage"
 
 // Homepage & Auth
 import HomePage from "./pages/HomePage"
@@ -37,6 +37,7 @@ import Header from "./pages/Navbar/Header"
 import AdminHeader from "./pages/Navbar/AdminHeader"
 import Footer from "./pages/Navbar/Footer"
 import SocialAuthSuccess from './pages/SocialAuthSuccess';
+import AdminAndStaffLoginPage from "./pages/admin/AdminAndStaffLoginPage"
 
 function App() {
   return (
@@ -73,6 +74,7 @@ function App() {
               {/* Staff */}
               <Route path="/staff/l1" element={<StaffL1Page />} />
               <Route path="/staff/l2" element={<StaffL2Page />} />
+              <Route path="/staff/ticket" element={<TicketSeatSelectPage />} />
 
               {/* Admin */}
               <Route path="/admin/dashboard" element={<DashboardPage />} />
