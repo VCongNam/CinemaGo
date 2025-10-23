@@ -121,7 +121,7 @@ export default function MovieSeatBookingPage() {
       });
       return;
     }
-    navigate("/staff/food", {
+    navigate("/bookings/payment", {
       state: { movie, time, showtime, room, selectedSeats, total },
     });
   };

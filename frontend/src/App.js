@@ -12,7 +12,6 @@ import UserDetailPage from "./pages/admin/UserDetailPage"
 
 // Booking pages
 import CartPage from "./pages/bookings/CartCheckoutPage"
-import PaymentPage from "./pages/bookings/PaymentPage"
 import TicketHistoryPage from "./pages/bookings/TicketHistoryPage"
 import TicketPage from "./pages/bookings/TicketInfo"
 import ETicketPage from "./pages/bookings/ETicketPage"
@@ -52,14 +51,14 @@ function App() {
               <Route index element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
-              <Route path="/admin/login" element={<AdminLoginPage />} />
+              <Route path="/admin/login" element={<AdminAndStaffLoginPage />} />
               <Route path="/logintest" element={<LoginPagetest />} />
         <Route path="/social-auth-success" element={<SocialAuthSuccess />} />
 
 
               {/* Booking */}
               <Route path="/bookings/cart" element={<CartPage />} />
-              <Route path="/bookings/payment" element={<PaymentPage />} />
+              <Route path="/bookings/payment" element={<CartPage />} />
               <Route path="/bookings/history" element={<TicketHistoryPage />} />
               <Route path="/bookings/ticket" element={<TicketPage />} />
               <Route path="/bookings/eticket" element={<ETicketPage />} />
@@ -68,7 +67,7 @@ function App() {
               <Route path="/bookings/showtimes/:movieId" element={<ShowtimeSelection />} />
               <Route path="/bookings/seats/:showtimeId" element={<SeatSelection />} />
               <Route path="/bookings/combos/:showtimeId" element={<ComboSelection />} />
-              <Route path="/bookings/payment/:showtimeId" element={<PaymentPage />} />
+              <Route path="/bookings/payment/:showtimeId" element={<CartPage />} />
               <Route path="/bookings/ticket/:bookingId" element={<TicketPage />} />
 
               {/* Staff */}
