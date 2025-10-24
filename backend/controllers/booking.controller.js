@@ -262,7 +262,6 @@ export const cancelBooking = async (req, res) => {
         const seatIdsToRelease = bookingSeats.map(bs => bs.seat_id);
 
         booking.status = 'cancelled';
-        booking.payment_status = 'refunded'; // Cân nhắc thêm trạng thái hoàn tiền
         await booking.save({ session });
 
 
