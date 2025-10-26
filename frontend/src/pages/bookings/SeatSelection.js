@@ -21,6 +21,8 @@ export default function SeatSelection() {
   const [showtime, setShowtime] = useState(null);
   const [seats, setSeats] = useState([]);
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const [isCreatingBooking, setIsCreatingBooking] = useState(false);
+
 
   useEffect(() => {
     let isMounted = true;
@@ -101,7 +103,7 @@ export default function SeatSelection() {
     }, 0);
   }, [selectedSeats, showtime]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (selectedSeats.length === 0) {
       toast({
         title: "Chưa chọn ghế",
@@ -111,15 +113,29 @@ export default function SeatSelection() {
       });
       return;
     }
-    navigate(`/bookings/payment/${showtimeId}`, {
-      state: { 
-        movie: showtime.movie_id,
-        time: new Date(showtime?.start_time?.vietnam || showtime?.start_time?.utc || showtime?.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-        showtime: showtime,
-        room: showtime.room_id,
-        selectedSeats,
-        total 
-      },
+
+    setIsCreatingBooking(true);
+
+    const bookingData = {
+      showtime_id: showtimeId,
+      seat_ids: selectedSeats.map((s) => s.id),
+      payment_method: "online",
+    };
+
+    apiService.post("/api/bookings", bookingData, (response, success) => {
+      setIsCreatingBooking(false);
+      if (success) {
+        const bookingId = response.booking._id;
+        navigate(`/bookings/checkout/${bookingId}`);
+      } else {
+        toast({
+          title: "Lỗi",
+          description: response.message || "Không thể tạo đặt vé.",
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
     });
   };
 
@@ -244,6 +260,7 @@ export default function SeatSelection() {
             <Button
               bg="#d53f8c" color="white" size="lg" w="full"
               onClick={handleNext}
+              isLoading={isCreatingBooking}
               _hover={{ bg: "#b83280" }}
             >
               Tiếp tục

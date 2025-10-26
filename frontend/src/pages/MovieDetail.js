@@ -100,10 +100,17 @@ export default function MovieDetail() {
         <Card bg="gray.800" color="white" mt={8}>
           <CardBody p={8}>
             <Heading size="md" mb={6} color="orange.400">Suất chiếu</Heading>
-            {showtimes.length ? (
-              (() => {
+            {(() => {
+                // Lọc ra các suất chiếu active
+                const activeShowtimes = showtimes.filter(s => s.status === 'active');
+
+                // Nếu không có suất chiếu active, hiển thị thông báo
+                if (activeShowtimes.length === 0) {
+                  return <Text color="gray.400">Chưa có suất chiếu cho phim này</Text>;
+                }
+
                 // Nhóm showtimes theo ngày
-                const showtimesByDate = showtimes.reduce((acc, showtime) => {
+                const showtimesByDate = activeShowtimes.reduce((acc, showtime) => {
                   const dateKey = showtime.start_time.vietnamFormatted.split(' ')[1] // Lấy phần ngày từ "09:30:00 14/10/2025"
                   if (!acc[dateKey]) {
                     acc[dateKey] = []
@@ -153,10 +160,7 @@ export default function MovieDetail() {
                     </HStack>
                   </Box>
                 ))
-              })()
-            ) : (
-              <Text color="gray.400">Chưa có suất chiếu cho phim này</Text>
-            )}
+              })()}
           </CardBody>
         </Card>
       </Container>

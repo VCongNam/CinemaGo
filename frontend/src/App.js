@@ -58,7 +58,6 @@ function App() {
 
               {/* Booking */}
               <Route path="/bookings/cart" element={<CartPage />} />
-              <Route path="/bookings/payment" element={<CartPage />} />
               <Route path="/bookings/history" element={<TicketHistoryPage />} />
               <Route path="/bookings/ticket" element={<TicketPage />} />
               <Route path="/bookings/eticket" element={<ETicketPage />} />
@@ -67,7 +66,7 @@ function App() {
               <Route path="/bookings/showtimes/:movieId" element={<ShowtimeSelection />} />
               <Route path="/bookings/seats/:showtimeId" element={<SeatSelection />} />
               <Route path="/bookings/combos/:showtimeId" element={<ComboSelection />} />
-              <Route path="/bookings/payment/:showtimeId" element={<CartPage />} />
+              <Route path="/bookings/checkout/:bookingId" element={<CartPage />} />
               <Route path="/bookings/ticket/:bookingId" element={<TicketPage />} />
 
               {/* Staff */}
