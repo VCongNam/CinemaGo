@@ -50,14 +50,26 @@ const CartCheckoutPage = () => {
 
     apiService.getById("/api/bookings/", bookingId, (data, success) => {
       if (success) {
-        setBooking(data.booking);
-        setSeats(data.seats);
+        // Nếu vé đã được xử lý (không còn ở trạng thái pending), thông báo và điều hướng
+        if (data.booking.status !== 'pending') {
+          toast({
+            title: "Giao dịch đã hoàn tất",
+            description: `Vé này đã được ${data.booking.status === 'confirmed' ? 'xác nhận thanh toán' : 'hủy'}. Bạn sẽ được chuyển về trang lịch sử.`,
+            status: "info",
+            duration: 5000,
+            isClosable: true,
+          });
+          setTimeout(() => navigate("/bookings/history"), 3000); // Điều hướng về lịch sử đặt vé
+        } else {
+          setBooking(data.booking);
+          setSeats(data.seats);
+        }
       } else {
         setError(data.message || "Không thể tải thông tin đặt vé.");
       }
       setLoading(false);
     });
-  }, [bookingId]);
+  }, [bookingId, navigate, toast]);
 
   const handleCheckout = async () => {
     setIsProcessingPayment(true);
@@ -74,7 +86,7 @@ const CartCheckoutPage = () => {
         throw new Error(paymentLinkRes.data?.message || "Tạo link thanh toán thất bại");
       }
 
-      const paymentUrl = paymentLinkRes.data?.data?.checkoutUrl;
+      const paymentUrl = paymentLinkRes.data?.data?.paymentLink;
       if (!paymentUrl) {
         throw new Error("Không nhận được link thanh toán");
       }
@@ -104,14 +116,16 @@ const CartCheckoutPage = () => {
           description: "Đã hủy đặt vé thành công.",
           status: "success",
           duration: 3000,
+          isClosable: true,
         });
-        navigate("/");
+        navigate("/bookings/cancelled");
       } else {
         toast({
           title: "Lỗi",
           description: data.message || "Không thể hủy đặt vé.",
           status: "error",
           duration: 5000,
+          isClosable: true,
         });
       }
     });
