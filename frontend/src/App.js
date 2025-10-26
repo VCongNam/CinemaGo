@@ -18,6 +18,8 @@ import ETicketPage from "./pages/bookings/ETicketPage"
 import ShowtimeSelection from "./pages/bookings/ShowtimeSelection"
 import SeatSelection from "./pages/bookings/SeatSelection"
 import ComboSelection from "./pages/bookings/ComboSelection"
+import BookingCancelledPage from "./pages/bookings/BookingCancelledPage"
+import PaymentFailedPage from "./pages/bookings/PaymentFailedPage"
 
 // Staff pages
 import StaffL1Page from "./pages/staff/StaffL1Page"
@@ -58,7 +60,6 @@ function App() {
 
               {/* Booking */}
               <Route path="/bookings/cart" element={<CartPage />} />
-              <Route path="/bookings/payment" element={<CartPage />} />
               <Route path="/bookings/history" element={<TicketHistoryPage />} />
               <Route path="/bookings/ticket" element={<TicketPage />} />
               <Route path="/bookings/eticket" element={<ETicketPage />} />
@@ -67,8 +68,10 @@ function App() {
               <Route path="/bookings/showtimes/:movieId" element={<ShowtimeSelection />} />
               <Route path="/bookings/seats/:showtimeId" element={<SeatSelection />} />
               <Route path="/bookings/combos/:showtimeId" element={<ComboSelection />} />
-              <Route path="/bookings/payment/:showtimeId" element={<CartPage />} />
+              <Route path="/bookings/checkout/:bookingId" element={<CartPage />} />
               <Route path="/bookings/ticket/:bookingId" element={<TicketPage />} />
+              <Route path="/bookings/cancelled" element={<BookingCancelledPage />} />
+              <Route path="/payment-failed" element={<PaymentFailedPage />} />
 
               {/* Staff */}
               <Route path="/staff/l1" element={<StaffL1Page />} />
