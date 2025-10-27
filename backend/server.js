@@ -15,6 +15,7 @@ import cors from "cors";
 import passport from "passport";
 import { configurePassport } from "./config/passport.js";
 import updateShowtimeStatus from "./cron/showtime.cron.js";
+import './cron/scheduler.js'; // Import để khởi chạy cron job hủy vé
 
 dotenv.config();
 

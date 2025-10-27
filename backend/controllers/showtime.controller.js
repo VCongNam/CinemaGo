@@ -1,6 +1,8 @@
 import Showtime from "../models/showtime.js";
 import Movie from "../models/movie.js";
 import Room from "../models/room.js";
+import Booking from "../models/booking.js";
+import BookingSeat from "../models/bookingSeat.js";
 import { formatForAPI, formatVietnamTime, getDayRangeVietnam } from "../utils/timezone.js";
 
 // Helper: check overlap for a room between [start,end)
@@ -321,4 +323,51 @@ export const updateShowtimeStatus = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+/**
+ * @desc    Lấy danh sách các ghế đã được đặt của một suất chiếu
+ * @route   GET /api/showtimes/:id/booked-seats
+ * @access  Public
+ */
+export const getBookedSeatsForShowtime = async (req, res, next) => {
+    try {
+        const { id: showtimeId } = req.params;
+
+        // 1. Find the showtime to make sure it exists
+        const showtime = await Showtime.findById(showtimeId);
+        if (!showtime) {
+            return res.status(404).json({ message: 'Không tìm thấy suất chiếu.' });
+        }
+
+        // 2. Find all 'pending' or 'confirmed' bookings for this showtime
+        const activeBookings = await Booking.find({
+            showtime_id: showtimeId,
+            status: { $in: ['pending', 'confirmed'] }
+        }).select('_id');
+
+        if (activeBookings.length === 0) {
+            return res.status(200).json({
+                showtime_id: showtimeId,
+                booked_seats: []
+            });
+        }
+
+        const bookingIds = activeBookings.map(b => b._id);
+
+        // 3. Find all seat IDs associated with these active bookings
+        const bookingSeats = await BookingSeat.find({
+            booking_id: { $in: bookingIds }
+        }).select('seat_id');
+
+        const bookedSeatIds = bookingSeats.map(bs => bs.seat_id);
+
+        res.status(200).json({
+            showtime_id: showtimeId,
+            booked_seats: bookedSeatIds
+        });
+
+    } catch (error) {
+        next(error);
+    }
 };
