@@ -1,5 +1,6 @@
 import { ChakraProvider, Box } from "@chakra-ui/react"
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
+import LoginPagetest from "./pages/LoginPagetest"
 
 // Admin pages
 import DashboardPage from "./pages/admin/DashboardPage"
@@ -7,25 +8,27 @@ import StaffManagementPage from "./pages/admin/StaffManagementPage"
 import CustomerManagementPage from "./pages/admin/CustomerManagementPage"
 import ReportsPage from "./pages/admin/ReportsPage"
 import UserDetailPage from "./pages/admin/UserDetailPage"
-import MovieManagementPage from "./pages/admin/MovieManagementPage"
+import ShowTimeManagementPage from "./pages/admin/ShowTimeManagementPage"
 import BookingManagementPage from "./pages/admin/BookingManagementPage"
-
+import BookingDetailPage from "./pages/admin/BookingDetailPage"
+import MovieManagementPage from "./pages/admin/MovieManagementPage"
 
 // Booking pages
 import CartPage from "./pages/bookings/CartCheckoutPage"
-import PaymentPage from "./pages/bookings/PaymentPage"
 import TicketHistoryPage from "./pages/bookings/TicketHistoryPage"
 import TicketPage from "./pages/bookings/TicketInfo"
 import ETicketPage from "./pages/bookings/ETicketPage"
 import ShowtimeSelection from "./pages/bookings/ShowtimeSelection"
 import SeatSelection from "./pages/bookings/SeatSelection"
 import ComboSelection from "./pages/bookings/ComboSelection"
+import BookingCancelledPage from "./pages/bookings/BookingCancelledPage"
+import PaymentFailedPage from "./pages/bookings/PaymentFailedPage"
 
 // Staff pages
 import StaffL1Page from "./pages/staff/StaffL1Page"
 import StaffL2Page from "./pages/staff/StaffL2Page"
 import TicketSeatSelectPage from "./pages/staff/TicketSeatSelectPage"
-import StaffPaymentPage from "./pages/staff/StaffPaymentPage"
+import StaffPaymentPage from "./pages/bookings/StaffPaymentPage"
 
 // Homepage & Auth
 import HomePage from "./pages/HomePage"
@@ -38,6 +41,7 @@ import ChangePasswordPage from "./pages/ChangePasswordPage"
 import Header from "./pages/Navbar/Header"
 import AdminHeader from "./pages/Navbar/AdminHeader"
 import Footer from "./pages/Navbar/Footer"
+import SocialAuthSuccess from './pages/SocialAuthSuccess';
 import AdminAndStaffLoginPage from "./pages/admin/AdminAndStaffLoginPage"
 
 function App() {
@@ -54,11 +58,12 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/admin/login" element={<AdminAndStaffLoginPage />} />
+              <Route path="/logintest" element={<LoginPagetest />} />
+        <Route path="/social-auth-success" element={<SocialAuthSuccess />} />
 
 
               {/* Booking */}
               <Route path="/bookings/cart" element={<CartPage />} />
-              <Route path="/bookings/payment" element={<PaymentPage />} />
               <Route path="/bookings/history" element={<TicketHistoryPage />} />
               <Route path="/bookings/ticket" element={<TicketPage />} />
               <Route path="/bookings/eticket" element={<ETicketPage />} />
@@ -67,8 +72,10 @@ function App() {
               <Route path="/bookings/showtimes/:movieId" element={<ShowtimeSelection />} />
               <Route path="/bookings/seats/:showtimeId" element={<SeatSelection />} />
               <Route path="/bookings/combos/:showtimeId" element={<ComboSelection />} />
-              <Route path="/bookings/payment/:showtimeId" element={<PaymentPage />} />
+              <Route path="/bookings/checkout/:bookingId" element={<CartPage />} />
               <Route path="/bookings/ticket/:bookingId" element={<TicketPage />} />
+              <Route path="/bookings/cancelled" element={<BookingCancelledPage />} />
+              <Route path="/payment-failed" element={<PaymentFailedPage />} />
 
               {/* Staff */}
               <Route path="/staff/l1" element={<StaffL1Page />} />
@@ -82,8 +89,12 @@ function App() {
               <Route path="/admin/reports" element={<ReportsPage />} />
               <Route path="/admin/user/:id" element={<UserDetailPage />} />
               <Route path="/admin/staffs" element={<StaffManagementPage />} />
-              <Route path="/moviesmanagement" element={<MovieManagementPage />} />
+              <Route path="/showtimes" element={<ShowTimeManagementPage />} />
               <Route path="/admin/bookings" element={<BookingManagementPage />} />
+              <Route path="/admin/bookings/:id" element={<BookingDetailPage />} />
+              <Route path="/admin/movies" element={<MovieManagementPage />} />
+
+
 
               {/* Movie detail */}
               <Route path="/movies/:id" element={<MovieDetail />} />
@@ -96,6 +107,8 @@ function App() {
 
               {/* Not found */}
               <Route path="*" element={<h1>404 - Not Found</h1>} />
+
+
             </Routes>
           </Box>
           <Footer />

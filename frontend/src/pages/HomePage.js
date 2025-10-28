@@ -14,8 +14,12 @@ import {
   CardBody,
   Heading,
   Divider,
+  Spinner,
+  Collapse,
+  IconButton,
+  Flex,
 } from "@chakra-ui/react"
-import { StarIcon, TimeIcon, CalendarIcon } from "@chakra-ui/icons"
+import { StarIcon, TimeIcon, CalendarIcon, ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons"
 import { useEffect, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import apiService from "../services/apiService"
@@ -27,9 +31,14 @@ const Homepage = () => {
   const [featuredList, setFeaturedList] = useState([])
   const [featuredIndex, setFeaturedIndex] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 4 // 4 phim mỗi trang
+  const pageSize = 3 // 3 phim mỗi trang
   const [selectedCategory, setSelectedCategory] = useState("")
   const [selectedCategories, setSelectedCategories] = useState([])
+  const [selectedShowtimes, setSelectedShowtimes] = useState([])
+  const [allShowtimes, setAllShowtimes] = useState([])
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [isGenreOpen, setIsGenreOpen] = useState(false)
+  const [isShowtimeOpen, setIsShowtimeOpen] = useState(false)
   const navigate = useNavigate()
 
   // Lấy danh sách phim
@@ -70,6 +79,18 @@ const Homepage = () => {
     }
   }, [])
 
+  // Lấy tất cả showtimes từ database
+  useEffect(() => {
+    let isMounted = true
+    apiService.getPublic("/api/showtimes", {}, (data, success) => {
+      if (!isMounted) return
+      if (success) {
+        setAllShowtimes(Array.isArray(data?.data) ? data.data : [])
+      }
+    })
+    return () => { isMounted = false }
+  }, [])
+
   // Tự động đổi slide
   useEffect(() => {
     if (!featuredList.length) return
@@ -84,21 +105,56 @@ const Homepage = () => {
     return `${minutes} phút`
   }
 
-  // Lấy danh sách suất chiếu hôm nay
-  const todayShowtimes = [
-    ["10:00", "14:30", "18:00", "21:30"],
-    ["11:00", "15:30", "19:00", "22:00"],
-    ["12:00", "16:30", "20:00", "23:00"],
-    ["13:00", "17:30", "21:00", "23:30"],
-  ]
+  // Lấy tất cả showtimes duy nhất của hôm nay
+  const getAllUniqueShowtimes = () => {
+    const allTimes = allShowtimes
+      .filter(st => st.status === 'active' && isToday(st.start_time.vietnamFormatted))
+      .map(st => {
+        const timeMatch = st.start_time.vietnamFormatted.match(/^(\d{2}:\d{2})/)
+        return timeMatch ? timeMatch[1] : st.start_time.vietnamFormatted.split(' ')[0]
+      })
+    
+    return [...new Set(allTimes)].sort()
+  }
 
-  // Lấy danh sách suất chiếu hôm nay
-  const getRandomShowtimes = (index) => todayShowtimes[index % todayShowtimes.length]
+  // Kiểm tra xem một ngày có phải hôm nay không (theo múi giờ Việt Nam)
+  const isToday = (dateString) => {
+    const today = new Date()
+    const vietnamToday = new Date(today.toLocaleString("en-US", {timeZone: "Asia/Ho_Chi_Minh"}))
+    
+    // Parse date từ vietnamFormatted string (format: "09:30:00 14/10/2025")
+    const dateMatch = dateString.match(/(\d{2}\/\d{2}\/\d{4})/)
+    if (!dateMatch) return false
+    
+    const [day, month, year] = dateMatch[1].split('/')
+    const showtimeDate = new Date(year, month - 1, day)
+    
+    return showtimeDate.toDateString() === vietnamToday.toDateString()
+  }
+
+  // Lấy showtimes cho một phim cụ thể trong ngày hôm nay (loại bỏ trùng lặp)
+  const getMovieShowtimes = (movieId) => {
+    const movieShowtimes = allShowtimes.filter(st => 
+      st.movie_id._id === movieId && 
+      st.status === 'active' &&
+      isToday(st.start_time.vietnamFormatted)
+    )
+    
+    // Extract time từ vietnamFormatted string và loại bỏ trùng lặp
+    const allTimes = movieShowtimes.map(st => {
+      const timeMatch = st.start_time.vietnamFormatted.match(/^(\d{2}:\d{2})/)
+      return timeMatch ? timeMatch[1] : st.start_time.vietnamFormatted.split(' ')[0]
+    })
+    
+    // Loại bỏ trùng lặp và sắp xếp
+    const uniqueTimes = [...new Set(allTimes)].sort()
+    return uniqueTimes
+  }
 
   // Reset trang khi thay đổi filter
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedCategory, selectedCategories, movies])
+  }, [selectedCategory, selectedCategories, selectedShowtimes, movies])
 
   // Read query params for search and categories
   const location = useLocation()
@@ -117,6 +173,14 @@ const Homepage = () => {
       const has = (m.genre || []).some((g) => selectedCategories.includes(g))
       if (!has) return false
     }
+    
+    // filter by showtimes (if any)
+    if (selectedShowtimes && selectedShowtimes.length > 0) {
+      const movieShowtimes = getMovieShowtimes(m._id)
+      const hasShowtime = selectedShowtimes.some((time) => movieShowtimes.includes(time))
+      if (!hasShowtime) return false
+    }
+    
     // filter by search query in title
     if (searchQuery) {
       return (m.title || "").toLowerCase().includes(searchQuery.toLowerCase())
@@ -125,8 +189,8 @@ const Homepage = () => {
   })
 
   return (
-    <Box bg="gray.50" pb={10}>
-      <Box position="relative" height={{ base: "320px", md: "420px" }} bg="gray.900" mb={10} overflow="hidden">
+    <Box bg="gray.900" minH="calc(100vh - 140px)">
+      <Box position="relative" height={{ base: "320px", md: "420px" }} bg="gray.800" mb={10} overflow="hidden">
         {featuredList[featuredIndex]?.poster_url && (
           <Box
             position="absolute"
@@ -156,18 +220,28 @@ const Homepage = () => {
               />
             )}
             <VStack align="start" spacing={4} color="white" maxW={{ base: "100%", md: "55%" }}>
-              <Heading size={{ base: "lg", md: "2xl" }}>Trải nghiệm điện ảnh đỉnh cao</Heading>
+              <Heading size={{ base: "lg", md: "2xl" }} color="orange.400">Trải nghiệm điện ảnh đỉnh cao</Heading>
               <Text color="gray.200">
                 Thưởng thức những bộ phim bom tấn với chất lượng hình ảnh 4K và âm thanh Dolby Atmos
               </Text>
               <HStack spacing={4}>
-                <Button bg="orange.400" _hover={{ bg: "orange.500" }} onClick={() => {
-                  const id = featuredList[featuredIndex]?._id
-                  if (id) navigate(`/movies/${id}`)
-                }}>
+                <Button 
+                  bg="orange.400" 
+                  color="white"
+                  _hover={{ bg: "orange.500" }} 
+                  onClick={() => {
+                    const id = featuredList[featuredIndex]?._id
+                    if (id) navigate(`/movies/${id}`)
+                  }}
+                >
                   Đặt vé ngay
                 </Button>
-                <Button variant="outline" borderColor="gray.300" color="white" _hover={{ bg: "whiteAlpha.200" }}>
+                <Button 
+                  variant="outline" 
+                  borderColor="gray.600" 
+                  color="gray.300" 
+                  _hover={{ bg: "gray.700", borderColor: "orange.400", color: "orange.400" }}
+                >
                   Xem lịch chiếu
                 </Button>
               </HStack>
@@ -176,144 +250,281 @@ const Homepage = () => {
         </Container>
       </Box>
 
-      <Container maxW="1200px">
-        <Heading as="h2" size="xl" textAlign="center" mb={4}>
-          Phim đang chiếu
-        </Heading>
+      <Container maxW="1400px" pb={10}>
+        <Flex gap={6}>
+          {/* Sidebar Filter */}
+          <Box w="280px" flexShrink={0}>
+            <Card bg="gray.800" color="white" border="1px solid" borderColor="gray.700">
+              <CardBody p={6}>
+                <VStack align="stretch" spacing={4}>
+                  <HStack justify="space-between" align="center">
+                    <Heading size="md" color="orange.400">Bộ lọc</Heading>
+                    <IconButton
+                      aria-label={isFilterOpen ? "Thu gọn bộ lọc" : "Mở rộng bộ lọc"}
+                      icon={isFilterOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                      size="sm"
+                      variant="ghost"
+                      color="gray.300"
+                      _hover={{ color: "orange.400" }}
+                      onClick={() => setIsFilterOpen(!isFilterOpen)}
+                    />
+                  </HStack>
+                  
+                  <Collapse in={isFilterOpen}>
+                    <VStack align="stretch" spacing={4}>
+                      {/* Thể loại phim dropdown */}
+                      <Box>
+                        <HStack justify="space-between" align="center" cursor="pointer" onClick={() => setIsGenreOpen(!isGenreOpen)}>
+                          <Text fontSize="md" color="gray.200" fontWeight="medium">
+                            Thể loại phim
+                          </Text>
+                          <IconButton
+                            aria-label={isGenreOpen ? "Thu gọn thể loại" : "Mở rộng thể loại"}
+                            icon={isGenreOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                            size="xs"
+                            variant="ghost"
+                            color="gray.300"
+                            _hover={{ color: "orange.400" }}
+                          />
+                        </HStack>
+                        
+                        <Collapse in={isGenreOpen}>
+                          {!loading && !error && (
+                            (() => {
+                              const allGenres = Array.from(new Set(movies.flatMap((m) => m.genre || [])))
+                              return (
+                                <VStack align="stretch" spacing={3} mt={3}>
+                                  <CheckboxGroup
+                                    colorScheme="orange"
+                                    value={selectedCategories}
+                                    onChange={(vals) => {
+                                      setSelectedCategories(Array.isArray(vals) ? vals : [vals])
+                                      setSelectedCategory("")
+                                    }}
+                                  >
+                                    <VStack align="stretch" spacing={2}>
+                                      {allGenres.map((genre) => (
+                                        <Checkbox key={genre} value={genre} color="gray.300">
+                                          <Text fontSize="sm">{genre}</Text>
+                                        </Checkbox>
+                                      ))}
+                                    </VStack>
+                                  </CheckboxGroup>
+                                  
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    borderColor="gray.600"
+                                    color="gray.300"
+                                    _hover={{ borderColor: "orange.400", color: "orange.400" }}
+                                    onClick={() => setSelectedCategories([])}
+                                  >
+                                    Xóa tất cả
+                                  </Button>
+                                </VStack>
+                              )
+                            })()
+                          )}
+                        </Collapse>
+                      </Box>
 
-        {/* Category filter (multi-select checkboxes) */}
-        {!loading && !error && (
-          (() => {
-            const allGenres = Array.from(new Set(movies.flatMap((m) => m.genre || [])))
-            return (
-              <HStack spacing={3} justify="center" mb={6}>
-                <Box overflowX="auto" w="full" maxW="900px" px={2}>
-                  <CheckboxGroup
-                    colorScheme="orange"
-                    value={selectedCategories}
-                    onChange={(vals) => {
-                      // Chakra CheckboxGroup returns array of values
-                      setSelectedCategories(Array.isArray(vals) ? vals : [vals])
-                      setSelectedCategory("")
-                    }}
-                  >
-                    <HStack spacing={4} wrap="nowrap">
-                      {allGenres.map((g) => (
-                        <Checkbox key={g} value={g} flex="0 0 auto">
-                          {g}
-                        </Checkbox>
-                      ))}
-                    </HStack>
-                  </CheckboxGroup>
-                </Box>
-
-                <Button size="sm" variant="ghost" colorScheme="red" onClick={() => setSelectedCategories([])}>
-                  Xóa chọn
-                </Button>
-              </HStack>
-            )
-          })()
-        )}
-
-        {loading && (
-          <Text textAlign="center">Đang tải danh sách phim...</Text>
-        )}
-
-        {!!error && !loading && (
-          <Text textAlign="center" color="red.500">{error}</Text>
-        )}
-
-        {!loading && !error && (
-          <>
-          <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }} gap={6}>
-            {filteredMovies
-              .slice((currentPage - 1) * pageSize, currentPage * pageSize)
-              .map((movie, idx) => (
-              <Card key={movie._id || idx} bg="gray.900" color="white" borderRadius="md">
-                <Box position="relative">
-                  <Image
-                    src={movie.poster_url}
-                    alt={movie.title}
-                    borderTopRadius="md"
-                    height="260px"
-                    width="100%"
-                    objectFit="cover"
-                    fallbackSrc="https://via.placeholder.com/300x450?text=No+Image"
-                  />
-                  {movie.rating && (
-                    <Badge position="absolute" top={2} left={2} bg="orange.400" color="white" px={2} py={1} borderRadius="md" display="flex" alignItems="center" gap={1}>
-                      <StarIcon />
-                      {movie.rating}
-                    </Badge>
-                  )}
-                </Box>
-
-                <CardBody>
-                  <VStack align="start" spacing={3}>
-                    <Heading size="md">{movie.title}</Heading>
-                    <Text fontSize="sm" color="gray.300">
-                      {(movie.genre || []).join(", ")}
-                    </Text>
-                    <HStack spacing={2} color="gray.300">
-                      <TimeIcon />
-                      <Text fontSize="sm">{formatDuration(movie.duration)}</Text>
-                    </HStack>
-
-                    <Divider borderColor="gray.700" />
-
-                    <VStack align="start" spacing={2} width="100%">
-                      <HStack color="gray.300" spacing={2}>
-                        <CalendarIcon />
-                        <Text fontSize="sm">Suất chiếu hôm nay:</Text>
-                      </HStack>
-                      <HStack wrap="wrap" spacing={2}>
-                        {getRandomShowtimes(idx).map((time) => (
-                          <Box key={time} px={2} py={1} borderRadius="md" bg="gray.800" fontSize="sm">
-                            {time}
-                          </Box>
-                        ))}
-                      </HStack>
+                      {/* Showtime dropdown */}
+                      <Box>
+                        <HStack justify="space-between" align="center" cursor="pointer" onClick={() => setIsShowtimeOpen(!isShowtimeOpen)}>
+                          <Text fontSize="md" color="gray.200" fontWeight="medium">
+                            Showtime
+                          </Text>
+                          <IconButton
+                            aria-label={isShowtimeOpen ? "Thu gọn showtime" : "Mở rộng showtime"}
+                            icon={isShowtimeOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                            size="xs"
+                            variant="ghost"
+                            color="gray.300"
+                            _hover={{ color: "orange.400" }}
+                          />
+                        </HStack>
+                        
+                        <Collapse in={isShowtimeOpen}>
+                          <VStack align="stretch" spacing={3} mt={3}>
+                            <Text fontSize="sm" color="gray.300" fontWeight="medium">
+                              Chọn suất chiếu
+                            </Text>
+                            <CheckboxGroup
+                              colorScheme="orange"
+                              value={selectedShowtimes}
+                              onChange={(vals) => {
+                                setSelectedShowtimes(Array.isArray(vals) ? vals : [vals])
+                                setSelectedCategory("")
+                              }}
+                            >
+                              <VStack align="stretch" spacing={2}>
+                                {getAllUniqueShowtimes().map((showtime) => (
+                                  <Checkbox key={showtime} value={showtime} color="gray.300">
+                                    <Text fontSize="sm">{showtime}</Text>
+                                  </Checkbox>
+                                ))}
+                              </VStack>
+                            </CheckboxGroup>
+                            
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              borderColor="gray.600"
+                              color="gray.300"
+                              _hover={{ borderColor: "orange.400", color: "orange.400" }}
+                              onClick={() => setSelectedShowtimes([])}
+                            >
+                              Xóa tất cả
+                            </Button>
+                          </VStack>
+                        </Collapse>
+                      </Box>
                     </VStack>
+                  </Collapse>
+                </VStack>
+              </CardBody>
+            </Card>
+          </Box>
 
-                    <Button bg="orange.400" _hover={{ bg: "orange.500" }} width="100%" onClick={() => navigate(`/movies/${movie._id}`)}>
-                      Xem chi tiết
+          {/* Main Content */}
+          <Box flex="1">
+            <Heading as="h2" size="xl" textAlign="center" mb={6} color="orange.400">
+              Phim đang chiếu
+            </Heading>
+
+            {loading && (
+              <Box textAlign="center" py={10}>
+                <Spinner color="orange.400" size="xl" />
+                <Text color="gray.300" mt={4}>Đang tải danh sách phim...</Text>
+              </Box>
+            )}
+
+            {!!error && !loading && (
+              <Text textAlign="center" color="red.400" py={10}>{error}</Text>
+            )}
+
+            {!loading && !error && (
+              <>
+                <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }} gap={6}>
+                  {filteredMovies
+                    .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                    .map((movie, idx) => (
+                    <Card key={movie._id || idx} bg="gray.800" color="white" borderRadius="md" border="1px solid" borderColor="gray.700">
+                      <Box position="relative">
+                        <Image
+                          src={movie.poster_url}
+                          alt={movie.title}
+                          borderTopRadius="md"
+                          height="260px"
+                          width="100%"
+                          objectFit="cover"
+                          fallbackSrc="https://via.placeholder.com/300x450?text=No+Image"
+                        />
+                        {movie.rating && (
+                          <Badge position="absolute" top={2} left={2} bg="orange.400" color="white" px={2} py={1} borderRadius="md" display="flex" alignItems="center" gap={1}>
+                            <StarIcon />
+                            {movie.rating}
+                          </Badge>
+                        )}
+                      </Box>
+
+                      <CardBody>
+                        <VStack align="start" spacing={3}>
+                          <Heading size="md" color="orange.400">{movie.title}</Heading>
+                          <Text fontSize="sm" color="gray.300">
+                            {(movie.genre || []).join(", ")}
+                          </Text>
+                          <HStack spacing={2} color="gray.300">
+                            <TimeIcon />
+                            <Text fontSize="sm">{formatDuration(movie.duration)}</Text>
+                          </HStack>
+
+                          <Divider borderColor="gray.600" />
+
+                          <VStack align="start" spacing={2} width="100%">
+                            <HStack color="gray.300" spacing={2}>
+                              <CalendarIcon />
+                              <Text fontSize="sm">Suất chiếu hôm nay:</Text>
+                            </HStack>
+                            <HStack wrap="wrap" spacing={2}>
+                              {getMovieShowtimes(movie._id).length > 0 ? (
+                                getMovieShowtimes(movie._id).map((time) => (
+                                  <Box key={time} px={2} py={1} borderRadius="md" bg="gray.700" fontSize="sm" color="white">
+                                    {time}
+                                  </Box>
+                                ))
+                              ) : (
+                                <Text fontSize="sm" color="gray.400">Không có suất chiếu hôm nay</Text>
+                              )}
+                            </HStack>
+                          </VStack>
+
+                          <Button 
+                            bg="orange.400" 
+                            color="white"
+                            _hover={{ bg: "orange.500" }} 
+                            width="100%" 
+                            onClick={() => navigate(`/movies/${movie._id}`)}
+                          >
+                            Xem chi tiết
+                          </Button>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+                  ))}
+                </Grid>
+
+                {/* Pagination */}
+                <HStack justify="center" spacing={2} mt={8}>
+                  <Button
+                    size="sm"
+                    bg="gray.700"
+                    color="gray.300"
+                    border="1px solid"
+                    borderColor="gray.600"
+                    _hover={{ bg: "orange.400", borderColor: "orange.400", color: "white" }}
+                    _disabled={{ bg: "gray.800", color: "gray.500", borderColor: "gray.700" }}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    isDisabled={currentPage === 1}
+                  >
+                    Trước
+                  </Button>
+                  {Array.from({ length: Math.max(1, Math.ceil(filteredMovies.length / pageSize)) }).map((_, i) => (
+                    <Button
+                      key={i}
+                      size="sm"
+                      bg={currentPage === i + 1 ? "orange.400" : "gray.700"}
+                      color={currentPage === i + 1 ? "white" : "gray.300"}
+                      border="1px solid"
+                      borderColor={currentPage === i + 1 ? "orange.400" : "gray.600"}
+                      _hover={{ 
+                        bg: currentPage === i + 1 ? "orange.500" : "orange.400", 
+                        borderColor: "orange.400", 
+                        color: "white" 
+                      }}
+                      onClick={() => setCurrentPage(i + 1)}
+                    >
+                      {i + 1}
                     </Button>
-                  </VStack>
-                </CardBody>
-              </Card>
-            ))}
-          </Grid>
-
-          {/* Pagination */}
-          <HStack justify="center" spacing={2} mt={8}>
-            <Button
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              isDisabled={currentPage === 1}
-            >
-              Trước
-            </Button>
-            {Array.from({ length: Math.max(1, Math.ceil(filteredMovies.length / pageSize)) }).map((_, i) => (
-              <Button
-                key={i}
-                size="sm"
-                variant={currentPage === i + 1 ? "solid" : "outline"}
-                colorScheme={currentPage === i + 1 ? "orange" : undefined}
-                onClick={() => setCurrentPage(i + 1)}
-              >
-                {i + 1}
-              </Button>
-            ))}
-            <Button
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.min(Math.ceil(filteredMovies.length / pageSize), p + 1))}
-              isDisabled={currentPage === Math.ceil(filteredMovies.length / pageSize) || filteredMovies.length === 0}
-            >
-              Sau
-            </Button>
-          </HStack>
-          </>
-        )}
+                  ))}
+                  <Button
+                    size="sm"
+                    bg="gray.700"
+                    color="gray.300"
+                    border="1px solid"
+                    borderColor="gray.600"
+                    _hover={{ bg: "orange.400", borderColor: "orange.400", color: "white" }}
+                    _disabled={{ bg: "gray.800", color: "gray.500", borderColor: "gray.700" }}
+                    onClick={() => setCurrentPage((p) => Math.min(Math.ceil(filteredMovies.length / pageSize), p + 1))}
+                    isDisabled={currentPage === Math.ceil(filteredMovies.length / pageSize) || filteredMovies.length === 0}
+                  >
+                    Sau
+                  </Button>
+                </HStack>
+              </>
+            )}
+          </Box>
+        </Flex>
       </Container>
     </Box>
   )

@@ -2,6 +2,7 @@ import Theater from "../models/theater.js";
 import Room from "../models/room.js";
 import Seat from "../models/seat.js";
 import mongoose from "mongoose";
+import { logAction } from "../utils/logger.js";
 
 // Lấy danh sách tất cả rạp (chỉ admin)
 export const getAllTheaters = async (req, res, next) => {
@@ -242,6 +243,9 @@ export const createTheater = async (req, res, next) => {
       status: 'active'
     });
 
+    // Ghi log hành động tạo
+    await logAction(req.user.id, 'Theater', theater._id, 'document', null, theater);
+
     res.status(201).json({
       success: true,
       message: "Tạo rạp thành công",
@@ -259,31 +263,31 @@ export const updateTheater = async (req, res, next) => {
     const { name, location, status } = req.body;
 
     if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "ID rạp không hợp lệ" 
+        message: "ID rạp không hợp lệ"
       });
     }
 
-    const theater = await Theater.findById(id);
-    if (!theater) {
-      return res.status(404).json({ 
+    const oldTheater = await Theater.findById(id).lean();
+    if (!oldTheater) {
+      return res.status(404).json({
         success: false,
-        message: "Không tìm thấy rạp" 
+        message: "Không tìm thấy rạp"
       });
     }
 
     // Kiểm tra tên rạp trùng lặp (nếu có thay đổi tên)
-    if (name && name !== theater.name) {
-      const existingTheater = await Theater.findOne({ 
+    if (name && name !== oldTheater.name) {
+      const existingTheater = await Theater.findOne({
         name: { $regex: new RegExp(`^${name}$`, 'i') },
         _id: { $ne: id }
       });
 
       if (existingTheater) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: "Tên rạp đã tồn tại" 
+          message: "Tên rạp đã tồn tại"
         });
       }
     }
@@ -299,6 +303,14 @@ export const updateTheater = async (req, res, next) => {
       updateData,
       { new: true, runValidators: true }
     );
+
+    // Ghi log cho các trường đã thay đổi
+    const changes = Object.keys(updateData);
+    for (const field of changes) {
+      if (oldTheater[field] !== updatedTheater[field]) {
+        await logAction(req.user.id, 'Theater', updatedTheater._id, field, oldTheater[field], updatedTheater[field]);
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -342,6 +354,9 @@ export const deleteTheater = async (req, res, next) => {
     // Soft delete - cập nhật status thành inactive
     await Theater.findByIdAndUpdate(id, { status: 'inactive' });
 
+    // Ghi log hành động xóa (thay đổi status)
+    await logAction(req.user.id, 'Theater', theater._id, 'status', theater.status, 'inactive');
+
     res.status(200).json({
       success: true,
       message: "Xóa rạp thành công"
@@ -384,6 +399,9 @@ export const updateTheaterStatus = async (req, res, next) => {
       { status },
       { new: true }
     );
+
+    // Ghi log hành động thay đổi status
+    await logAction(req.user.id, 'Theater', theater._id, 'status', theater.status, updatedTheater.status);
 
     res.status(200).json({
       success: true,

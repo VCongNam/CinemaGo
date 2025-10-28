@@ -10,8 +10,10 @@
 export const toVietnamTime = (date) => {
   if (!date) return null;
   const utcDate = new Date(date);
-  // This creates a new Date object whose UTC time is the intended Vietnam time.
-  return new Date(utcDate.getTime() + (7 * 60 * 60 * 1000));
+  // The input 'date' object already represents a specific moment in time (internally as UTC).
+  // We should not add any offset, as that corrupts the time value.
+  // The comparison in the validation logic will correctly compare two Date objects.
+  return new Date(utcDate);
 };
 
 /**

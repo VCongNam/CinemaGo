@@ -15,6 +15,18 @@ export default function CustomerManagementPage() {
   const navigate = useNavigate()
   const toast = useToast()
 
+  // Hàm xác định trạng thái từ dữ liệu API
+  const determineStatus = (user) => {
+    // Ưu tiên status từ API nếu có
+    if (user.status === "locked") {
+      return "locked"
+    }
+    if (user.status === "suspended" || user.suspendedAt) {
+      return "suspended"
+    }
+    return "active"
+  }
+
   useEffect(() => {
     const token = localStorage.getItem("token")
     
@@ -36,15 +48,11 @@ export default function CustomerManagementPage() {
         
         const data = await res.json()
         
-        const usersWithStatus = (data.list || []).map(user => {
-          let status = "active"
-          if (user.status === "locked") {
-            status = "locked"
-          } else if (user.suspendedAt) {
-            status = "suspended"
-          }
-          return { ...user, status }
-        })
+        // Sử dụng hàm determineStatus để xác định trạng thái chính xác
+        const usersWithStatus = (data.list || []).map(user => ({
+          ...user,
+          status: determineStatus(user)
+        }))
         
         setUsers(usersWithStatus)
       } catch (err) {
@@ -80,13 +88,14 @@ export default function CustomerManagementPage() {
       
       if (!res.ok) throw new Error(data.message || "Cập nhật trạng thái thất bại")
       
+      // Cập nhật state với dữ liệu từ API response
       setUsers(users =>
         users.map(u =>
           u.id === user.id 
             ? { 
-                ...u, 
-                suspendedAt: data.data?.suspendedAt || null,
-                status: newStatus
+                ...u,
+                ...data.data, // Lấy toàn bộ dữ liệu updated từ API
+                status: determineStatus(data.data) // Tính toán lại status
               } 
             : u
         )
@@ -143,7 +152,6 @@ export default function CustomerManagementPage() {
     setCurrentPage(page)
   }
 
-  // ✅ Lưu search và filter vào localStorage
   useEffect(() => {
     localStorage.setItem("customerSearch", search)
   }, [search])
@@ -155,18 +163,9 @@ export default function CustomerManagementPage() {
   if (loading) return <p>Đang tải...</p>
   if (error) return <p>Lỗi: {error}</p>
 
-  const adminLinks = [
-    { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
-    { to: "/admin/customers", label: "Thông tin khách hàng" },
-    { to: "/admin/staffs", label: "Thông tin nhân viên" },
-    { to: "/moviesmanagement", label: "Quản lý phim" },
-    { to: "/admin/bookings", label: "Quản lý đặt phim" },
-    { to: "/admin/reports", label: "Báo cáo khác" },
-  ]
-
   return (
     <Flex flex="1" bg="#0f1117" color="white">
-      <Sidebar links={adminLinks} />
+      <Sidebar/>
       <Box flex="1" p={6}>
         <Box mb={4}>
           <Flex gap={4}>
@@ -202,7 +201,6 @@ export default function CustomerManagementPage() {
           onToggleStatus={handleToggleStatus}
         />
         
-        {/* Pagination */}
         {totalPages > 1 && (
           <Flex justify="space-between" align="center" mt={6}>
             <Text color="gray.400" fontSize="sm">

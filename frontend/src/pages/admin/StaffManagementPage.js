@@ -19,11 +19,11 @@ import {
   Flex,
   Select,
   HStack,
-  useToast
+  useToast,
 } from "@chakra-ui/react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../Navbar/Sidebar"
-import UserTable from "../Navbar/UserTable"
+import StaffTable from "../Navbar/StaffTable"
 
 export default function StaffManagementPage() {
   const [staffs, setStaffs] = useState([])
@@ -40,8 +40,12 @@ export default function StaffManagementPage() {
     fullName: "",
     role: "LV1"
   })
+  const [editingStaff, setEditingStaff] = useState(null)
+  const [newRole, setNewRole] = useState("")
   const [creating, setCreating] = useState(false)
+  const [updatingRole, setUpdatingRole] = useState(false)
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure()
   const toast = useToast()
   const navigate = useNavigate()
 
@@ -57,29 +61,26 @@ export default function StaffManagementPage() {
           ...(token && { Authorization: `Bearer ${token}` })
         },
         body: JSON.stringify({
-  page: 1,
-  pageSize: 100,
-  orderBy: "created_at",
-  orderDir: "DESC",
-  filterCriterias: [
-    {
-      field: "role",
-      operator: "in",
-      value: ["LV1", "LV2"]
-    }
-  ]
-})
-
+          page: 1,
+          pageSize: 100,
+          orderBy: "created_at",
+          orderDir: "DESC",
+          filterCriterias: [
+            {
+              field: "role",
+              operator: "in",
+              value: ["LV1", "LV2"]
+            }
+          ]
+        })
       })
       if (!res.ok) throw new Error("Không thể tải danh sách nhân viên.")
       const data = await res.json()
 
-      const staffsWithStatus = (data.list || []).map(staff => {
-        let status = "active"
-        if (staff.status === "locked") status = "locked"
-        else if (staff.suspendedAt) status = "suspended"
-        return { ...staff, status }
-      })
+      const staffsWithStatus = (data.list || []).map(staff => ({
+        ...staff,
+        status: determineStatus(staff)
+      }))
       setStaffs(staffsWithStatus)
     } catch (err) {
       setError(err.message)
@@ -130,6 +131,95 @@ export default function StaffManagementPage() {
     }
   }
 
+  // ✅ Mở modal cập nhật role
+  const handleOpenEditRole = (staff) => {
+    setEditingStaff(staff)
+    setNewRole(staff.role)
+    onEditOpen()
+  }
+
+  // ✅ Cập nhật role
+  const handleUpdateRole = async () => {
+    if (!editingStaff || !newRole) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng chọn vai trò mới",
+        status: "error",
+        duration: 3000,
+      })
+      return
+    }
+
+    if (newRole === editingStaff.role) {
+      toast({
+        title: "Thông báo",
+        description: "Vai trò không thay đổi",
+        status: "info",
+        duration: 3000,
+      })
+      return
+    }
+
+    setUpdatingRole(true)
+    const token = localStorage.getItem("token")
+    
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/users/${editingStaff.id}/role`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` })
+        },
+        body: JSON.stringify({ role: newRole })
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.message || "Cập nhật vai trò thất bại")
+      }
+
+      // Cập nhật local state
+      setStaffs(staffs =>
+        staffs.map(s =>
+          s.id === editingStaff.id ? { ...s, role: newRole } : s
+        )
+      )
+
+      toast({
+        title: "Thành công",
+        description: `Đã cập nhật vai trò thành ${newRole === "LV1" ? "Nhân viên cấp 1" : "Nhân viên cấp 2"}`,
+        status: "success",
+        duration: 3000,
+        isClosable: true
+      })
+
+      onEditClose()
+      setEditingStaff(null)
+      setNewRole("")
+    } catch (err) {
+      toast({
+        title: "Lỗi",
+        description: err.message,
+        status: "error",
+        duration: 4000,
+        isClosable: true
+      })
+    } finally {
+      setUpdatingRole(false)
+    }
+  }
+
+  // ✅ Hàm xác định trạng thái từ dữ liệu API
+  const determineStatus = (user) => {
+    if (user.status === "locked") {
+      return "locked"
+    }
+    if (user.status === "suspended" || user.suspendedAt) {
+      return "suspended"
+    }
+    return "active"
+  }
+
   // ✅ Đổi trạng thái tài khoản
   const handleToggleStatus = async (user, newStatus) => {
     const token = localStorage.getItem("token")
@@ -142,24 +232,35 @@ export default function StaffManagementPage() {
         },
         body: JSON.stringify({ status: newStatus })
       })
+      
+      const data = await res.json()
+      
       if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || "Cập nhật trạng thái thất bại")
+        throw new Error(data.message || "Cập nhật trạng thái thất bại")
       }
+      
+      // Cập nhật state với dữ liệu từ API và tính toán lại status
       setStaffs(staffs =>
         staffs.map(s =>
           s.id === user.id
             ? {
                 ...s,
-                suspendedAt: newStatus === "suspended" ? new Date().toISOString() : null,
-                status: newStatus
+                ...data.data,
+                status: determineStatus(data.data)
               }
             : s
         )
       )
+      
+      const statusText = {
+        active: "kích hoạt",
+        suspended: "tạm ngưng",
+        locked: "khóa"
+      }
+      
       toast({
         title: "Thành công",
-        description: `Đã ${newStatus === "active" ? "kích hoạt" : "tạm ngưng"} tài khoản.`,
+        description: `Đã ${statusText[newStatus]} tài khoản`,
         status: "success",
         duration: 3000,
         isClosable: true
@@ -197,19 +298,10 @@ export default function StaffManagementPage() {
     setCurrentPage(1)
   }, [search, statusFilter])
 
-  const adminLinks = [
-    { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
-    { to: "/admin/customers", label: "Thông tin khách hàng" },
-    { to: "/admin/staffs", label: "Thông tin nhân viên" },
-    { to: "/moviesmanagement", label: "Quản lý phim" },
-    { to: "/admin/bookings", label: "Quản lý đặt phim" },
-    { to: "/admin/reports", label: "Báo cáo khác" },
-  ]
-
 
   return (
     <Flex flex="1" bg="#0f1117" color="white">
-      <Sidebar links={adminLinks} />
+      <Sidebar/>
       <Box flex="1" p={6}>
         <Flex justify="space-between" align="center" mb={4}>
           <Heading size="md">Danh sách nhân viên</Heading>
@@ -249,7 +341,12 @@ export default function StaffManagementPage() {
         {loading ? (
           <Spinner />
         ) : (
-          <UserTable users={paginatedStaffs} onViewInfo={u => navigate(`/admin/user/${u.id}`)} onToggleStatus={handleToggleStatus} />
+          <StaffTable 
+            users={paginatedStaffs} 
+            onViewInfo={u => navigate(`/admin/user/${u.id}`)} 
+            onToggleStatus={handleToggleStatus}
+            onEditRole={handleOpenEditRole}
+          />
         )}
 
         {/* Phân trang */}
@@ -357,6 +454,55 @@ export default function StaffManagementPage() {
               </Button>
               <Button colorScheme="orange" onClick={handleCreateStaff} isLoading={creating}>
                 Tạo mới
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        {/* Modal cập nhật role */}
+        <Modal isOpen={isEditOpen} onClose={onEditClose} isCentered>
+          <ModalOverlay />
+          <ModalContent bg="gray.900" color="white">
+            <ModalHeader>Cập nhật vai trò nhân viên</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              {editingStaff && (
+                <>
+                  <Text mb={4} color="gray.300">
+                    Nhân viên: <strong>{editingStaff.username}</strong>
+                  </Text>
+                  <Text mb={4} color="gray.400" fontSize="sm">
+                    Email: {editingStaff.email}
+                  </Text>
+                  <FormControl>
+                    <FormLabel>Vai trò mới</FormLabel>
+                    <Select
+                      value={newRole}
+                      onChange={e => setNewRole(e.target.value)}
+                      bg="gray.800"
+                    >
+                      <option value="LV1" style={{ background: "#1a202c" }}>
+                        Nhân viên cấp 1
+                      </option>
+                      <option value="LV2" style={{ background: "#1a202c" }}>
+                        Nhân viên cấp 2
+                      </option>
+                    </Select>
+                  </FormControl>
+                </>
+              )}
+            </ModalBody>
+            <ModalFooter>
+              <Button onClick={onEditClose} mr={3}>
+                Hủy
+              </Button>
+              <Button 
+                colorScheme="blue" 
+                onClick={handleUpdateRole} 
+                isLoading={updatingRole}
+                loadingText="Đang cập nhật..."
+              >
+                Cập nhật
               </Button>
             </ModalFooter>
           </ModalContent>

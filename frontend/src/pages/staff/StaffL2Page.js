@@ -4,18 +4,11 @@ import FoodSelection from "./FoodSelection";
 
 const StaffL2Page = () => {
   return (
-    <Box p={6}>
-      <Heading mb={4} color="orange.400">
-        Staff L2
+    <Box p={6} bg="gray.100" minHeight="100vh">
+      <Heading as="h1" size="xl" mb={6} textAlign="center">
+        Staff Level 2 Dashboard
       </Heading>
-
-
-      <Divider my={8} />
-      <TicketSales />
-      <Divider my={8} />
-      <FoodSelection />
     </Box>
   );
-};
-
+}
 export default StaffL2Page;

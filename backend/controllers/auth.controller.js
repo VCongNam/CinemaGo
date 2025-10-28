@@ -4,6 +4,7 @@ import User from "../models/user.js";
 import { getCurrentVietnamTime } from "../utils/timezone.js";
 import { signAccessToken } from "../utils/jwt.js";
 import { sendResetLinkEmail } from "../utils/email.js";
+import { logAction } from "../utils/logger.js";
 
 export const registerStaff = async (req, res, next) => {
   try {
@@ -42,183 +43,19 @@ export const registerStaff = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Tạo user mới
-    await User.create({
-      username,
-      password: hashedPassword,
+    const newUser = await User.create({ 
+      username, 
+      password: hashedPassword, 
       email,
       full_name: fullName || '',
       role: role
     });
 
-    res.status(201).json({
-      message: "Tạo tài khoản nhân viên thành công"
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const updateUserRole = async (req, res, next) => {
-  try {
-    const { userId } = req.params;
-    const { role } = req.body;
-    const adminId = req.user._id;
-
-    // Validation
-    if (!userId || !role) {
-      return res.status(400).json({ message: "ID người dùng và vai trò là bắt buộc" });
-    }
-
-    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ message: "ID người dùng không hợp lệ" });
-    }
-
-    const validStaffRoles = ["LV1", "LV2"];
-    if (!validStaffRoles.includes(role)) {
-      return res.status(400).json({ message: `Vai trò không hợp lệ. Chỉ chấp nhận: ${validStaffRoles.join(", ")}` });
-    }
-
-    // Tìm user cần thay đổi vai trò
-    const targetUser = await User.findById(userId);
-    if (!targetUser) {
-      return res.status(404).json({ message: "Không tìm thấy người dùng" });
-    }
-
-    // Không cho phép admin thay đổi vai trò của chính mình
-    if (targetUser._id.toString() === adminId.toString()) {
-      return res.status(400).json({ message: "Không thể thay đổi vai trò của chính mình" });
-    }
-
-    // Chỉ cho phép thay đổi vai trò của staff
-    if (!["staff", "LV1", "LV2"].includes(targetUser.role)) {
-      return res.status(403).json({ message: "Chỉ có thể thay đổi vai trò cho tài khoản nhân viên" });
-    }
-
-    // Cập nhật vai trò
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { role },
-      { new: true, runValidators: true }
-    ).select('-password');
-
-    res.status(200).json({
-      message: "Cập nhật vai trò người dùng thành công",
-      data: updatedUser
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const updateUserStatus = async (req, res, next) => {
-  try {
-    const { userId } = req.params;
-    const { status } = req.body;
-    const adminId = req.user._id;
-
-    // Validation
-    if (!userId) {
-      return res.status(400).json({
-        message: "ID người dùng là bắt buộc"
-      });
-    }
-
-    if (!status) {
-      return res.status(400).json({
-        message: "Trạng thái là bắt buộc"
-      });
-    }
-
-    // Kiểm tra ID có hợp lệ không
-    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({
-        message: "ID người dùng không hợp lệ"
-      });
-    }
-
-    // Kiểm tra trạng thái có hợp lệ không
-    const validStatuses = ["active", "locked", "suspended"];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        message: `Trạng thái không hợp lệ. Các trạng thái cho phép: ${validStatuses.join(", ")}`
-      });
-    }
-
-    // Tìm user cần thay đổi trạng thái
-    const targetUser = await User.findById(userId);
-    if (!targetUser) {
-      return res.status(404).json({
-        message: "Không tìm thấy người dùng"
-      });
-    }
-
-    // Không cho phép admin thay đổi trạng thái của chính mình
-    if (targetUser._id.toString() === adminId.toString()) {
-      return res.status(400).json({
-        message: "Không thể thay đổi trạng thái tài khoản của chính mình"
-      });
-    }
-
-    // Không cho phép thay đổi trạng thái admin khác
-    if (targetUser.role === "admin") {
-      return res.status(403).json({
-        message: "Không thể thay đổi trạng thái tài khoản admin khác"
-      });
-    }
-
-    // Kiểm tra trạng thái hiện tại
-    if (targetUser.status === status) {
-      const statusMessages = {
-        active: "hoạt động",
-        locked: "bị khóa",
-        suspended: "bị tạm khóa"
-      };
-
-      return res.status(200).json({
-        message: `Tài khoản đã ở trạng thái ${statusMessages[status]}`,
-        data: {
-          id: targetUser._id,
-          username: targetUser.username,
-          email: targetUser.email,
-          status: targetUser.status
-        }
-      });
-    }
-
-    // Cập nhật trạng thái
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { status },
-      { new: true, runValidators: true }
-    ).select('-password');
-
-    // Tạo thông báo phù hợp
-    const statusMessages = {
-      active: "Mở khóa tài khoản thành công",
-      locked: "Khóa tài khoản thành công",
-      suspended: "Tạm khóa tài khoản thành công"
-    };
-
-    const actionMessages = {
-      active: "unlockedAt",
-      locked: "lockedAt",
-      suspended: "suspendedAt"
-    };
-
-    const currentTime = getCurrentVietnamTime();
-    const responseData = {
-      id: updatedUser._id,
-      username: updatedUser.username,
-      email: updatedUser.email,
-      fullName: updatedUser.full_name,
-      role: updatedUser.role,
-      status: updatedUser.status,
-      [actionMessages[status]]: currentTime.toISOString()
-    };
-
-    res.status(200).json({
-      message: statusMessages[status],
-      data: responseData
+    // Ghi log hành động tạo staff (người thực hiện là admin/staff đang đăng nhập)
+    await logAction(req.user.id, 'User', newUser._id, 'document', null, newUser);
+    
+    res.status(201).json({ 
+      message: "Tạo tài khoản nhân viên thành công" 
     });
   } catch (error) {
     next(error);
@@ -274,13 +111,17 @@ export const registerCustomer = async (req, res, next) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await User.create({
-      username,
-      password: hashedPassword,
+    const newCustomer = await User.create({ 
+      username, 
+      password: hashedPassword, 
       email,
       full_name: fullName,
       role: "customer"
     });
+
+    // Ghi log hành động tự đăng ký (người thực hiện là chính user mới)
+    await logAction(newCustomer._id, 'User', newCustomer._id, 'document', null, newCustomer);
+
     res.status(201).json({ message: "Tạo tài khoản khách hàng thành công" });
   } catch (error) {
     next(error);
@@ -416,6 +257,15 @@ export const updateProfile = async (req, res, next) => {
       updateData,
       { new: true, runValidators: true }
     );
+
+    // Ghi log cho các trường đã thay đổi
+    const changes = Object.keys(updateData);
+    for (const field of changes) {
+      const modelField = field === 'fullName' ? 'full_name' : field;
+      if (user[modelField] !== updatedUser[modelField]) {
+        await logAction(req.user.id, 'User', updatedUser._id, modelField, user[modelField], updatedUser[modelField]);
+      }
+    }
 
     res.status(200).json({
       message: "Cập nhật thông tin thành công",
@@ -858,4 +708,171 @@ export const socialLoginCallback = (req, res) => {
 // Hàm này chỉ để chuyển hướng, không cần logic phức tạp
 export const redirectToSocialAuth = (req, res, next) => {
   // Passport sẽ tự động xử lý việc chuyển hướng
+};
+
+export const updateUserStatus = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { status } = req.body;
+    const adminId = req.user._id;
+
+    // Validation
+    if (!userId) {
+      return res.status(400).json({
+        message: "ID người dùng là bắt buộc"
+      });
+    }
+
+    if (!status) {
+      return res.status(400).json({
+        message: "Trạng thái là bắt buộc"
+      });
+    }
+
+    // Kiểm tra ID có hợp lệ không
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        message: "ID người dùng không hợp lệ"
+      });
+    }
+
+    // Kiểm tra trạng thái có hợp lệ không
+    const validStatuses = ["active", "locked", "suspended"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: `Trạng thái không hợp lệ. Các trạng thái cho phép: ${validStatuses.join(", ")}`
+      });
+    }
+
+    // Tìm user cần thay đổi trạng thái
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({
+        message: "Không tìm thấy người dùng"
+      });
+    }
+
+    // Không cho phép admin thay đổi trạng thái của chính mình
+    if (targetUser._id.toString() === adminId.toString()) {
+      return res.status(400).json({
+        message: "Không thể thay đổi trạng thái tài khoản của chính mình"
+      });
+    }
+
+    // Không cho phép thay đổi trạng thái admin khác
+    if (targetUser.role === "admin") {
+      return res.status(403).json({
+        message: "Không thể thay đổi trạng thái tài khoản admin khác"
+      });
+    }
+
+    // Kiểm tra trạng thái hiện tại
+    if (targetUser.status === status) {
+      const statusMessages = {
+        active: "hoạt động",
+        locked: "bị khóa",
+        suspended: "bị tạm khóa"
+      };
+
+      return res.status(200).json({
+        message: `Tài khoản đã ở trạng thái ${statusMessages[status]}`,
+        data: {
+          id: targetUser._id,
+          username: targetUser.username,
+          email: targetUser.email,
+          status: targetUser.status
+        }
+      });
+    }
+
+    // Cập nhật trạng thái
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { status },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    // Tạo thông báo phù hợp
+    const statusMessages = {
+      active: "Mở khóa tài khoản thành công",
+      locked: "Khóa tài khoản thành công",
+      suspended: "Tạm khóa tài khoản thành công"
+    };
+
+    const actionMessages = {
+      active: "unlockedAt",
+      locked: "lockedAt",
+      suspended: "suspendedAt"
+    };
+
+    const currentTime = getCurrentVietnamTime();
+    const responseData = {
+      id: updatedUser._id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      fullName: updatedUser.full_name,
+      role: updatedUser.role,
+      status: updatedUser.status,
+      [actionMessages[status]]: currentTime.toISOString()
+    };
+
+    res.status(200).json({
+      message: statusMessages[status],
+      data: responseData
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUserRole = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+    const adminId = req.user._id;
+
+    // Validation
+    if (!userId || !role) {
+      return res.status(400).json({ message: "ID người dùng và vai trò là bắt buộc" });
+    }
+
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "ID người dùng không hợp lệ" });
+    }
+
+    const validStaffRoles = ["LV1", "LV2"];
+    if (!validStaffRoles.includes(role)) {
+      return res.status(400).json({ message: `Vai trò không hợp lệ. Chỉ chấp nhận: ${validStaffRoles.join(", ")}` });
+    }
+
+    // Tìm user cần thay đổi vai trò
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    // Không cho phép admin thay đổi vai trò của chính mình
+    if (targetUser._id.toString() === adminId.toString()) {
+      return res.status(400).json({ message: "Không thể thay đổi vai trò của chính mình" });
+    }
+
+    // Chỉ cho phép thay đổi vai trò của staff
+    if (!["staff", "LV1", "LV2"].includes(targetUser.role)) {
+      return res.status(403).json({ message: "Chỉ có thể thay đổi vai trò cho tài khoản nhân viên" });
+    }
+
+    // Cập nhật vai trò
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { role },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    res.status(200).json({
+      message: "Cập nhật vai trò người dùng thành công",
+      data: updatedUser
+    });
+  } catch (error) {
+    next(error);
+  }
 };

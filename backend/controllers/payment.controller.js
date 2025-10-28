@@ -1,6 +1,45 @@
 import payos from "../utils/payos.js";
 import Booking from "../models/booking.js";
 import BookingSeat from "../models/bookingSeat.js";
+import Showtime from '../models/showtime.js'; // Import Showtime model
+import User from '../models/user.js'; // Import User model for population
+import Movie from '../models/movie.js'; // Import Movie model for population
+import Room from '../models/room.js'; // Import Room model for population
+
+// Helper function to update booking status and handle seat release
+const updateBookingStatusAndSeats = async (booking, newStatus, newPaymentStatus, paidAmount = 0, session = null) => {
+  // Prevent re-processing if already in a final state (confirmed/cancelled) and no effective change is needed
+  const isStatusChanged = booking.status !== newStatus || booking.payment_status !== newPaymentStatus;
+  const isPaidAmountChanged = paidAmount > 0 && parseFloat(booking.paid_amount?.toString()) !== paidAmount;
+
+  if (!isStatusChanged && !isPaidAmountChanged) {
+    return booking; // No effective change needed
+  }
+
+  booking.status = newStatus;
+  booking.payment_status = newPaymentStatus;
+  if (paidAmount > 0) {
+    booking.paid_amount = paidAmount;
+  }
+
+  // If status is cancelled or failed, release seats
+  if (newStatus === 'cancelled' || newStatus === 'failed') {
+    const bookingSeats = await BookingSeat.find({ booking_id: booking._id }).session(session);
+    const seatIdsToRelease = bookingSeats.map(bs => bs.seat_id);
+
+    if (seatIdsToRelease.length > 0) {
+      await Showtime.updateOne(
+        { _id: booking.showtime_id },
+        { $pull: { booked_seats: { $in: seatIdsToRelease } } },
+        { session }
+      );
+      console.log(`Released seats ${seatIdsToRelease} for booking ${booking._id}`);
+    }
+  }
+
+  await booking.save({ session });
+  return booking;
+};
 
 export const createPaymentLink = async (req, res, next) => {
   try {
@@ -233,6 +272,22 @@ export const checkBookingPaymentStatus = async (req, res, next) => {
     if (booking.payment_link_id) {
       try {
         paymentInfo = await payos.getPaymentLinkInformation(booking.payment_link_id);
+
+        // --- Reconciliation Logic ---
+        // Only reconcile if the booking is still pending in our system
+        if (booking.status === 'pending') {
+            if (paymentInfo.status === 'PAID') {
+                console.log(`Reconciling booking ${bookingId}: PayOS status is PAID, DB status is PENDING. Updating to CONFIRMED.`);
+                // Use the helper to update status and paid amount. Pass null for session.
+                await updateBookingStatusAndSeats(booking, 'confirmed', 'success', paymentInfo.amountPaid, null);
+            } else if (paymentInfo.status === 'CANCELLED' || paymentInfo.status === 'FAILED') {
+                console.log(`Reconciling booking ${bookingId}: PayOS status is ${paymentInfo.status}, DB status is PENDING. Updating to CANCELLED/FAILED.`);
+                // Use the helper to update status and release seats. Pass null for session.
+                await updateBookingStatusAndSeats(booking, 'cancelled', 'failed', 0, null);
+            }
+        }
+        // --- End Reconciliation Logic ---
+
       } catch (error) {
         console.error("Error getting payment info from PayOS:", error);
       }

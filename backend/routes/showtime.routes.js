@@ -8,7 +8,8 @@ import {
   deleteShowtime,
   updateShowtimeStatus,
   getShowtimesByTheaterAndMovie,
-  getShowtimesByTheaterRoomAndMovie
+  getShowtimesByTheaterRoomAndMovie,
+  getBookedSeatsForShowtime
 } from "../controllers/showtime.controller.js";
 import {
   validateCreateShowtime,
@@ -24,6 +25,8 @@ router.get("/", listShowtimes);
 router.post("/list", listShowtimes);
 // GET /api/showtimes/:id
 router.get("/:id", getShowtimeById);
+// GET /api/showtimes/:id/booked-seats
+router.get("/:id/booked-seats", getBookedSeatsForShowtime);
 // GET /api/showtimes/theater/:theaterId/movie/:movieId
 router.get("/theater/:theaterId/movie/:movieId", getShowtimesByTheaterAndMovie);
 // GET /api/showtimes/theater/:theaterId/room/:roomId/movie/:movieId
