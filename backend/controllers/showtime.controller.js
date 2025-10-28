@@ -9,10 +9,12 @@ import { formatForAPI, formatVietnamTime, getDayRangeVietnam } from "../utils/ti
 const hasOverlap = async ({ roomId, startTime, endTime, excludeId = null }) => {
   const query = {
     room_id: roomId,
+    status: "active", // Only check against active showtimes
     // overlap condition: existing.start < newEnd AND existing.end > newStart
     start_time: { $lt: endTime },
     end_time: { $gt: startTime }
   };
+
   if (excludeId) {
     query._id = { $ne: excludeId };
   }
@@ -288,6 +290,7 @@ export const updateShowtimeStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+
     if (!status || typeof status !== "string") {
       return res.status(400).json({ message: "status là bắt buộc và phải là chuỗi" });
     }
@@ -295,6 +298,28 @@ export const updateShowtimeStatus = async (req, res, next) => {
     if (!["active", "inactive"].includes(normalizedStatus)) {
       return res.status(400).json({ message: "status phải là 'active' hoặc 'inactive'" });
     }
+
+    // If activating, check for conflicts with other active showtimes
+    if (normalizedStatus === "active") {
+      const showtimeToActivate = await Showtime.findById(id);
+      if (!showtimeToActivate) {
+        return res.status(404).json({ message: "Không tìm thấy suất chiếu" });
+      }
+
+      const overlap = await hasOverlap({
+        roomId: showtimeToActivate.room_id,
+        startTime: showtimeToActivate.start_time,
+        endTime: showtimeToActivate.end_time,
+        excludeId: id
+      });
+
+      if (overlap) {
+        return res.status(409).json({
+          message: "Không thể kích hoạt suất chiếu. Lịch chiếu bị trùng với một suất chiếu khác đang hoạt động."
+        });
+      }
+    }
+
     const updated = await Showtime.findByIdAndUpdate(
       id,
       { status: normalizedStatus },
