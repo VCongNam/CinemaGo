@@ -21,6 +21,7 @@ import ComboSelection from "./pages/bookings/ComboSelection"
 import BookingCancelledPage from "./pages/bookings/BookingCancelledPage"
 import PaymentFailedPage from "./pages/bookings/PaymentFailedPage"
 import PaymentSuccessPage from "./pages/bookings/PaymentSuccessPage"
+import TicketDetailPage from "./pages/bookings/TicketDetailPage";
 
 // Staff pages
 import StaffL1Page from "./pages/staff/StaffL1Page"
@@ -64,6 +65,7 @@ function App() {
               <Route path="/ticket-history" element={<TicketHistoryPage />} />
               <Route path="/bookings/ticket" element={<TicketPage />} />
               <Route path="/bookings/eticket" element={<ETicketPage />} />
+              <Route path="/ticket-detail/:id" element={<TicketDetailPage />} />
 
               {/* Booking flow with params */}
               <Route path="/bookings/showtimes/:movieId" element={<ShowtimeSelection />} />
