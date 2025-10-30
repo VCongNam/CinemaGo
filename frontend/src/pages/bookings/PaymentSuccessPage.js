@@ -14,12 +14,22 @@ const PaymentSuccessPage = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const id = params.get("bookingId");
+    const cancel = params.get("cancel");
+    const status = params.get("status");
+
     if (id) {
       setBookingId(id);
     } else {
       setError("Không tìm thấy mã đặt vé.");
+      return;
     }
-  }, [location.search]);
+
+    // Immediately redirect if the URL indicates a cancelled payment
+    if (cancel === "true" || status === "CANCELLED") {
+      navigate(`/payment-failed?bookingId=${id}&cancel=true`);
+      return;
+    }
+  }, [location.search, navigate]);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -30,7 +40,17 @@ const PaymentSuccessPage = () => {
         (data, success) => {
           if (success) {
             const bookingStatus = data.data.booking.status;
-            if (bookingStatus === "confirmed") {
+            const paymentInfo = data.data.paymentInfo;
+
+            if (paymentInfo && paymentInfo.status === 'PAID') {
+                setStatus("confirmed");
+                clearInterval(interval);
+                navigate(`/bookings/eticket/${bookingId}`);
+            } else if (paymentInfo && paymentInfo.status === 'CANCELLED') {
+                setStatus("cancelled");
+                clearInterval(interval);
+                navigate(`/payment-failed?bookingId=${bookingId}`);
+            } else if (bookingStatus === "confirmed") {
               setStatus("confirmed");
               clearInterval(interval);
               navigate(`/bookings/eticket/${bookingId}`);

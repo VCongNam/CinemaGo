@@ -1,12 +1,38 @@
 import { Box, Heading, Text, Button, VStack, Icon } from "@chakra-ui/react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { WarningTwoIcon } from '@chakra-ui/icons';
+import { useEffect, useState } from "react";
+import apiService from "../../services/apiService";
 
 const PaymentFailedPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const bookingId = params.get("bookingId");
+
+
+  const [booking, setBooking] = useState(null);
+  const [paymentInfo, setPaymentInfo] = useState(null);
+
+  useEffect(() => {
+    if (!bookingId) return;
+    // GỌI API kiểm tra trạng thái booking/payment
+    apiService.get(`/api/payments/booking/${bookingId}/status`, (data, success) => {
+      if (success) {
+        let b = data.data.booking;
+        const p = data.data.paymentInfo;
+        // Nếu payment bị CANCELLED => chỉnh local booking state
+        if (p && p.status === 'CANCELLED') {
+          b = { ...b, status: 'CANCELLED', payment_status: 'CANCELLED' };
+        }
+        setBooking(b);
+        setPaymentInfo(p);
+      } else {
+        setBooking(null);
+        setPaymentInfo(null);
+      }
+    });
+  }, [bookingId]);
 
   return (
     <Box 
@@ -22,11 +48,22 @@ const PaymentFailedPage = () => {
     >
       <VStack spacing={6} maxW="lg">
         <Icon as={WarningTwoIcon} w={20} h={20} color="red.400" />
-        <Heading as="h1" size="2xl">Thanh toán thất bại</Heading>
+        <Heading as="h1" size="2xl">
+          {params.get("cancel") === "true"
+            ? "Giao dịch đã bị hủy"
+            : "Thanh toán thất bại"}
+        </Heading>
         <Text fontSize="lg" color="gray.300">
-          Rất tiếc, đã có lỗi xảy ra trong quá trình thanh toán hoặc giao dịch đã bị hủy.
-          Vui lòng thử lại sau.
+          {params.get("cancel") === "true"
+            ? "Giao dịch đã được hủy theo yêu cầu của bạn. Bạn có thể thử lại thanh toán hoặc quay về trang chủ."
+            : "Rất tiếc, đã có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại sau."}
         </Text>
+        {/* HIỂN THỊ STATUS BOOKING/PAYMENT */}
+        {booking && (
+          <Text color="gray.300">
+            Trạng thái: {booking.status}, Trạng thái thanh toán: {booking.payment_status}
+          </Text>
+        )}
         {bookingId && (
           <Text color="gray.400">Mã đặt vé của bạn là: {bookingId}</Text>
         )}
