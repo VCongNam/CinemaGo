@@ -1,5 +1,5 @@
 import { Box, Heading, Text, Flex } from "@chakra-ui/react";
-import Sidebar from "../Navbar/Sidebar";
+import Sidebar from "../Navbar/SidebarAdmin";
 
 export default function ReportsPage() {
 

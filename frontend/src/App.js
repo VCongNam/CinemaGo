@@ -90,9 +90,9 @@ function App() {
               <Route path="/admin/user/:id" element={<UserDetailPage />} />
               <Route path="/admin/staffs" element={<StaffManagementPage />} />
               <Route path="/showtimes" element={<ShowTimeManagementPage />} />
-              <Route path="/admin/bookings" element={<BookingManagementPage />} />
-              <Route path="/admin/bookings/:id" element={<BookingDetailPage />} />
-              <Route path="/admin/movies" element={<MovieManagementPage />} />
+              <Route path="/bookings" element={<BookingManagementPage />} />
+              <Route path="/bookings/:id" element={<BookingDetailPage />} />
+              <Route path="/movies" element={<MovieManagementPage />} />
 
 
 

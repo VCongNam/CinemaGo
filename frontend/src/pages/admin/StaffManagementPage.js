@@ -22,13 +22,13 @@ import {
   useToast,
 } from "@chakra-ui/react"
 import { useNavigate } from "react-router-dom"
-import Sidebar from "../Navbar/Sidebar"
+import Sidebar from "../Navbar/SidebarAdmin"
 import StaffTable from "../Navbar/StaffTable"
 
 export default function StaffManagementPage() {
   const [staffs, setStaffs] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [setError] = useState(null)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)

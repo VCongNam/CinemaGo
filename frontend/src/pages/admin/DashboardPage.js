@@ -1,5 +1,5 @@
 import { Flex, Box, SimpleGrid } from "@chakra-ui/react";
-import Sidebar from "../Navbar/Sidebar";
+import Sidebar from "../Navbar/SidebarAdmin";
 import RevenueChart from "../Navbar/RevenueChart";
 import RevenuePieChart from "../Navbar/RevenuePieChart";
 

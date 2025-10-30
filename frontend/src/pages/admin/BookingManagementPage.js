@@ -27,7 +27,7 @@ import {
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import { ViewIcon } from "@chakra-ui/icons";
-import Sidebar from "../Navbar/Sidebar";
+import Sidebar from "../Navbar/SidebarAdmin";
 
 const BookingManagementPage = () => {
   const [bookings, setBookings] = useState([]);
@@ -159,7 +159,7 @@ const BookingManagementPage = () => {
   };
 
   const handleViewDetails = (bookingIds) => {
-    navigate(`/admin/bookings/${bookingIds[0]}`, {
+    navigate(`/bookings/${bookingIds[0]}`, {
       state: { allBookingIds: bookingIds }
     });
   };

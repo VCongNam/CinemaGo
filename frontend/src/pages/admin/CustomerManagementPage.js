@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Input, Select, Box, Flex, useToast, Button, Text, HStack } from "@chakra-ui/react"
-import Sidebar from "../Navbar/Sidebar";
+import Sidebar from "../Navbar/SidebarAdmin";
 import UserTable from "../Navbar/UserTable"
 
 export default function CustomerManagementPage() {

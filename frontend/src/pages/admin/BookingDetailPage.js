@@ -139,7 +139,7 @@ const BookingDetailPage = () => {
           variant="ghost"
           colorScheme="whiteAlpha"
           mb={6}
-          onClick={() => navigate("/admin/bookings")}
+          onClick={() => navigate("/bookings")}
         >
           Quay lại
         </Button>

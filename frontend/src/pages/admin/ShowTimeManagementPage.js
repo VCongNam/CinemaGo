@@ -15,7 +15,6 @@ import {
   Th,
   Td,
   Image,
-  TableContainer,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -28,9 +27,15 @@ import {
   Input,
   IconButton,
   Tooltip,
+  InputGroup,
+  InputLeftElement,
+  Badge,
+  VStack,
 } from "@chakra-ui/react"
-import { FaEdit, FaBan, FaCheckCircle } from "react-icons/fa"
-import Sidebar from "../Navbar/Sidebar"
+import { FaBan, FaCheckCircle, FaSearch } from "react-icons/fa"
+import { AddIcon } from "@chakra-ui/icons"
+import SidebarAdmin from "../Navbar/SidebarAdmin"
+import SidebarStaff from "../Navbar/SidebarStaff"
 
 export default function ShowtimeManagementPage() {
   const [showtimes, setShowtimes] = useState([])
@@ -39,26 +44,53 @@ export default function ShowtimeManagementPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isAddOpen, setAddOpen] = useState(false)
-  const [isEditOpen, setEditOpen] = useState(false)
-  const [editingShowtime, setEditingShowtime] = useState(null)
   const [newShowtime, setNewShowtime] = useState({
     movie_id: "",
     room_id: "",
     date: "",
     time: "",
   })
-  const [editForm, setEditForm] = useState({
-    movie_id: "",
-    room_id: "",
-    date: "",
-    time: "",
-  })
   const [adding, setAdding] = useState(false)
-  const [updating, setUpdating] = useState(false)
   const [canceling, setCanceling] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
+  const [searchName, setSearchName] = useState("")
+  const [filterStatus, setFilterStatus] = useState("all")
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
   const toast = useToast()
+
+  // Lấy thông tin role từ localStorage
+  let roleData = null
+  try {
+    roleData = JSON.parse(localStorage.getItem("role"))
+  } catch (e) {
+    const directRole = localStorage.getItem("role") || localStorage.getItem("userRole")
+    if (directRole) {
+      roleData = { role: directRole }
+    }
+  }
+  
+  const role = roleData?.role || ""
+  
+  // Xác định role và quyền hạn - chỉ cho phép admin và lv2
+  let isAdmin = false
+  let isStaff = false
+  
+  if (role.toLowerCase() === "admin") {
+    isAdmin = true
+  } else if (role.toLowerCase() === "lv2") {
+    isStaff = true
+  } else {
+    // Nếu không phải admin hoặc lv2, chuyển hướng hoặc hiển thị thông báo
+    toast({
+      title: "Không có quyền truy cập",
+      description: "Bạn không có quyền truy cập trang này",
+      status: "error",
+      duration: 3000,
+      isClosable: true,
+    })
+  }
 
   // 🔹 Lấy danh sách suất chiếu
   const fetchShowtimes = async () => {
@@ -101,13 +133,10 @@ export default function ShowtimeManagementPage() {
       
       if (movieRes.ok) {
         const movieData = await movieRes.json()
-        console.log("🎬 Movies data:", movieData)
         setMovies(movieData.data || [])
-      } else {
-        console.error("❌ Failed to fetch movies:", movieRes.status)
       }
 
-      // Fetch rooms - Dùng POST với body pagination
+      // Fetch rooms
       const roomRes = await fetch("http://localhost:5000/api/rooms/list", {
         method: "POST",
         headers: {
@@ -122,13 +151,9 @@ export default function ShowtimeManagementPage() {
       
       if (roomRes.ok) {
         const roomData = await roomRes.json()
-        console.log("🏠 Rooms data:", roomData)
-        // API trả về list array
         const roomList = roomData.list || roomData.data || []
-        console.log("🏠 Room list:", roomList)
         setRooms(roomList)
       } else {
-        console.error("❌ Failed to fetch rooms:", roomRes.status)
         toast({
           title: "Không thể tải danh sách phòng",
           description: "Vui lòng kiểm tra kết nối API",
@@ -137,7 +162,6 @@ export default function ShowtimeManagementPage() {
         })
       }
     } catch (err) {
-      console.error("❌ Lỗi tải phim hoặc phòng:", err)
       toast({
         title: "Lỗi tải dữ liệu",
         description: err.message,
@@ -152,6 +176,11 @@ export default function ShowtimeManagementPage() {
     fetchMoviesAndRooms()
   }, [])
 
+  // Reset trang khi thay đổi bộ lọc
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchName, filterStatus, startDate, endDate])
+
   // 🔹 Kiểm tra xem có thể chỉnh sửa không (15 phút trước khi chiếu)
   const canEdit = (showtime) => {
     if (!showtime?.start_time?.utc) return false
@@ -160,7 +189,6 @@ export default function ShowtimeManagementPage() {
     const startTime = new Date(showtime.start_time.utc)
     const diffMinutes = (startTime - now) / (1000 * 60)
     
-    // Có thể chỉnh sửa nếu còn hơn 15 phút
     return diffMinutes > 15
   }
 
@@ -176,49 +204,8 @@ export default function ShowtimeManagementPage() {
     })
   }
 
-  // 🔹 Mở modal chỉnh sửa
-  const openEdit = (showtime) => {
-    if (!canEdit(showtime)) {
-      toast({
-        title: "Không thể chỉnh sửa",
-        description: "Chỉ có thể chỉnh sửa suất chiếu trước 15 phút khi bắt đầu",
-        status: "warning",
-        duration: 3000,
-      })
-      return
-    }
-
-    setEditingShowtime(showtime)
-    
-    // Parse ngày giờ từ start_time
-    const startTime = new Date(showtime.start_time.utc)
-    const date = startTime.toISOString().split('T')[0] // YYYY-MM-DD
-    const time = startTime.toTimeString().split(' ')[0].slice(0, 5) // HH:mm
-    
-    setEditForm({
-      movie_id: showtime.movie_id?._id || showtime.movie_id || "",
-      room_id: showtime.room_id?._id || showtime.room_id || "",
-      date: date,
-      time: time,
-    })
-    
-    setEditOpen(true)
-  }
-
-  const closeEdit = () => {
-    setEditOpen(false)
-    setEditingShowtime(null)
-    setEditForm({
-      movie_id: "",
-      room_id: "",
-      date: "",
-      time: "",
-    })
-  }
-
   // 🔹 Thêm suất chiếu mới
   const addShowtime = async () => {
-    // Validate input
     if (!newShowtime.movie_id || !newShowtime.room_id || !newShowtime.date || !newShowtime.time) {
       toast({ 
         title: "Lỗi", 
@@ -231,7 +218,6 @@ export default function ShowtimeManagementPage() {
     setAdding(true)
     const token = localStorage.getItem("token")
     
-    // 🔹 Chuẩn bị payload - đảm bảo là string ID thuần
     const payload = {
       movie_id: String(newShowtime.movie_id).trim(),
       room_id: String(newShowtime.room_id).trim(),
@@ -239,17 +225,6 @@ export default function ShowtimeManagementPage() {
       time: newShowtime.time,
     }
     
-    console.log("=".repeat(50))
-    console.log("📤 PAYLOAD GỬI ĐI:")
-    console.log(JSON.stringify(payload, null, 2))
-    console.log("=".repeat(50))
-    console.log("📝 movie_id:", payload.movie_id, "- Type:", typeof payload.movie_id)
-    console.log("📝 room_id:", payload.room_id, "- Type:", typeof payload.room_id)
-    console.log("📝 date:", payload.date)
-    console.log("📝 time:", payload.time)
-    console.log("=".repeat(50))
-    
-    // Validate ObjectId format (24 hex characters)
     const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id)
     
     if (!isValidObjectId(payload.movie_id)) {
@@ -283,7 +258,6 @@ export default function ShowtimeManagementPage() {
       })
       
       const responseText = await res.text()
-      console.log("📥 Raw response:", responseText)
       
       if (!res.ok) {
         let err
@@ -292,12 +266,8 @@ export default function ShowtimeManagementPage() {
         } catch {
           err = { message: responseText }
         }
-        console.error("❌ API Error:", err)
         throw new Error(err.message || "Không thể thêm suất chiếu.")
       }
-      
-      const result = JSON.parse(responseText)
-      console.log("✅ Thêm suất chiếu thành công:", result)
       
       toast({ 
         title: "Thêm suất chiếu thành công!", 
@@ -308,7 +278,6 @@ export default function ShowtimeManagementPage() {
       fetchShowtimes()
       closeAdd()
     } catch (err) {
-      console.error("❌ Lỗi thêm suất chiếu:", err)
       toast({ 
         title: "Lỗi", 
         description: err.message, 
@@ -320,70 +289,7 @@ export default function ShowtimeManagementPage() {
     }
   }
 
-  // 🔹 Cập nhật suất chiếu
-  const updateShowtime = async () => {
-    if (!editForm.movie_id || !editForm.room_id || !editForm.date || !editForm.time) {
-      toast({ 
-        title: "Lỗi", 
-        description: "Vui lòng điền đầy đủ thông tin", 
-        status: "error" 
-      })
-      return
-    }
-
-    setUpdating(true)
-    const token = localStorage.getItem("token")
-    
-    const payload = {
-      movie_id: String(editForm.movie_id).trim(),
-      room_id: String(editForm.room_id).trim(),
-      date: editForm.date,
-      time: editForm.time,
-    }
-    
-    try {
-      const res = await fetch(`http://localhost:5000/api/showtimes/${editingShowtime._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: JSON.stringify(payload),
-      })
-      
-      const responseText = await res.text()
-      
-      if (!res.ok) {
-        let err
-        try {
-          err = JSON.parse(responseText)
-        } catch {
-          err = { message: responseText }
-        }
-        throw new Error(err.message || "Không thể cập nhật suất chiếu.")
-      }
-      
-      toast({ 
-        title: "Cập nhật suất chiếu thành công!", 
-        status: "success",
-        duration: 3000 
-      })
-      
-      fetchShowtimes()
-      closeEdit()
-    } catch (err) {
-      toast({ 
-        title: "Lỗi", 
-        description: err.message, 
-        status: "error",
-        duration: 5000 
-      })
-    } finally {
-      setUpdating(false)
-    }
-  }
-
-  // 🔹 Hủy suất chiếu
+  // 🔹 Hủy/Kích hoạt suất chiếu
   const toggleShowtimeStatus = async (showtime) => {
     if (!canEdit(showtime)) {
       toast({
@@ -398,7 +304,6 @@ export default function ShowtimeManagementPage() {
     setCanceling(true)
     const token = localStorage.getItem("token")
     
-    // Toggle giữa active và inactive
     const newStatus = showtime.status === "inactive" ? "active" : "inactive"
     
     try {
@@ -444,7 +349,6 @@ export default function ShowtimeManagementPage() {
 
   // 🔹 Tính trạng thái suất chiếu
   const getStatus = (showtime) => {
-    // Kiểm tra status từ API trước
     if (showtime.status === "inactive") {
       return { label: "Đã hủy", color: "red.500" }
     }
@@ -482,62 +386,226 @@ export default function ShowtimeManagementPage() {
     return `${date} - ${shortTime}`
   }
 
-  // 🔹 Lọc bỏ các suất chiếu đã kết thúc
-  const activeShowtimes = showtimes.filter((showtime) => {
-    if (!showtime?.end_time?.utc) return true
-    const now = new Date()
-    const endTime = new Date(showtime.end_time.utc)
-    return now <= endTime // Chỉ hiển thị suất chưa kết thúc
+  // 🔹 Lọc và tìm kiếm suất chiếu
+  const filteredShowtimes = showtimes.filter((showtime) => {
+    // Lọc theo tên phim
+    if (searchName) {
+      const movieTitle = showtime.movie_id?.title || ""
+      if (!movieTitle.toLowerCase().includes(searchName.toLowerCase())) {
+        return false
+      }
+    }
+
+    // Lọc theo khoảng ngày
+    if (startDate || endDate) {
+      const showtimeDate = new Date(showtime.start_time.utc)
+      
+      if (startDate) {
+        const start = new Date(startDate)
+        start.setHours(0, 0, 0, 0)
+        if (showtimeDate < start) return false
+      }
+      
+      if (endDate) {
+        const end = new Date(endDate)
+        end.setHours(23, 59, 59, 999)
+        if (showtimeDate > end) return false
+      }
+    }
+
+    // Lọc theo trạng thái
+    if (filterStatus !== "all") {
+      const status = getStatus(showtime).label
+      const statusMap = {
+        cancelled: "Đã hủy",
+        upcoming: "Sắp chiếu",
+        ongoing: "Đang chiếu",
+        ended: "Đã kết thúc"
+      }
+      
+      if (status !== statusMap[filterStatus]) {
+        return false
+      }
+    }
+
+    return true
   })
 
   // 🔹 Phân trang
-  const totalPages = Math.ceil(activeShowtimes.length / itemsPerPage)
+  const totalPages = Math.ceil(filteredShowtimes.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
-  const paginated = activeShowtimes.slice(startIndex, startIndex + itemsPerPage)
+  const paginated = filteredShowtimes.slice(startIndex, startIndex + itemsPerPage)
 
   const handlePageChange = (page) => {
     setCurrentPage(page)
   }
 
-  const adminLinks = [
-    { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
-    { to: "/admin/customers", label: "Thông tin khách hàng" },
-    { to: "/admin/staffs", label: "Thông tin nhân viên" },
-    { to: "/moviesmanagement", label: "Quản lý phim" },
-    { to: "/admin/bookings", label: "Quản lý đặt phim" },
-    { to: "/admin/reports", label: "Báo cáo khác" },
-  ]
+  // Nếu không có quyền truy cập, không render gì cả
+  if (!isAdmin && !isStaff) {
+    return (
+      <Flex minH="100vh" bg="#181a20" color="white" justify="center" align="center">
+        <Box textAlign="center">
+          <Heading size="lg" color="red.400" mb={4}>Không có quyền truy cập</Heading>
+          <Text color="gray.400">Bạn không có quyền truy cập trang này</Text>
+        </Box>
+      </Flex>
+    )
+  }
 
   return (
-    <Flex flex="1" bg="#0f1117" color="white">
-      <Sidebar links={adminLinks} />
+    <Flex minH="100vh" bg="#181a20" color="white">
+      {isAdmin ? <SidebarAdmin /> : <SidebarStaff />}
+
+      {/* Main Content */}
       <Box flex="1" p={6}>
-        <Flex justify="space-between" align="center" mb={4}>
-          <Heading size="md">Quản lý phim / suất chiếu</Heading>
-          <Button colorScheme="orange" onClick={openAdd}>
+        <Flex justify="space-between" align="center" mb={6}>
+          <Heading color={ "orange.400" }>Quản lý suất chiếu</Heading>
+          <Button
+            leftIcon={<AddIcon />}
+            colorScheme={"orange"}
+            onClick={openAdd}
+            _hover={{ transform: "scale(1.05)" }}
+            transition="0.2s"
+          >
             Thêm suất chiếu
           </Button>
         </Flex>
 
+        {/* Filters */}
+        <VStack spacing={4} mb={6} align="stretch">
+          <HStack spacing={4} flexWrap="wrap">
+            <InputGroup maxW="300px">
+              <InputLeftElement pointerEvents="none">
+                <FaSearch color="gray" />
+              </InputLeftElement>
+              <Input
+                placeholder="Tìm theo tên phim..."
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                bg="gray.800"
+                color="white"
+                border="none"
+                _focus={{ bg: "gray.700" }}
+              />
+            </InputGroup>
+
+            <Select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              maxW="200px"
+              bg="#181a20"
+              color="#fff"
+              border="1px solid #23242a"
+            >
+              <option value="all" style={{ background: "#181a20", color: "#fff" }}>
+                Tất cả trạng thái
+              </option>
+              <option value="upcoming" style={{ background: "#181a20", color: "#fff" }}>
+                Sắp chiếu
+              </option>
+              <option value="ongoing" style={{ background: "#181a20", color: "#fff" }}>
+                Đang chiếu
+              </option>
+              <option value="ended" style={{ background: "#181a20", color: "#fff" }}>
+                Đã kết thúc
+              </option>
+              <option value="cancelled" style={{ background: "#181a20", color: "#fff" }}>
+                Đã hủy
+              </option>
+            </Select>
+          </HStack>
+
+          <HStack spacing={4} flexWrap="wrap">
+            <FormControl maxW="250px">
+              <FormLabel fontSize="sm" color="gray.400">Từ ngày</FormLabel>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                bg="gray.800"
+                border="none"
+                color="white"
+                _focus={{ bg: "gray.700" }}
+              />
+            </FormControl>
+
+            <FormControl maxW="250px">
+              <FormLabel fontSize="sm" color="gray.400">Đến ngày</FormLabel>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                bg="gray.800"
+                border="none"
+                color="white"
+                _focus={{ bg: "gray.700" }}
+              />
+            </FormControl>
+
+            {(searchName || filterStatus !== "all" || startDate || endDate) && (
+              <Button
+                size="sm"
+                colorScheme="red"
+                variant="outline"
+                onClick={() => {
+                  setSearchName("")
+                  setFilterStatus("all")
+                  setStartDate("")
+                  setEndDate("")
+                }}
+                alignSelf="flex-end"
+              >
+                Xóa bộ lọc
+              </Button>
+            )}
+          </HStack>
+        </VStack>
+
+        {/* Statistics */}
+        <HStack spacing={4} mb={6}>
+          <Box bg="#1a1e29" p={4} borderRadius="lg" flex="1">
+            <Text fontSize="sm" color="gray.400">Tổng suất chiếu</Text>
+            <Text fontSize="2xl" fontWeight="bold" color={ "orange.400"}>
+              {showtimes.length}
+            </Text>
+          </Box>
+          <Box bg="#1a1e29" p={4} borderRadius="lg" flex="1">
+            <Text fontSize="sm" color="gray.400">Kết quả lọc</Text>
+            <Text fontSize="2xl" fontWeight="bold" color="green.400">
+              {filteredShowtimes.length}
+            </Text>
+          </Box>
+          <Box bg="#1a1e29" p={4} borderRadius="lg" flex="1">
+            <Text fontSize="sm" color="gray.400">Trang hiện tại</Text>
+            <Text fontSize="2xl" fontWeight="bold" color="purple.400">
+              {currentPage}/{totalPages || 1}
+            </Text>
+          </Box>
+        </HStack>
+
         {loading ? (
           <Flex justify="center" align="center" minH="200px">
-            <Spinner color="orange.400" size="xl" />
+            <Spinner color={ "orange.400"} size="xl" />
           </Flex>
         ) : error ? (
           <Text color="red.400">{error}</Text>
+        ) : filteredShowtimes.length === 0 ? (
+          <Text textAlign="center" color="gray.400" fontSize="lg" mt={10}>
+            Không tìm thấy suất chiếu nào
+          </Text>
         ) : (
           <>
-            <TableContainer bg="gray.800" borderRadius="md" p={2}>
-              <Table variant="simple" size="sm">
-                <Thead bg="gray.700">
+            <Box overflowX="auto" bg="#1a1e29" borderRadius="2xl" p={6} boxShadow={`0 0 15px rgba(${ '255,140,0' },0.1)`}>
+              <Table variant="simple" colorScheme="whiteAlpha" size="sm">
+                <Thead bg="#222633">
                   <Tr>
-                    <Th color="orange.300">Poster</Th>
-                    <Th color="orange.300">Tên phim</Th>
-                    <Th color="orange.300">Phòng chiếu</Th>
-                    <Th color="orange.300">Thời gian chiếu</Th>
-                    <Th color="orange.300">Người tạo</Th>
-                    <Th color="orange.300">Trạng thái</Th>
-                    <Th color="orange.300">Thao tác</Th>
+                    <Th color={ "orange.400"}>Poster</Th>
+                    <Th color={ "orange.400"}>Tên phim</Th>
+                    <Th color={ "orange.400"}>Phòng chiếu</Th>
+                    <Th color={ "orange.400"}>Thời gian chiếu</Th>
+                    <Th color={ "orange.400"}>Người tạo</Th>
+                    <Th color={ "orange.400"}>Trạng thái</Th>
+                    <Th color={ "orange.400"}>Thao tác</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -546,7 +614,7 @@ export default function ShowtimeManagementPage() {
                     const editable = canEdit(s)
                     
                     return (
-                      <Tr key={s._id} _hover={{ bg: "gray.700" }}>
+                      <Tr key={s._id} _hover={{ bg: "#252a38" }} transition="0.2s">
                         <Td>
                           <Image
                             src={s.movie_id?.poster_url}
@@ -554,14 +622,25 @@ export default function ShowtimeManagementPage() {
                             boxSize="60px"
                             borderRadius="md"
                             objectFit="cover"
+                            fallbackSrc="https://via.placeholder.com/60"
                           />
                         </Td>
-                        <Td fontWeight="bold">{s.movie_id?.title || "Không rõ"}</Td>
-                        <Td>{s.room_id?.name || "Không rõ"}</Td>
-                        <Td>{formatDateTime(s)}</Td>
-                        <Td>{s.created_by?.name || s.created_by?.email || "Admin"}</Td>
-                        <Td color={color} fontWeight="semibold">
-                          {label}
+                        <Td>
+                          <Text fontWeight="bold" fontSize="sm">
+                            {s.movie_id?.title || "Không rõ"}
+                          </Text>
+                        </Td>
+                        <Td fontSize="sm">{s.room_id?.name || "Không rõ"}</Td>
+                        <Td fontSize="sm">{formatDateTime(s)}</Td>
+                        <Td fontSize="sm">{s.created_by?.name || s.created_by?.email || "Admin"}</Td>
+                        <Td>
+                          <Badge colorScheme={
+                            label === "Đã hủy" ? "red" :
+                            label === "Sắp chiếu" ? "blue" :
+                            label === "Đang chiếu" ? "green" : "gray"
+                          } fontSize="xs">
+                            {label}
+                          </Badge>
                         </Td>
                         <Td>
                           <Tooltip 
@@ -589,6 +668,8 @@ export default function ShowtimeManagementPage() {
                               onClick={() => toggleShowtimeStatus(s)}
                               isDisabled={!editable}
                               isLoading={canceling}
+                              _hover={{ transform: "scale(1.1)" }}
+                              transition="0.2s"
                             />
                           </Tooltip>
                         </Td>
@@ -597,13 +678,13 @@ export default function ShowtimeManagementPage() {
                   })}
                 </Tbody>
               </Table>
-            </TableContainer>
+            </Box>
 
+            {/* Pagination */}
             {totalPages > 1 && (
               <Flex justify="space-between" align="center" mt={6}>
                 <Text color="gray.400" fontSize="sm">
-                  Hiển thị {startIndex + 1} -{" "}
-                  {Math.min(startIndex + itemsPerPage, activeShowtimes.length)} / {activeShowtimes.length}
+                  Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredShowtimes.length)} / {filteredShowtimes.length}
                 </Text>
                 <HStack spacing={2}>
                   <Button
@@ -618,20 +699,29 @@ export default function ShowtimeManagementPage() {
                   </Button>
                   {[...Array(totalPages)].map((_, index) => {
                     const page = index + 1
-                    return (
-                      <Button
-                        key={page}
-                        size="sm"
-                        onClick={() => handlePageChange(page)}
-                        bg={currentPage === page ? "orange.400" : "#23242a"}
-                        color="white"
-                        _hover={{
-                          bg: currentPage === page ? "orange.500" : "#2d2e35",
-                        }}
-                      >
-                        {page}
-                      </Button>
-                    )
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <Button
+                          key={page}
+                          size="sm"
+                          onClick={() => handlePageChange(page)}
+                          bg={currentPage === page ? ( "orange.400") : "#23242a"}
+                          color="white"
+                          _hover={{
+                            bg: currentPage === page ? ("orange.500" ) : "#2d2e35",
+                          }}
+                        >
+                          {page}
+                        </Button>
+                      )
+                    } else if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <Text key={page} color="gray.400">...</Text>
+                    }
+                    return null
                   })}
                   <Button
                     size="sm"
@@ -651,230 +741,137 @@ export default function ShowtimeManagementPage() {
       </Box>
 
       {/* 🔹 Modal thêm suất chiếu */}
-      <Modal isOpen={isAddOpen} onClose={closeAdd} isCentered>
+      <Modal isOpen={isAddOpen} onClose={closeAdd} isCentered size="lg">
         <ModalOverlay />
-        <ModalContent bg="gray.800" color="white">
+        <ModalContent bg="#1a1e29" color="white">
           <ModalHeader>Thêm suất chiếu mới</ModalHeader>
           <ModalCloseButton />
           <ModalBody pb={6}>
-            <FormControl mb={4} isRequired>
-              <FormLabel>Phim *</FormLabel>
-              <Select
-                placeholder="Chọn phim"
-                value={newShowtime.movie_id}
-                onChange={(e) => {
-                  console.log("Selected movie_id:", e.target.value)
-                  setNewShowtime({ ...newShowtime, movie_id: e.target.value })
-                }}
-                bg="gray.700"
-                borderColor="gray.600"
-                _hover={{ borderColor: "orange.400" }}
-                _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px #d53f8c" }}
-              >
-                {movies.length === 0 ? (
-                  <option disabled style={{ background: "#1a202c", color: "gray" }}>
-                    Đang tải phim...
-                  </option>
-                ) : (
-                  movies.map((m) => (
-                    <option key={m._id} value={m._id} style={{ background: "#1a202c", color: "white" }}>
-                      {m.title}
+            <VStack spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>Phim</FormLabel>
+                <Select
+                  placeholder="Chọn phim"
+                  value={newShowtime.movie_id}
+                  onChange={(e) => setNewShowtime({ ...newShowtime, movie_id: e.target.value })}
+                  bg="gray.800"
+                  borderColor="gray.600"
+                  _hover={{ borderColor:  "orange.400" }}
+                  _focus={{ borderColor:  "orange.400", boxShadow: "0 0 0 1px" }}
+                >
+                  {movies.length === 0 ? (
+                    <option disabled style={{ background: "#1a202c", color: "gray" }}>
+                      Đang tải phim...
                     </option>
-                  ))
-                )}
-              </Select>
-              {newShowtime.movie_id && (
-                <Text fontSize="xs" color="gray.400" mt={1}>
-                  ID đã chọn: {newShowtime.movie_id}
-                </Text>
-              )}
-            </FormControl>
-
-            <FormControl mb={4} isRequired>
-              <FormLabel>Phòng chiếu *</FormLabel>
-              <Select
-                placeholder="Chọn phòng"
-                value={newShowtime.room_id}
-                onChange={(e) => {
-                  const selectedId = e.target.value
-                  console.log("📝 Selected room_id (raw):", selectedId)
-                  console.log("📝 Type:", typeof selectedId)
-                  
-                  const selectedRoom = rooms.find(r => String(r._id) === String(selectedId))
-                  console.log("🏠 Selected room object:", selectedRoom)
-                  
-                  if (selectedRoom) {
-                    console.log("✅ Room found - ID:", selectedRoom._id)
-                    console.log("✅ Room name:", selectedRoom.name)
-                  }
-                  
-                  setNewShowtime({ ...newShowtime, room_id: selectedId })
-                }}
-                bg="gray.700"
-                borderColor="gray.600"
-                _hover={{ borderColor: "orange.400" }}
-                _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px #d53f8c" }}
-              >
-                {rooms.length === 0 ? (
-                  <option disabled style={{ background: "#1a202c", color: "gray" }}>
-                    Đang tải phòng...
-                  </option>
-                ) : (
-                  rooms.map((r) => {
-                    const roomId = r._id || r.id
-                    const roomName = r.name || `Phòng ${roomId}`
-                    
-                    console.log("🔍 Room option:", { id: roomId, name: roomName })
-                    
-                    return (
-                      <option 
-                        key={roomId} 
-                        value={roomId} 
-                        style={{ background: "#1a202c", color: "white" }}
-                      >
-                        {roomName}
+                  ) : (
+                    movies.map((m) => (
+                      <option key={m._id} value={m._id} style={{ background: "#1a202c", color: "white" }}>
+                        {m.title}
                       </option>
-                    )
-                  })
+                    ))
+                  )}
+                </Select>
+                {newShowtime.movie_id && (
+                  <Text fontSize="xs" color="gray.400" mt={1}>
+                    ID đã chọn: {newShowtime.movie_id}
+                  </Text>
                 )}
-              </Select>
-              {newShowtime.room_id && (
-                <Text fontSize="xs" color="gray.400" mt={1}>
-                  ID đã chọn: {newShowtime.room_id}
-                </Text>
-              )}
-              {rooms.length === 0 && (
-                <Text fontSize="xs" color="red.400" mt={1}>
-                  ⚠️ Không có phòng nào. Vui lòng thêm phòng trước.
-                </Text>
-              )}
-              {rooms.length > 0 && (
-                <Text fontSize="xs" color="blue.300" mt={1}>
-                  ℹ️ Có {rooms.length} phòng khả dụng
-                </Text>
-              )}
-            </FormControl>
+              </FormControl>
 
-            <FormControl mb={4} isRequired>
-              <FormLabel>Ngày chiếu</FormLabel>
-              <Input
-                type="date"
-                value={newShowtime.date}
-                onChange={(e) =>
-                  setNewShowtime({ ...newShowtime, date: e.target.value })
-                }
-                bg="gray.700"
-                borderColor="gray.600"
-                _hover={{ borderColor: "orange.400" }}
-                _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px #d53f8c" }}
-              />
-            </FormControl>
+              <FormControl isRequired>
+                <FormLabel>Phòng chiếu</FormLabel>
+                <Select
+                  placeholder="Chọn phòng"
+                  value={newShowtime.room_id}
+                  onChange={(e) => setNewShowtime({ ...newShowtime, room_id: e.target.value })}
+                  bg="gray.800"
+                  borderColor="gray.600"
+                  _hover={{ borderColor:  "orange.400" }}
+                  _focus={{ borderColor:  "orange.400", boxShadow: "0 0 0 1px" }}
+                >
+                  {rooms.length === 0 ? (
+                    <option disabled style={{ background: "#1a202c", color: "gray" }}>
+                      Đang tải phòng...
+                    </option>
+                  ) : (
+                    rooms.map((r) => {
+                      const roomId = r._id || r.id
+                      const roomName = r.name || `Phòng ${roomId}`
+                      
+                      return (
+                        <option 
+                          key={roomId} 
+                          value={roomId} 
+                          style={{ background: "#1a202c", color: "white" }}
+                        >
+                          {roomName}
+                        </option>
+                      )
+                    })
+                  )}
+                </Select>
+                {newShowtime.room_id && (
+                  <Text fontSize="xs" color="gray.400" mt={1}>
+                    ID đã chọn: {newShowtime.room_id}
+                  </Text>
+                )}
+                {rooms.length === 0 && (
+                  <Text fontSize="xs" color="red.400" mt={1}>
+                    ⚠️ Không có phòng nào. Vui lòng thêm phòng trước.
+                  </Text>
+                )}
+                {rooms.length > 0 && (
+                  <Text fontSize="xs" color="blue.300" mt={1}>
+                    ℹ️ Có {rooms.length} phòng khả dụng
+                  </Text>
+                )}
+              </FormControl>
 
-            <FormControl mb={4} isRequired>
-              <FormLabel>Giờ chiếu (HH:mm)</FormLabel>
-              <Input
-                type="time"
-                value={newShowtime.time}
-                onChange={(e) =>
-                  setNewShowtime({ ...newShowtime, time: e.target.value })
-                }
-                bg="gray.700"
-                borderColor="gray.600"
-                _hover={{ borderColor: "orange.400" }}
-                _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px #d53f8c" }}
-              />
-            </FormControl>
+              <FormControl isRequired>
+                <FormLabel>Ngày chiếu</FormLabel>
+                <Input
+                  type="date"
+                  value={newShowtime.date}
+                  onChange={(e) => setNewShowtime({ ...newShowtime, date: e.target.value })}
+                  bg="gray.800"
+                  borderColor="gray.600"
+                  _hover={{ borderColor:  "orange.400" }}
+                  _focus={{ borderColor:  "orange.400", boxShadow: "0 0 0 1px" }}
+                />
+              </FormControl>
 
-            <Button
-              colorScheme="orange"
-              w="full"
-              mt={4}
-              isLoading={adding}
-              onClick={addShowtime}
-              loadingText="Đang thêm..."
-            >
-              Xác nhận thêm
-            </Button>
-          </ModalBody>
-        </ModalContent>
-      </Modal>
+              <FormControl isRequired>
+                <FormLabel>Giờ chiếu (HH:mm)</FormLabel>
+                <Input
+                  type="time"
+                  value={newShowtime.time}
+                  onChange={(e) => setNewShowtime({ ...newShowtime, time: e.target.value })}
+                  bg="gray.800"
+                  borderColor="gray.600"
+                  _hover={{ borderColor:  "orange.400" }}
+                  _focus={{ borderColor:  "orange.400", boxShadow: "0 0 0 1px" }}
+                />
+              </FormControl>
 
-      {/* 🔹 Modal chỉnh sửa suất chiếu */}
-      <Modal isOpen={isEditOpen} onClose={closeEdit} isCentered>
-        <ModalOverlay />
-        <ModalContent bg="gray.800" color="white">
-          <ModalHeader>Chỉnh sửa suất chiếu</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody pb={6}>
-            <FormControl mb={4} isRequired>
-              <FormLabel>Phim *</FormLabel>
-              <Select
-                placeholder="Chọn phim"
-                value={editForm.movie_id}
-                onChange={(e) => setEditForm({ ...editForm, movie_id: e.target.value })}
-                bg="gray.700"
-                borderColor="gray.600"
-              >
-                {movies.map((m) => (
-                  <option key={m._id} value={m._id} style={{ background: "#1a202c", color: "white" }}>
-                    {m.title}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl mb={4} isRequired>
-              <FormLabel>Phòng chiếu *</FormLabel>
-              <Select
-                placeholder="Chọn phòng"
-                value={editForm.room_id}
-                onChange={(e) => setEditForm({ ...editForm, room_id: e.target.value })}
-                bg="gray.700"
-                borderColor="gray.600"
-              >
-                {rooms.map((r) => (
-                  <option key={r._id} value={r._id} style={{ background: "#1a202c", color: "white" }}>
-                    {r.name}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl mb={4} isRequired>
-              <FormLabel>Ngày chiếu</FormLabel>
-              <Input
-                type="date"
-                value={editForm.date}
-                onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                bg="gray.700"
-                borderColor="gray.600"
-              />
-            </FormControl>
-
-            <FormControl mb={4} isRequired>
-              <FormLabel>Giờ chiếu (HH:mm)</FormLabel>
-              <Input
-                type="time"
-                value={editForm.time}
-                onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
-                bg="gray.700"
-                borderColor="gray.600"
-              />
-            </FormControl>
-
-            <Button
-              colorScheme="blue"
-              w="full"
-              mt={4}
-              isLoading={updating}
-              onClick={updateShowtime}
-              loadingText="Đang cập nhật..."
-            >
-              Cập nhật suất chiếu
-            </Button>
+              <Flex gap={3} w="100%" justify="flex-end" pt={4}>
+                <Button onClick={closeAdd} bg="gray.700" _hover={{ bg: "gray.600" }}>
+                  Hủy
+                </Button>
+                <Button
+                  colorScheme={ "orange"}
+                  isLoading={adding}
+                  onClick={addShowtime}
+                  loadingText="Đang thêm..."
+                  isDisabled={!newShowtime.movie_id || !newShowtime.room_id || !newShowtime.date || !newShowtime.time}
+                >
+                  Xác nhận thêm
+                </Button>
+              </Flex>
+            </VStack>
           </ModalBody>
         </ModalContent>
       </Modal>
     </Flex>
   )
 }
+                        

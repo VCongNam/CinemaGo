@@ -32,15 +32,16 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
-import { ViewIcon, EditIcon, DeleteIcon, AddIcon } from "@chakra-ui/icons";
-import Sidebar from "../Navbar/Sidebar";
+import { ViewIcon, EditIcon, UnlockIcon, LockIcon, AddIcon } from "@chakra-ui/icons";
+import SidebarAdmin from "../Navbar/SidebarAdmin";
+import SidebarStaff from "../Navbar/SidebarStaff";
 
 const MovieManagementPage = () => {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTitle, setSearchTitle] = useState("");
   const [genreFilter, setGenreFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("newest"); // newest, oldest, title_asc, title_desc
+  const [sortBy, setSortBy] = useState("newest");
   const [genres, setGenres] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -48,7 +49,7 @@ const MovieManagementPage = () => {
   const toast = useToast();
   const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const [ setCanceling] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -60,6 +61,32 @@ const MovieManagementPage = () => {
     trailer_url: "",
     release_date: "",
   });
+
+  // Lấy thông tin role từ localStorage
+  // Kiểm tra cả localStorage.getItem("role") (object) và localStorage.getItem("userRole") (string)
+  let roleData = null;
+  try {
+    roleData = JSON.parse(localStorage.getItem("role"));
+  } catch (e) {
+    // Nếu không parse được, có thể là string trực tiếp
+    const directRole = localStorage.getItem("role") || localStorage.getItem("userRole");
+    if (directRole) {
+      roleData = { role: directRole };
+    }
+  }
+  
+  const role = roleData?.role || "";
+  
+  // Xác định role và quyền hạn
+  let userRole = "lv2"; // default
+  let isAdmin = false;
+  
+  if (role.toLowerCase() === "admin") {
+    userRole = "admin";
+    isAdmin = true;
+  } else if (role.toLowerCase() === "lv2") {
+    userRole = "lv2";
+  }
 
   useEffect(() => {
     fetchMovies();
@@ -131,104 +158,152 @@ const MovieManagementPage = () => {
     onOpen();
   };
 
-  const handleDeleteMovie = (movie) => {
-    setSelectedMovie(movie);
-    onDeleteOpen();
-  };
+  const toggleMovieStatus = async (movie) => {
+  const token = localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("user")); // hoặc lấy từ context
+  const role = user?.role; // ví dụ: "admin", "lv2", "staff", "user", ...
 
-  const confirmDelete = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:5000/api/movies/${selectedMovie._id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+  // 👉 Chỉ cho phép role = "admin" hoặc "lv2"
+  if (role !== "admin" && role !== "lv2") {
+    toast({
+      title: "Không có quyền",
+      description: "Chỉ Admin hoặc cấp 2 mới có thể thay đổi trạng thái phim.",
+      status: "error",
+      duration: 3000,
+      isClosable: true,
+    });
+    return;
+  }
 
-      if (!response.ok) throw new Error("Không thể xóa phim");
+  setCanceling(true);
 
-      toast({
-        title: "Thành công",
-        description: "Đã xóa phim thành công",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
+  const newStatus = movie.status === "inactive" ? "active" : "inactive";
 
-      fetchMovies();
-      onDeleteClose();
-    } catch (err) {
-      toast({
-        title: "Lỗi",
-        description: err.message,
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
+  try {
+    const res = await fetch(`http://localhost:5000/api/movies/${movie._id}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({ status: newStatus }),
+    });
+
+    const responseText = await res.text();
+
+    if (!res.ok) {
+      let err;
+      try {
+        err = JSON.parse(responseText);
+      } catch {
+        err = { message: responseText };
+      }
+      throw new Error(err.message || "Không thể thay đổi trạng thái phim.");
     }
-  };
+
+    toast({
+      title:
+        newStatus === "inactive"
+          ? "Phim đã bị cấm (inactive)"
+          : "Phim đã được kích hoạt lại (active)",
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+
+    fetchMovies(); // tải lại danh sách phim
+  } catch (err) {
+    toast({
+      title: "Lỗi",
+      description: err.message,
+      status: "error",
+      duration: 5000,
+      isClosable: true,
+    });
+  } finally {
+    setCanceling(false);
+  }
+};
+
+
 
   const handleSubmit = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const url = selectedMovie
-        ? `http://localhost:5000/api/movies/${selectedMovie._id}`
-        : "http://localhost:5000/api/add-movie";
-      
-      const method = selectedMovie ? "PUT" : "POST";
+  try {
+    const token = localStorage.getItem("token");
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
+    // Chuẩn hóa dữ liệu gửi đi
+    const payload = {
+      title: formData.title.trim(),
+      description: formData.description.trim(),
+      duration: Number(formData.duration),
+      genre: Array.isArray(formData.genre)
+        ? formData.genre
+        : formData.genre.split(",").map((g) => g.trim()).filter(Boolean),
+      poster_url: formData.poster_url.trim(),
+      trailer_url: formData.trailer_url.trim(),
+      release_date: formData.release_date, // YYYY-MM-DD string
+    };
 
-      if (!response.ok) throw new Error("Không thể lưu phim");
+    const url = selectedMovie
+      ? `http://localhost:5000/api/movies/${selectedMovie._id}`
+      : "http://localhost:5000/api/movies";
 
-      toast({
-        title: "Thành công",
-        description: selectedMovie ? "Đã cập nhật phim" : "Đã thêm phim mới",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
+    const method = selectedMovie ? "PUT" : "POST";
 
-      fetchMovies();
-      onClose();
-    } catch (err) {
-      toast({
-        title: "Lỗi",
-        description: err.message,
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
+    const response = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    // Backend trả 201 -> coi là success
+    if (response.status !== 200 && response.status !== 201) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.message || "Không thể lưu phim");
     }
-  };
+
+    toast({
+      title: "Thành công",
+      description: selectedMovie
+        ? "Đã cập nhật phim thành công"
+        : "Đã thêm phim mới thành công",
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+
+    fetchMovies();
+    onClose();
+  } catch (err) {
+    toast({
+      title: "Lỗi",
+      description: err.message,
+      status: "error",
+      duration: 3000,
+      isClosable: true,
+    });
+  }
+};
+
 
   const filterAndSortMovies = () => {
     let filtered = [...movies];
 
-    // Search by title
     if (searchTitle.trim()) {
       filtered = filtered.filter(m =>
         m.title?.toLowerCase().includes(searchTitle.toLowerCase())
       );
     }
 
-    // Filter by genre
     if (genreFilter !== "all") {
       filtered = filtered.filter(m =>
         m.genre?.includes(genreFilter)
       );
     }
 
-    // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
         case "newest":
@@ -252,7 +327,6 @@ const MovieManagementPage = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedMovies = filteredMovies.slice(startIndex, startIndex + itemsPerPage);
 
-  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTitle, genreFilter, sortBy]);
@@ -265,14 +339,16 @@ const MovieManagementPage = () => {
   };
 
   return (
-    <Flex bg="#0f1117" minH="100vh" color="white">
-      <Sidebar />
+    <Flex minH="100vh" bg="#181a20" color="white">
+      {isAdmin ? <SidebarAdmin /> : <SidebarStaff />}
+
+      {/* Main Content */}
       <Box flex="1" p={6}>
         <Flex justify="space-between" align="center" mb={6}>
-          <Heading color="orange.400">Quản lý Phim</Heading>
+          <Heading color={"orange.400"}>Quản lý Phim</Heading>
           <Button
             leftIcon={<AddIcon />}
-            colorScheme="orange"
+            colorScheme={"orange"}
             onClick={handleAddMovie}
             _hover={{ transform: "scale(1.05)" }}
             transition="0.2s"
@@ -341,21 +417,21 @@ const MovieManagementPage = () => {
         <HStack spacing={4} mb={6}>
           <Box bg="#1a1e29" p={4} borderRadius="lg" flex="1">
             <Text fontSize="sm" color="gray.400">Tổng số phim</Text>
-            <Text fontSize="2xl" fontWeight="bold" color="orange.400">{movies.length}</Text>
+            <Text fontSize="2xl" fontWeight="bold" color={"orange.400"}>{movies.length}</Text>
           </Box>
           <Box bg="#1a1e29" p={4} borderRadius="lg" flex="1">
             <Text fontSize="sm" color="gray.400">Kết quả lọc</Text>
-            <Text fontSize="2xl" fontWeight="bold" color="blue.400">{filteredMovies.length}</Text>
+            <Text fontSize="2xl" fontWeight="bold" color="green.400">{filteredMovies.length}</Text>
           </Box>
           <Box bg="#1a1e29" p={4} borderRadius="lg" flex="1">
             <Text fontSize="sm" color="gray.400">Thể loại</Text>
-            <Text fontSize="2xl" fontWeight="bold" color="green.400">{genres.length}</Text>
+            <Text fontSize="2xl" fontWeight="bold" color="purple.400">{genres.length}</Text>
           </Box>
         </HStack>
 
         {loading ? (
           <Flex justify="center" align="center" h="50vh">
-            <Spinner size="xl" color="#ff8c00" />
+            <Spinner size="xl" color={"#ff8c00"} />
           </Flex>
         ) : filteredMovies.length === 0 ? (
           <Text textAlign="center" color="gray.400" fontSize="lg" mt={10}>
@@ -363,16 +439,16 @@ const MovieManagementPage = () => {
           </Text>
         ) : (
           <>
-            <Box overflowX="auto" bg="#1a1e29" borderRadius="2xl" p={6} boxShadow="0 0 15px rgba(255,140,0,0.1)">
+            <Box overflowX="auto" bg="#1a1e29" borderRadius="2xl" p={6} boxShadow={`0 0 15px rgba(${'255,140,0'},0.1)`}>
               <Table variant="simple" colorScheme="whiteAlpha" size="sm">
                 <Thead bg="#222633">
                   <Tr>
-                    <Th color="orange.300">Poster</Th>
-                    <Th color="orange.300">Tên phim</Th>
-                    <Th color="orange.300">Thời lượng</Th>
-                    <Th color="orange.300">Thể loại</Th>
-                    <Th color="orange.300">Ngày phát hành</Th>
-                    <Th color="orange.300">Thao tác</Th>
+                    <Th color={"orange.300"}>Poster</Th>
+                    <Th color={"orange.300"}>Tên phim</Th>
+                    <Th color={"orange.300"}>Thời lượng</Th>
+                    <Th color={"orange.300" }>Thể loại</Th>
+                    <Th color={"orange.300" }>Ngày phát hành</Th>
+                    <Th color={"orange.300" }>Thao tác</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -416,28 +492,29 @@ const MovieManagementPage = () => {
                             colorScheme="green"
                             size="sm"
                             aria-label="Xem chi tiết"
-                            onClick={() => navigate(`/admin/movies/${movie._id}`)}
+                            onClick={() => navigate(`/movies/${movie._id}`)}
                             _hover={{ transform: "scale(1.1)" }}
                             transition="0.2s"
                           />
                           <IconButton
                             icon={<EditIcon />}
-                            colorScheme="blue"
+                            colorScheme={"blue" }
                             size="sm"
                             aria-label="Chỉnh sửa"
                             onClick={() => handleEditMovie(movie)}
                             _hover={{ transform: "scale(1.1)" }}
                             transition="0.2s"
                           />
-                          <IconButton
-                            icon={<DeleteIcon />}
-                            colorScheme="red"
-                            size="sm"
-                            aria-label="Xóa"
-                            onClick={() => handleDeleteMovie(movie)}
-                            _hover={{ transform: "scale(1.1)" }}
-                            transition="0.2s"
-                          />
+                            <IconButton
+  icon={movie.status === "inactive" ? <UnlockIcon /> : <LockIcon />}
+  colorScheme={movie.status === "inactive" ? "green" : "red"}
+  size="sm"
+  aria-label="Thay đổi trạng thái phim"
+  onClick={() => toggleMovieStatus(movie)}
+  _hover={{ transform: "scale(1.1)" }}
+  transition="0.2s"
+/>
+
                         </HStack>
                       </Td>
                     </Tr>
@@ -475,10 +552,10 @@ const MovieManagementPage = () => {
                           key={page}
                           size="sm"
                           onClick={() => setCurrentPage(page)}
-                          bg={currentPage === page ? "orange.400" : "#23242a"}
+                          bg={currentPage === page ? ("orange.400") : "#23242a"}
                           color="white"
                           _hover={{
-                            bg: currentPage === page ? "orange.500" : "#2d2e35",
+                            bg: currentPage === page ? ("orange.500") : "#2d2e35",
                           }}
                         >
                           {page}
@@ -504,135 +581,114 @@ const MovieManagementPage = () => {
             )}
           </>
         )}
+
+        {/* Add/Edit Modal */}
+        <Modal isOpen={isOpen} onClose={onClose} size="xl">
+          <ModalOverlay />
+          <ModalContent bg="#1a1e29" color="white">
+            <ModalHeader>{selectedMovie ? "Chỉnh sửa phim" : "Thêm phim mới"}</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody pb={6}>
+              <VStack spacing={4}>
+                <FormControl isRequired>
+                  <FormLabel>Tên phim</FormLabel>
+                  <Input
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    bg="gray.800"
+                    border="none"
+                    placeholder="Nhập tên phim..."
+                  />
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel>Mô tả</FormLabel>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    bg="gray.800"
+                    border="none"
+                    rows={4}
+                    placeholder="Nhập mô tả phim..."
+                  />
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel>Thời lượng (phút)</FormLabel>
+                  <Input
+                    type="number"
+                    value={formData.duration}
+                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                    bg="gray.800"
+                    border="none"
+                    placeholder="Ví dụ: 148"
+                  />
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel>Thể loại (phân cách bằng dấu phẩy)</FormLabel>
+                  <Input
+                    value={Array.isArray(formData.genre) ? formData.genre.join(", ") : ""}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      genre: e.target.value.split(",").map(g => g.trim()).filter(g => g)
+                    })}
+                    placeholder="Action, Drama, Sci-Fi"
+                    bg="gray.800"
+                    border="none"
+                  />
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel>URL Poster</FormLabel>
+                  <Input
+                    value={formData.poster_url}
+                    onChange={(e) => setFormData({ ...formData, poster_url: e.target.value })}
+                    bg="gray.800"
+                    border="none"
+                    placeholder="https://example.com/poster.jpg"
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>URL Trailer</FormLabel>
+                  <Input
+                    value={formData.trailer_url}
+                    onChange={(e) => setFormData({ ...formData, trailer_url: e.target.value })}
+                    bg="gray.800"
+                    border="none"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                  />
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel>Ngày phát hành</FormLabel>
+                  <Input
+                    type="date"
+                    value={formData.release_date}
+                    onChange={(e) => setFormData({ ...formData, release_date: e.target.value })}
+                    bg="gray.800"
+                    border="none"
+                  />
+                </FormControl>
+
+                <Flex gap={3} w="100%" justify="flex-end" pt={4}>
+                  <Button onClick={onClose} bg="gray.700" _hover={{ bg: "gray.600" }}>
+                    Hủy
+                  </Button>
+                  <Button 
+                    colorScheme={isAdmin ? "orange" : "blue"}
+                    onClick={handleSubmit}
+                    isDisabled={!formData.title || !formData.description || !formData.duration || !formData.release_date}
+                  >
+                    {selectedMovie ? "Cập nhật" : "Thêm"}
+                  </Button>
+                </Flex>
+              </VStack>
+            </ModalBody>
+          </ModalContent>
+        </Modal>
       </Box>
-
-      {/* Add/Edit Modal */}
-      <Modal isOpen={isOpen} onClose={onClose} size="xl">
-        <ModalOverlay />
-        <ModalContent bg="#1a1e29" color="white">
-          <ModalHeader>{selectedMovie ? "Chỉnh sửa phim" : "Thêm phim mới"}</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody pb={6}>
-            <VStack spacing={4}>
-              <FormControl isRequired>
-                <FormLabel>Tên phim</FormLabel>
-                <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  bg="gray.800"
-                  border="none"
-                  placeholder="Nhập tên phim..."
-                />
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel>Mô tả</FormLabel>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  bg="gray.800"
-                  border="none"
-                  rows={4}
-                  placeholder="Nhập mô tả phim..."
-                />
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel>Thời lượng (phút)</FormLabel>
-                <Input
-                  type="number"
-                  value={formData.duration}
-                  onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                  bg="gray.800"
-                  border="none"
-                  placeholder="Ví dụ: 148"
-                />
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel>Thể loại (phân cách bằng dấu phẩy)</FormLabel>
-                <Input
-                  value={Array.isArray(formData.genre) ? formData.genre.join(", ") : ""}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    genre: e.target.value.split(",").map(g => g.trim()).filter(g => g)
-                  })}
-                  placeholder="Action, Drama, Sci-Fi"
-                  bg="gray.800"
-                  border="none"
-                />
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel>URL Poster</FormLabel>
-                <Input
-                  value={formData.poster_url}
-                  onChange={(e) => setFormData({ ...formData, poster_url: e.target.value })}
-                  bg="gray.800"
-                  border="none"
-                  placeholder="https://example.com/poster.jpg"
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>URL Trailer</FormLabel>
-                <Input
-                  value={formData.trailer_url}
-                  onChange={(e) => setFormData({ ...formData, trailer_url: e.target.value })}
-                  bg="gray.800"
-                  border="none"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                />
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel>Ngày phát hành</FormLabel>
-                <Input
-                  type="date"
-                  value={formData.release_date}
-                  onChange={(e) => setFormData({ ...formData, release_date: e.target.value })}
-                  bg="gray.800"
-                  border="none"
-                />
-              </FormControl>
-
-              <Flex gap={3} w="100%" justify="flex-end" pt={4}>
-                <Button onClick={onClose} bg="gray.700" _hover={{ bg: "gray.600" }}>
-                  Hủy
-                </Button>
-                <Button 
-                  colorScheme="orange" 
-                  onClick={handleSubmit}
-                  isDisabled={!formData.title || !formData.description || !formData.duration || !formData.release_date}
-                >
-                  {selectedMovie ? "Cập nhật" : "Thêm"}
-                </Button>
-              </Flex>
-            </VStack>
-          </ModalBody>
-        </ModalContent>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <Modal isOpen={isDeleteOpen} onClose={onDeleteClose}>
-        <ModalOverlay />
-        <ModalContent bg="#1a1e29" color="white">
-          <ModalHeader>Xác nhận xóa</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody pb={6}>
-            <Text mb={4}>Bạn có chắc chắn muốn xóa phim <Text as="span" fontWeight="bold" color="orange.400">"{selectedMovie?.title}"</Text>?</Text>
-            <Text fontSize="sm" color="red.400">Hành động này không thể hoàn tác!</Text>
-            <Flex gap={3} justify="flex-end" mt={6}>
-              <Button onClick={onDeleteClose} bg="gray.700" _hover={{ bg: "gray.600" }}>
-                Hủy
-              </Button>
-              <Button colorScheme="red" onClick={confirmDelete}>
-                Xóa
-              </Button>
-            </Flex>
-          </ModalBody>
-        </ModalContent>
-      </Modal>
     </Flex>
   );
 };
