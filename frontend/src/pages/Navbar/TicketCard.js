@@ -1,15 +1,18 @@
 import { Box, Text, Badge, HStack, VStack } from "@chakra-ui/react";
+import { useNavigate } from "react-router-dom";
 
-export default function TicketCard({ ticket }) {
+export default function TicketCard({ ticket, bookingId }) {
+  const navigate = useNavigate();
   return (
     <Box
       borderWidth="1px"
       borderRadius="xl"
       p={4}
-      bg="#1a1d29" // nền tối đồng bộ theme
+      bg="#1a1d29"
       color="white"
       shadow="md"
-      _hover={{ shadow: "lg", transform: "scale(1.02)", transition: "0.2s" }}
+      _hover={{ shadow: "lg", transform: "scale(1.02)", transition: "0.2s", cursor: "pointer", borderColor: "#ff9900" }}
+      onClick={() => navigate(`/ticket-detail/${bookingId}`)}
     >
       <VStack align="start" spacing={2}>
         <Text fontWeight="bold" fontSize="lg" color="orange.400">

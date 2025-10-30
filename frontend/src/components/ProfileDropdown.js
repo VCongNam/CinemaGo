@@ -84,6 +84,14 @@ const ProfileDropdown = () => {
           bg="gray.800"
           color="white"
           _hover={{ bg: "gray.700" }}
+          onClick={() => navigate("/ticket-history")}
+        >
+          Lịch sử đặt vé
+        </MenuItem>
+        <MenuItem
+          bg="gray.800"
+          color="white"
+          _hover={{ bg: "gray.700" }}
           onClick={handleLogout}
         >
           Đăng xuất
