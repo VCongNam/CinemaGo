@@ -1,16 +1,20 @@
 import Showtime from "../models/showtime.js";
 import Movie from "../models/movie.js";
 import Room from "../models/room.js";
+import Booking from "../models/booking.js";
+import BookingSeat from "../models/bookingSeat.js";
 import { formatForAPI, formatVietnamTime, getDayRangeVietnam } from "../utils/timezone.js";
 
 // Helper: check overlap for a room between [start,end)
 const hasOverlap = async ({ roomId, startTime, endTime, excludeId = null }) => {
   const query = {
     room_id: roomId,
+    status: "active", // Only check against active showtimes
     // overlap condition: existing.start < newEnd AND existing.end > newStart
     start_time: { $lt: endTime },
     end_time: { $gt: startTime }
   };
+
   if (excludeId) {
     query._id = { $ne: excludeId };
   }
@@ -286,6 +290,7 @@ export const updateShowtimeStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+
     if (!status || typeof status !== "string") {
       return res.status(400).json({ message: "status là bắt buộc và phải là chuỗi" });
     }
@@ -293,6 +298,28 @@ export const updateShowtimeStatus = async (req, res, next) => {
     if (!["active", "inactive"].includes(normalizedStatus)) {
       return res.status(400).json({ message: "status phải là 'active' hoặc 'inactive'" });
     }
+
+    // If activating, check for conflicts with other active showtimes
+    if (normalizedStatus === "active") {
+      const showtimeToActivate = await Showtime.findById(id);
+      if (!showtimeToActivate) {
+        return res.status(404).json({ message: "Không tìm thấy suất chiếu" });
+      }
+
+      const overlap = await hasOverlap({
+        roomId: showtimeToActivate.room_id,
+        startTime: showtimeToActivate.start_time,
+        endTime: showtimeToActivate.end_time,
+        excludeId: id
+      });
+
+      if (overlap) {
+        return res.status(409).json({
+          message: "Không thể kích hoạt suất chiếu. Lịch chiếu bị trùng với một suất chiếu khác đang hoạt động."
+        });
+      }
+    }
+
     const updated = await Showtime.findByIdAndUpdate(
       id,
       { status: normalizedStatus },
@@ -321,4 +348,51 @@ export const updateShowtimeStatus = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+/**
+ * @desc    Lấy danh sách các ghế đã được đặt của một suất chiếu
+ * @route   GET /api/showtimes/:id/booked-seats
+ * @access  Public
+ */
+export const getBookedSeatsForShowtime = async (req, res, next) => {
+    try {
+        const { id: showtimeId } = req.params;
+
+        // 1. Find the showtime to make sure it exists
+        const showtime = await Showtime.findById(showtimeId);
+        if (!showtime) {
+            return res.status(404).json({ message: 'Không tìm thấy suất chiếu.' });
+        }
+
+        // 2. Find all 'pending' or 'confirmed' bookings for this showtime
+        const activeBookings = await Booking.find({
+            showtime_id: showtimeId,
+            status: { $in: ['pending', 'confirmed'] }
+        }).select('_id');
+
+        if (activeBookings.length === 0) {
+            return res.status(200).json({
+                showtime_id: showtimeId,
+                booked_seats: []
+            });
+        }
+
+        const bookingIds = activeBookings.map(b => b._id);
+
+        // 3. Find all seat IDs associated with these active bookings
+        const bookingSeats = await BookingSeat.find({
+            booking_id: { $in: bookingIds }
+        }).select('seat_id');
+
+        const bookedSeatIds = bookingSeats.map(bs => bs.seat_id);
+
+        res.status(200).json({
+            showtime_id: showtimeId,
+            booked_seats: bookedSeatIds
+        });
+
+    } catch (error) {
+        next(error);
+    }
 };

@@ -1,13 +1,10 @@
 import Movie from "../models/movie.js";
 import { formatForAPI, formatVietnamTime } from "../utils/timezone.js";
 
-// Lấy tất cả movies (có phân trang và tìm kiếm)
+// Lấy tất cả movies (không phân trang, có tìm kiếm)
 export const getAllMovies = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search = '' } = req.query;
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    const skip = (pageNum - 1) * limitNum;
+    const { search = '' } = req.query;
 
     const query = { status: "active" };
     if (search) {
@@ -15,13 +12,7 @@ export const getAllMovies = async (req, res, next) => {
       query.title = { $regex: search, $options: 'i' };
     }
 
-    const [movies, totalCount] = await Promise.all([
-      Movie.find(query)
-        .sort({ created_at: -1 })
-        .skip(skip)
-        .limit(limitNum),
-      Movie.countDocuments(query)
-    ]);
+    const movies = await Movie.find(query).sort({ created_at: -1 });
     
     // Format dates to Vietnam timezone
     const formattedMovies = movies.map(movie => {
@@ -41,9 +32,7 @@ export const getAllMovies = async (req, res, next) => {
     res.status(200).json({
       message: "Lấy danh sách phim thành công",
       data: formattedMovies,
-      page: pageNum,
-      limit: limitNum,
-      totalCount
+      totalCount: formattedMovies.length
     });
   } catch (error) {
     next(error);

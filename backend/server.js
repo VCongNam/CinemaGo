@@ -14,6 +14,8 @@ import publicRoutes from "./routes/public/public.routes.js";
 import cors from "cors";
 import passport from "passport";
 import { configurePassport } from "./config/passport.js";
+import updateShowtimeStatus from "./cron/showtime.cron.js";
+import './cron/scheduler.js'; // Import để khởi chạy cron job hủy vé
 
 dotenv.config();
 
@@ -45,6 +47,7 @@ app.use(errorHandler);
 
 app.listen(5000, () => {
   connectDB();
+  updateShowtimeStatus();
 
   console.log("Server is running on port 5000");
 });

@@ -14,11 +14,15 @@ import {
 } from "../middlewares/movieValidation.js";
 import bookingRoutes from './booking.routes.js';
 import auditLogRoutes from './auditLog.routes.js';
+import reviewRoutes from './review.routes.js'; // Import review routes
 
 const router = Router();
 
 // Booking routes
 router.use('/bookings', bookingRoutes);
+
+// Review routes
+router.use('/reviews', reviewRoutes);
 
 // Audit Log routes (Admin only)
 router.use('/audit-logs', auditLogRoutes);
