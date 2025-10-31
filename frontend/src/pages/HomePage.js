@@ -134,17 +134,27 @@ const Homepage = () => {
 
   // Lấy showtimes cho một phim cụ thể trong ngày hôm nay (loại bỏ trùng lặp)
   const getMovieShowtimes = (movieId) => {
-    const movieShowtimes = allShowtimes.filter(st => 
-      st.movie_id._id === movieId && 
-      st.status === 'active' &&
-      isToday(st.start_time.vietnamFormatted)
-    )
+    const movieShowtimes = allShowtimes.filter((st) => {
+      if (!st || st.status !== 'active') return false
+      // movie_id can be an ObjectId (string) or a populated object; also may be null
+      const movieIdMatches = (() => {
+        const movieField = st.movie_id
+        if (!movieField) return false
+        if (typeof movieField === 'string') return movieField === movieId
+        if (typeof movieField === 'object' && movieField._id) return movieField._id === movieId
+        return false
+      })()
+
+      const vietnamFormatted = st?.start_time?.vietnamFormatted
+      return movieIdMatches && typeof vietnamFormatted === 'string' && isToday(vietnamFormatted)
+    })
     
     // Extract time từ vietnamFormatted string và loại bỏ trùng lặp
-    const allTimes = movieShowtimes.map(st => {
-      const timeMatch = st.start_time.vietnamFormatted.match(/^(\d{2}:\d{2})/)
-      return timeMatch ? timeMatch[1] : st.start_time.vietnamFormatted.split(' ')[0]
-    })
+    const allTimes = movieShowtimes.map((st) => {
+      const vf = st?.start_time?.vietnamFormatted || ''
+      const timeMatch = vf.match(/^(\d{2}:\d{2})/)
+      return timeMatch ? timeMatch[1] : (vf.split(' ')[0] || '')
+    }).filter(Boolean)
     
     // Loại bỏ trùng lặp và sắp xếp
     const uniqueTimes = [...new Set(allTimes)].sort()
