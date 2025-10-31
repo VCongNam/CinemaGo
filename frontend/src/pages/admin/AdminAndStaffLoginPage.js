@@ -25,28 +25,47 @@ export default function AdminAndStaffLoginPage() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    
     try {
       const res = await fetch("http://localhost:5000/login-staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password })
       });
+      
       const data = await res.json();
       setIsLoading(false);
+      
       if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại");
+      
+      // Lưu token
       localStorage.setItem("token", data.accessToken);
-      // Lấy role từ data.user.role
-      const role = data.user?.role;
-      if (role === "admin") {
+      
+      // Lưu role theo 2 cách để đảm bảo tương thích
+      const userRole = data.user?.role || "lv1";
+      
+      // Lưu dạng object (cách cũ)
+      localStorage.setItem("role", JSON.stringify({ role: userRole }));
+      
+      // Lưu thêm dạng string trực tiếp
+      localStorage.setItem("userRole", userRole);
+      
+      // Console log để debug
+      console.log("Login successful - Role:", userRole);
+      
+      // Điều hướng theo role
+      if (userRole.toLowerCase() === "admin") {
         navigate("/admin/dashboard");
-      } else if (role === "LV1") {
+      } else if (userRole.toLowerCase() === "lv1") {
         navigate("/staff/l1");
-      } else if (role === "LV2") {
+      } else if (userRole.toLowerCase() === "lv2") {
         navigate("/staff/l2");
       } else {
         navigate("/admin/dashboard");
       }
+      
       window.location.reload();
+      
     } catch (err) {
       setIsLoading(false);
       setError(err.message);
