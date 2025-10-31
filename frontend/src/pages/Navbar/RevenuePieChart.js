@@ -1,55 +1,95 @@
-import { Box, Heading } from "@chakra-ui/react";
-import {
-  PieChart,
-  Pie,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  Legend,
-} from "recharts";
+import { useEffect, useState } from "react";
+import { Box, Heading, Spinner } from "@chakra-ui/react";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
-// mock data - có thể truyền prop chartData
-const data = [
-  { date: "01/09", revenue: 1200000 },
-  { date: "05/09", revenue: 2200000 },
-  { date: "10/09", revenue: 1800000 },
-  { date: "15/09", revenue: 3000000 },
-  { date: "20/09", revenue: 2500000 },
-];
+const COLORS = ["#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
 
-const COLORS = ["#f97316", "#10b981", "#3b82f6", "#eab308", "#ef4444"];
+export default function RevenuePieChart() {
+  const [pieData, setPieData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-export default function RevenuePieChart({ chartData = data }) {
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const res = await fetch("http://localhost:5000/api/bookings", {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        });
+
+        if (!res.ok) throw new Error("Không thể tải dữ liệu biểu đồ");
+
+        const data = await res.json();
+        const bookings = data.bookings || [];
+
+        const grouped = {};
+        bookings.forEach((b) => {
+          const status = b.status || "unknown";
+          grouped[status] = (grouped[status] || 0) + 1;
+        });
+
+        const formatted = Object.entries(grouped).map(([name, value]) => ({
+          name,
+          value,
+        }));
+        setPieData(formatted);
+      } catch (err) {
+        console.error("Lỗi tải dữ liệu biểu đồ:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayments();
+  }, []);
+
+  if (loading) {
+    return (
+      <Box
+        bg="#1a1e29"
+        p={4}
+        borderRadius="2xl"
+        h="300px"
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+      >
+        <Spinner size="lg" color="#ff8c00" />
+      </Box>
+    );
+  }
+
   return (
-    <Box bg="#1a1d29" p={6} borderRadius="lg" shadow="md" color="white">
-      <Heading size="md" mb={4} color="orange.400">
-        🥧 Tỷ trọng doanh thu
+    <Box bg="#1a1e29" p={6} borderRadius="2xl">
+      <Heading as="h3" size="md" mb={4}>
+        Tỷ lệ trạng thái thanh toán
       </Heading>
       <ResponsiveContainer width="100%" height={300}>
         <PieChart>
           <Pie
-            data={chartData}
-            dataKey="revenue"
-            nameKey="date"
+            data={pieData}
+            dataKey="value"
+            nameKey="name"
             cx="50%"
             cy="50%"
             outerRadius={100}
-            label={(entry) => entry.date}
+            label
           >
-            {chartData.map((_, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            {pieData.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={COLORS[index % COLORS.length]}
+              />
             ))}
           </Pie>
           <Tooltip
-            formatter={(v) => `${v.toLocaleString("vi-VN")} ₫`}
-            contentStyle={{
-              backgroundColor: "#2d2f3a",
-              border: "none",
-              borderRadius: "8px",
-              color: "white",
-            }}
+            formatter={(value, name) => [`${value} giao dịch`, `Trạng thái: ${name}`]}
+            contentStyle={{ backgroundColor: "#ffffffff", borderRadius: "8px" }}
+            labelStyle={{ color: "#fff" }}
           />
-          <Legend />
         </PieChart>
       </ResponsiveContainer>
     </Box>

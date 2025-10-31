@@ -1,26 +1,37 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Input, Select, Box, Flex, useToast, Button, Text, HStack } from "@chakra-ui/react"
-import Sidebar from "../Navbar/Sidebar";
+import Sidebar from "../Navbar/SidebarAdmin";
 import UserTable from "../Navbar/UserTable"
 
 export default function CustomerManagementPage() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [search, setSearch] = useState(localStorage.getItem("customerSearch") || "")
+  const [statusFilter, setStatusFilter] = useState(localStorage.getItem("customerStatusFilter") || "all")
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
   const navigate = useNavigate()
   const toast = useToast()
+
+  // Hàm xác định trạng thái từ dữ liệu API
+  const determineStatus = (user) => {
+    // Ưu tiên status từ API nếu có
+    if (user.status === "locked") {
+      return "locked"
+    }
+    if (user.status === "suspended" || user.suspendedAt) {
+      return "suspended"
+    }
+    return "active"
+  }
 
   useEffect(() => {
     const token = localStorage.getItem("token")
     
     const fetchAllUsers = async () => {
       try {
-        // Gọi API lấy tất cả users
         const res = await fetch("http://localhost:5000/users", {
           method: "POST",
           headers: {
@@ -28,8 +39,8 @@ export default function CustomerManagementPage() {
             ...(token && { Authorization: `Bearer ${token}` })
           },
           body: JSON.stringify({
-            page: 1, 
-            pageSize: 100, //tùy thay đổi
+            page: 1,
+            pageSize: 100 
           })
         })
         
@@ -37,16 +48,11 @@ export default function CustomerManagementPage() {
         
         const data = await res.json()
         
-        // Map dữ liệu để thêm trường status
-        const usersWithStatus = (data.list || []).map(user => {
-          let status = "active"
-          if (user.status === "locked") {
-            status = "locked"
-          } else if (user.suspendedAt) {
-            status = "suspended"
-          }
-          return { ...user, status }
-        })
+        // Sử dụng hàm determineStatus để xác định trạng thái chính xác
+        const usersWithStatus = (data.list || []).map(user => ({
+          ...user,
+          status: determineStatus(user)
+        }))
         
         setUsers(usersWithStatus)
       } catch (err) {
@@ -63,7 +69,6 @@ export default function CustomerManagementPage() {
     navigate(`/admin/user/${user.id}`)
   }
 
-  // Hàm gọi API đổi trạng thái
   const handleToggleStatus = async (user, newStatus) => {
     const token = localStorage.getItem("token")
     
@@ -79,21 +84,18 @@ export default function CustomerManagementPage() {
         })
       })
       
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || "Cập nhật trạng thái thất bại")
-      }
-      
       const data = await res.json()
       
-      // Cập nhật lại danh sách user
+      if (!res.ok) throw new Error(data.message || "Cập nhật trạng thái thất bại")
+      
+      // Cập nhật state với dữ liệu từ API response
       setUsers(users =>
         users.map(u =>
           u.id === user.id 
             ? { 
-                ...u, 
-                suspendedAt: newStatus === "suspended" ? new Date().toISOString() : null,
-                status: newStatus
+                ...u,
+                ...data.data, // Lấy toàn bộ dữ liệu updated từ API
+                status: determineStatus(data.data) // Tính toán lại status
               } 
             : u
         )
@@ -123,15 +125,12 @@ export default function CustomerManagementPage() {
     }
   }
 
-  // Lọc chỉ lấy user có role là "customer"
   let customerUsers = users.filter(user => user.role === "customer")
 
-  // Lọc theo trạng thái
   if (statusFilter !== "all") {
     customerUsers = customerUsers.filter(user => user.status === statusFilter)
   }
 
-  // Tìm kiếm theo tên hoặc email
   if (search.trim()) {
     customerUsers = customerUsers.filter(
       user =>
@@ -140,13 +139,11 @@ export default function CustomerManagementPage() {
     )
   }
 
-  // Tính toán phân trang
   const totalPages = Math.ceil(customerUsers.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedUsers = customerUsers.slice(startIndex, endIndex)
 
-  // Reset về trang 1 khi filter thay đổi
   useEffect(() => {
     setCurrentPage(1)
   }, [search, statusFilter])
@@ -155,19 +152,20 @@ export default function CustomerManagementPage() {
     setCurrentPage(page)
   }
 
+  useEffect(() => {
+    localStorage.setItem("customerSearch", search)
+  }, [search])
+
+  useEffect(() => {
+    localStorage.setItem("customerStatusFilter", statusFilter)
+  }, [statusFilter])
+
   if (loading) return <p>Đang tải...</p>
   if (error) return <p>Lỗi: {error}</p>
 
-  const adminLinks = [
-    { to: "/admin/dashboard", label: "Báo cáo doanh thu" },
-    { to: "/admin/customers", label: "Thông tin khách hàng" },
-    { to: "/admin/staffs", label: "Thông tin nhân viên" },
-    { to: "/admin/reports", label: "Báo cáo khác" },
-  ];
-
   return (
     <Flex flex="1" bg="#0f1117" color="white">
-      <Sidebar links={adminLinks} />
+      <Sidebar/>
       <Box flex="1" p={6}>
         <Box mb={4}>
           <Flex gap={4}>
@@ -203,7 +201,6 @@ export default function CustomerManagementPage() {
           onToggleStatus={handleToggleStatus}
         />
         
-        {/* Pagination */}
         {totalPages > 1 && (
           <Flex justify="space-between" align="center" mt={6}>
             <Text color="gray.400" fontSize="sm">
@@ -224,7 +221,6 @@ export default function CustomerManagementPage() {
               
               {[...Array(totalPages)].map((_, index) => {
                 const page = index + 1
-                // Hiển thị trang đầu, cuối và các trang gần current
                 if (
                   page === 1 ||
                   page === totalPages ||

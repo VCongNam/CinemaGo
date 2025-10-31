@@ -11,11 +11,12 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  IconButton,
 } from "@chakra-ui/react";
-import { Box, Heading, Flex, Button, Icon } from "@chakra-ui/react";
-import { FaUsers, FaEye, FaChevronDown } from "react-icons/fa";
+import { Box, Heading, Flex, Button, Icon, Badge } from "@chakra-ui/react";
+import { FaUsers, FaEye, FaChevronDown, FaUserEdit } from "react-icons/fa";
 
-const UserTable = ({ users, onViewInfo, onToggleStatus }) => {
+const StaffTable = ({ users, onViewInfo, onToggleStatus, onEditRole }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case "active":
@@ -42,12 +43,34 @@ const UserTable = ({ users, onViewInfo, onToggleStatus }) => {
     }
   };
 
+  const getRoleLabel = (role) => {
+    switch (role) {
+      case "LV1":
+        return "Cấp 1";
+      case "LV2":
+        return "Cấp 2";
+      default:
+        return role;
+    }
+  };
+
+  const getRoleColor = (role) => {
+    switch (role) {
+      case "LV1":
+        return "blue";
+      case "LV2":
+        return "purple";
+      default:
+        return "gray";
+    }
+  };
+
   return (
     <Box p={6} bg="#1a1d29" borderRadius="lg" shadow="md" color="white">
       <Flex align="center" mb={4} gap={2}>
         <Icon as={FaUsers} color="orange.400" boxSize={5} />
         <Heading size="md" color="orange.400">
-          Danh sách tài khoản
+          Danh sách nhân viên
         </Heading>
       </Flex>
       <TableContainer>
@@ -57,7 +80,7 @@ const UserTable = ({ users, onViewInfo, onToggleStatus }) => {
               <Th color="orange.300">ID</Th>
               <Th color="orange.300">Tên</Th>
               <Th color="orange.300">Email</Th>
-              <Th color="orange.300">Role</Th>
+              <Th color="orange.300">Vai trò</Th>
               <Th color="orange.300">Trạng thái</Th>
               <Th color="orange.300">Thao tác</Th>
             </Tr>
@@ -72,7 +95,11 @@ const UserTable = ({ users, onViewInfo, onToggleStatus }) => {
                 <Td color="white">{user.id}</Td>
                 <Td color="white">{user.username}</Td>
                 <Td color="white">{user.email}</Td>
-                <Td color="white">{user.role}</Td>
+                <Td>
+                  <Badge colorScheme={getRoleColor(user.role)} px={2} py={1} borderRadius="md">
+                    {getRoleLabel(user.role)}
+                  </Badge>
+                </Td>
                 <Td>
                   <Menu>
                     <MenuButton
@@ -121,14 +148,23 @@ const UserTable = ({ users, onViewInfo, onToggleStatus }) => {
                 <Td>
                   <Flex gap={2}>
                     <Tooltip label="Xem thông tin" hasArrow>
-                      <Button
+                      <IconButton
+                        icon={<FaEye />}
                         size="sm"
                         bg="gray.600"
                         _hover={{ bg: "gray.700" }}
                         onClick={() => onViewInfo(user)}
-                      >
-                        <Icon as={FaEye} />
-                      </Button>
+                      />
+                    </Tooltip>
+                    <Tooltip label="Cập nhật vai trò" hasArrow>
+                      <IconButton
+                        icon={<FaUserEdit />}
+                        size="sm"
+                        colorScheme="blue"
+                        variant="ghost"
+                        _hover={{ bg: "blue.600" }}
+                        onClick={() => onEditRole(user)}
+                      />
                     </Tooltip>
                   </Flex>
                 </Td>
@@ -141,4 +177,4 @@ const UserTable = ({ users, onViewInfo, onToggleStatus }) => {
   );
 };
 
-export default UserTable;
+export default StaffTable;
