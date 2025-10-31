@@ -347,30 +347,33 @@ export default function ShowtimeManagementPage() {
     }
   }
 
-  // 🔹 Tính trạng thái suất chiếu
-  const getStatus = (showtime) => {
-    if (showtime.status === "inactive") {
-      return { label: "Đã hủy", color: "red.500" }
-    }
-    
-    if (!showtime?.end_time?.utc) {
-      return { label: "Không xác định", color: "gray.400" }
-    }
-    
-    const now = new Date()
-    const startTime = new Date(showtime.start_time.utc)
-    const endTime = new Date(showtime.end_time.utc)
-    
-    if (now < startTime) {
-      return { label: "Sắp chiếu", color: "blue.400" }
-    }
-    
-    if (now >= startTime && now <= endTime) {
-      return { label: "Đang chiếu", color: "green.400" }
-    }
-    
+  // 🔹 Hiển thị trạng thái suất chiếu
+const getStatus = (showtime) => {
+
+  if (!showtime?.start_time?.utc || !showtime?.end_time?.utc) {
+    return { label: "Không xác định", color: "gray.400" }
+  }
+
+  const now = new Date()
+  const startTime = new Date(showtime.start_time.utc)
+  const endTime = new Date(showtime.end_time.utc)
+
+  if (now < startTime) {
+    return { label: "Sắp chiếu", color: "blue.400" }
+  }
+
+  if (now >= startTime && now <= endTime) {
+    return { label: "Đang chiếu", color: "green.400" }
+  }
+
+  // Qua giờ kết thúc → inactive
+  if (now > endTime) {
     return { label: "Đã kết thúc", color: "gray.500" }
   }
+
+  return { label: "Không xác định", color: "gray.400" }
+}
+
 
   // 🔹 Format ngày giờ hiển thị
   const formatDateTime = (showtime) => {
@@ -874,4 +877,3 @@ export default function ShowtimeManagementPage() {
     </Flex>
   )
 }
-                        

@@ -163,18 +163,6 @@ const MovieManagementPage = () => {
   const user = JSON.parse(localStorage.getItem("user")); // hoặc lấy từ context
   const role = user?.role; // ví dụ: "admin", "lv2", "staff", "user", ...
 
-  // 👉 Chỉ cho phép role = "admin" hoặc "lv2"
-  if (role !== "admin" && role !== "lv2") {
-    toast({
-      title: "Không có quyền",
-      description: "Chỉ Admin hoặc cấp 2 mới có thể thay đổi trạng thái phim.",
-      status: "error",
-      duration: 3000,
-      isClosable: true,
-    });
-    return;
-  }
-
   setCanceling(true);
 
   const newStatus = movie.status === "inactive" ? "active" : "inactive";

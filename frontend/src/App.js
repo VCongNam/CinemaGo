@@ -23,6 +23,8 @@ import SeatSelection from "./pages/bookings/SeatSelection"
 import ComboSelection from "./pages/bookings/ComboSelection"
 import BookingCancelledPage from "./pages/bookings/BookingCancelledPage"
 import PaymentFailedPage from "./pages/bookings/PaymentFailedPage"
+import PaymentSuccessPage from "./pages/bookings/PaymentSuccessPage"
+
 
 // Staff pages
 import StaffL1Page from "./pages/staff/StaffL1Page"
@@ -76,7 +78,8 @@ function App() {
               <Route path="/bookings/ticket/:bookingId" element={<TicketPage />} />
               <Route path="/bookings/cancelled" element={<BookingCancelledPage />} />
               <Route path="/payment-failed" element={<PaymentFailedPage />} />
-
+              <Route path="/payment-success" element={<PaymentSuccessPage />} />
+              
               {/* Staff */}
               <Route path="/staff/l1" element={<StaffL1Page />} />
               <Route path="/staff/l2" element={<StaffL2Page />} />
@@ -93,8 +96,6 @@ function App() {
               <Route path="/bookings" element={<BookingManagementPage />} />
               <Route path="/bookings/:id" element={<BookingDetailPage />} />
               <Route path="/movies" element={<MovieManagementPage />} />
-
-
 
               {/* Movie detail */}
               <Route path="/movies/:id" element={<MovieDetail />} />
