@@ -267,6 +267,7 @@ export default function SeatSelection() {
             </Button>
           </Box>
         )}
+        )}
       </VStack>
     </Box>
   );
