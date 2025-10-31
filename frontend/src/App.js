@@ -16,11 +16,9 @@ import MovieManagementPage from "./pages/admin/MovieManagementPage"
 // Booking pages
 import CartPage from "./pages/bookings/CartCheckoutPage"
 import TicketHistoryPage from "./pages/bookings/TicketHistoryPage"
-import TicketPage from "./pages/bookings/TicketInfo"
 import ETicketPage from "./pages/bookings/ETicketPage"
 import ShowtimeSelection from "./pages/bookings/ShowtimeSelection"
 import SeatSelection from "./pages/bookings/SeatSelection"
-import ComboSelection from "./pages/bookings/ComboSelection"
 import BookingCancelledPage from "./pages/bookings/BookingCancelledPage"
 import PaymentFailedPage from "./pages/bookings/PaymentFailedPage"
 import PaymentSuccessPage from "./pages/bookings/PaymentSuccessPage"
@@ -67,16 +65,13 @@ function App() {
               {/* Booking */}
               <Route path="/bookings/cart" element={<CartPage />} />
               <Route path="/bookings/history" element={<TicketHistoryPage />} />
-              <Route path="/bookings/ticket" element={<TicketPage />} />
               <Route path="/bookings/eticket" element={<ETicketPage />} />
               <Route path="/ticket-detail/:id" element={<TicketDetailPage />} />
 
               {/* Booking flow with params */}
               <Route path="/bookings/showtimes/:movieId" element={<ShowtimeSelection />} />
               <Route path="/bookings/seats/:showtimeId" element={<SeatSelection />} />
-              <Route path="/bookings/combos/:showtimeId" element={<ComboSelection />} />
               <Route path="/bookings/checkout/:bookingId" element={<CartPage />} />
-              <Route path="/bookings/ticket/:bookingId" element={<TicketPage />} />
               <Route path="/bookings/cancelled" element={<BookingCancelledPage />} />
               <Route path="/payment-failed" element={<PaymentFailedPage />} />
               <Route path="/payment-success" element={<PaymentSuccessPage />} />
