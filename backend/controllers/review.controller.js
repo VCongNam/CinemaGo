@@ -97,16 +97,22 @@ export const getReviewsByMovie = async (req, res, next) => {
 
     const [reviews, totalCount] = await Promise.all([
       Review.find({ movie_id: movieId, status: 'approved' })
-        .populate('user_id', 'full_name')
+        .populate('user_id', 'full_name username')
         .sort({ created_at: -1 })
         .skip(skip)
         .limit(limitNum),
       Review.countDocuments({ movie_id: movieId, status: 'approved' })
     ]);
 
+    // Format reviews to ensure user name is displayed
+    const formattedReviews = reviews.map(review => ({
+      ...review.toObject(),
+      user_name: review.user_id?.full_name || review.user_id?.username || 'Người dùng ẩn danh'
+    }));
+
     res.status(200).json({
       message: "Lấy danh sách đánh giá thành công",
-      data: reviews,
+      data: formattedReviews,
       page: pageNum,
       limit: limitNum,
       totalCount
