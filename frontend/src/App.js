@@ -66,7 +66,7 @@ function App() {
 
               {/* Booking */}
               <Route path="/bookings/cart" element={<CartPage />} />
-              <Route path="/bookings/history" element={<TicketHistoryPage />} />
+              <Route path="/ticket-history" element={<TicketHistoryPage />} />
               <Route path="/bookings/ticket" element={<TicketPage />} />
               <Route path="/bookings/eticket" element={<ETicketPage />} />
               <Route path="/ticket-detail/:id" element={<TicketDetailPage />} />
