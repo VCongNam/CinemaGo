@@ -130,7 +130,7 @@ export default function SeatSelection() {
       } else {
         toast({
           title: "Lỗi",
-          description: response.message || "Không thể tạo đặt vé.",
+          description: "Đã có người chọn ghế này. Vui lòng chọn ghế khác",
           status: "error",
           duration: 5000,
           isClosable: true,
@@ -224,7 +224,6 @@ export default function SeatSelection() {
 
         <Divider my={6} borderColor="#23242a" />
 
-        {selectedSeats.length > 0 && (
           <Box w="100%" bg="#1a1b23" borderRadius="lg" p={4}>
             <Box mb={4}>
                 <Heading size="md" color="white">{showtime?.movie_id?.title}</Heading>
@@ -266,8 +265,6 @@ export default function SeatSelection() {
               Tiếp tục
             </Button>
           </Box>
-        )}
-        )}
       </VStack>
     </Box>
   );
