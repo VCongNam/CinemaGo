@@ -79,6 +79,7 @@ const PaymentSuccessPage = () => {
     if (status === "confirmed") return; // Không cần check nếu đã confirmed
 
     let interval = null;
+    let reloadTimeout = null;
 
     const checkPaymentStatus = () => {
       apiService.get(
@@ -108,6 +109,7 @@ const PaymentSuccessPage = () => {
                 }
               });
               if (interval) clearInterval(interval);
+              if (reloadTimeout) clearTimeout(reloadTimeout);
               return;
             }
 
@@ -120,6 +122,7 @@ const PaymentSuccessPage = () => {
             ) {
               setStatus("cancelled");
               if (interval) clearInterval(interval);
+              if (reloadTimeout) clearTimeout(reloadTimeout);
               navigate(`/payment-failed?bookingId=${bookingId}`);
               return;
             }
@@ -147,9 +150,18 @@ const PaymentSuccessPage = () => {
     // Sau đó check định kỳ mỗi 1.5 giây để phản hồi nhanh hơn
     interval = setInterval(checkPaymentStatus, 1500);
 
-    // Cleanup interval on component unmount
+    // Reload trang sau 5 giây nếu vẫn chưa confirmed hoặc cancelled
+    reloadTimeout = setTimeout(() => {
+      if (status === "pending" || (!status || status === "")) {
+        console.log("Payment status still pending after 5s, reloading page...");
+        window.location.reload();
+      }
+    }, 5000);
+
+    // Cleanup interval và timeout on component unmount
     return () => {
       if (interval) clearInterval(interval);
+      if (reloadTimeout) clearTimeout(reloadTimeout);
     };
   }, [bookingId, navigate, status, booking]);
 
