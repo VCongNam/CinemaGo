@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import apiService from "../../services/apiService";
 
 const seatTypes = {
-  booked: { color: "#1f2937", label: "Đã đặt" },
+  booked: { color: "#000000", label: "Đã đặt" },
   selected: { color: "#ff66ff", label: "Ghế bạn chọn" },
   normal: { color: "#7c3aed", label: "Ghế thường" },
   vip: { color: "#ef4444", label: "Ghế VIP" },
@@ -22,6 +22,7 @@ export default function SeatSelection() {
   const [seats, setSeats] = useState([]);
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [isCreatingBooking, setIsCreatingBooking] = useState(false);
+  const [bookedSeatIds, setBookedSeatIds] = useState([]);
 
 
   useEffect(() => {
@@ -29,31 +30,56 @@ export default function SeatSelection() {
     setLoading(true);
     setError("");
 
-    apiService.getById("/api/showtimes/", showtimeId, (data, success) => {
-      if (!isMounted) return;
-      if (success) {
-        setShowtime(data?.data);
-        const roomId = data?.data?.room_id?._id || data?.data?.room_id;
-        if (!roomId) {
-          setError("Không xác định được phòng chiếu của suất này");
-          setLoading(false);
-          return;
-        }
-
-        apiService.getPublic(`/api/public/rooms/${roomId}/seats`, {}, (seatRes, ok) => {
-          if (!isMounted) return;
-          if (ok) {
-            const seatsWithId = (seatRes?.list || []).map(s => ({ ...s, id: s._id || s.id }));
-            setSeats(Array.isArray(seatsWithId) ? seatsWithId : []);
+    // Lấy thông tin showtime và booked seats song song
+    Promise.all([
+      new Promise((resolve) => {
+        apiService.getById("/api/showtimes/", showtimeId, (data, success) => {
+          if (!isMounted) return resolve(null);
+          if (success) {
+            setShowtime(data?.data);
+            resolve(data?.data?.room_id?._id || data?.data?.room_id);
           } else {
-            setError(seatRes?.message || "Không thể tải danh sách ghế");
+            setError(data?.message || "Không thể tải thông tin suất chiếu");
+            resolve(null);
           }
-          setLoading(false);
         });
-      } else {
-        setError(data?.message || "Không thể tải thông tin suất chiếu");
+      }),
+      new Promise((resolve) => {
+        apiService.getPublic(`/api/showtimes/${showtimeId}/booked-seats`, {}, (data, success) => {
+          if (!isMounted) return resolve([]);
+          if (success) {
+            // booked_seats là mảng các seat_id (string hoặc ObjectId)
+            const bookedIds = (data?.booked_seats || []).map(id => String(id));
+            setBookedSeatIds(bookedIds);
+            resolve(bookedIds);
+          } else {
+            console.error("Failed to load booked seats:", data);
+            resolve([]);
+          }
+        });
+      })
+    ]).then(([roomId]) => {
+      if (!isMounted) return;
+      
+      if (!roomId) {
         setLoading(false);
+        return;
       }
+
+      // Lấy danh sách ghế của phòng
+      apiService.getPublic(`/api/public/rooms/${roomId}/seats`, {}, (seatRes, ok) => {
+        if (!isMounted) return;
+        if (ok) {
+          const seatsWithId = (seatRes?.list || []).map(s => ({ 
+            ...s, 
+            id: s._id || s.id 
+          }));
+          setSeats(Array.isArray(seatsWithId) ? seatsWithId : []);
+        } else {
+          setError(seatRes?.message || "Không thể tải danh sách ghế");
+        }
+        setLoading(false);
+      });
     });
 
     return () => {
@@ -62,7 +88,10 @@ export default function SeatSelection() {
   }, [showtimeId]);
 
   const handleSelect = (seat) => {
-    if (seat.isBooked) return;
+    // Kiểm tra ghế đã được đặt
+    const seatIdString = String(seat.id || seat._id);
+    if (bookedSeatIds.includes(seatIdString)) return;
+    
     setSelectedSeats((prev) => {
       const index = prev.findIndex((s) => s.id === seat.id);
       if (index !== -1) {
@@ -130,7 +159,7 @@ export default function SeatSelection() {
       } else {
         toast({
           title: "Lỗi",
-          description: response.message || "Không thể tạo đặt vé.",
+          description: "Đã có người chọn ghế này. Vui lòng chọn ghế khác",
           status: "error",
           duration: 5000,
           isClosable: true,
@@ -178,8 +207,12 @@ export default function SeatSelection() {
               </Box>
               {seatsByRow[rowKey].map((seat) => {
                 const isSelected = selectedSeats.some((s) => s.id === seat.id);
+                // Kiểm tra ghế đã được đặt bằng cách so sánh với bookedSeatIds
+                const seatIdString = String(seat.id || seat._id);
+                const isBooked = bookedSeatIds.includes(seatIdString);
+                
                 let color, hoverColor;
-                if (seat.isBooked) {
+                if (isBooked) {
                   color = seatTypes.booked.color;
                   hoverColor = seatTypes.booked.color;
                 } else if (isSelected) {
@@ -200,10 +233,10 @@ export default function SeatSelection() {
                     color="white"
                     border="none"
                     borderRadius="md"
-                    _hover={{ bg: seat.isBooked ? color : hoverColor, opacity: seat.isBooked ? 0.7 : 1 }}
+                    _hover={{ bg: isBooked ? color : hoverColor, opacity: isBooked ? 0.7 : 1 }}
                     onClick={() => handleSelect(seat)}
-                    isDisabled={seat.isBooked}
-                    cursor={seat.isBooked ? "not-allowed" : "pointer"}
+                    isDisabled={isBooked}
+                    cursor={isBooked ? "not-allowed" : "pointer"}
                   >
                     {seat.seat_number.slice(1)}
                   </Button>
@@ -224,7 +257,6 @@ export default function SeatSelection() {
 
         <Divider my={6} borderColor="#23242a" />
 
-        {selectedSeats.length > 0 && (
           <Box w="100%" bg="#1a1b23" borderRadius="lg" p={4}>
             <Box mb={4}>
                 <Heading size="md" color="white">{showtime?.movie_id?.title}</Heading>
@@ -266,7 +298,6 @@ export default function SeatSelection() {
               Tiếp tục
             </Button>
           </Box>
-        )}
       </VStack>
     </Box>
   );

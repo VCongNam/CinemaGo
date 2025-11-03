@@ -1,151 +1,134 @@
-import { Box, Button, Heading, VStack, Icon, Text, Spinner, useToast } from "@chakra-ui/react";
+import { Box, Heading, Text, Button, VStack, Icon } from "@chakra-ui/react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { WarningTwoIcon } from '@chakra-ui/icons';
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import apiService from "../../services/apiService";
+import { Image, HStack, Stack, Divider, Badge } from "@chakra-ui/react";
 
 const PaymentFailedPage = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const toast = useToast();
-  const intervalRef = useRef(null);
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const bookingId = params.get("bookingId");
 
-  const bookingId = searchParams.get('bookingId');
-  const orderCode = searchParams.get('orderCode');
-  
-  // More robust check for cancellation status from URL
-  const isCancelledFromUrl = searchParams.get('status') === 'CANCELLED' || searchParams.get('cancel') === 'true';
 
-  const [bookingStatus, setBookingStatus] = useState(isCancelledFromUrl ? 'cancelled' : 'pending');
-  const [loading, setLoading] = useState(!isCancelledFromUrl); // Don't load if cancelled from URL
-  const [isCancelling, setIsCancelling] = useState(false);
+  const [booking, setBooking] = useState(null);
+  const [paymentInfo, setPaymentInfo] = useState(null);
+  const [seats, setSeats] = useState([]);
 
   useEffect(() => {
-    // Re-check inside useEffect to handle potential timing issues with searchParams
-    const isCancelled = searchParams.get('status') === 'CANCELLED' || searchParams.get('cancel') === 'true';
-
-    if (isCancelled || !bookingId) {
-      setLoading(false);
-      setBookingStatus('cancelled'); // Ensure status is set to cancelled
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      return;
-    }
-
-    // Function to check booking status if not cancelled from URL
-    const checkStatus = () => {
-      apiService.get(`/api/payments/booking/${bookingId}/status`, {}, (data, success) => {
-        if (success && data.data.booking) {
-          const currentStatus = data.data.booking.status;
-          setBookingStatus(currentStatus);
-          if (currentStatus !== 'pending') {
-            setLoading(false);
-            clearInterval(intervalRef.current);
-          }
-        }
-      });
-    };
-
-    // Start polling
-    intervalRef.current = setInterval(checkStatus, 3000);
-    checkStatus(); // Initial check
-
-    // Cleanup on component unmount
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [searchParams, bookingId]);
-
-  const handleCancelBooking = async () => {
     if (!bookingId) return;
-
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    setIsCancelling(true);
-    apiService.put(`/api/bookings/${bookingId}/cancel`, {}, (data, success) => {
-      setIsCancelling(false);
+    
+    // GỌI API kiểm tra trạng thái booking/payment để reconcile status từ PayOS (gọi song song để trigger reconcile)
+    apiService.get(`/api/payments/booking/${bookingId}/status`, (data, success) => {
       if (success) {
-        toast({
-          title: "Thành công",
-          description: "Đã hủy đặt vé thành công.",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-        setBookingStatus('cancelled');
-      } else {
-        toast({
-          title: "Lỗi",
-          description: data.message || "Không thể hủy đặt vé.",
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-        });
+        setPaymentInfo(data.data.paymentInfo);
       }
     });
-  };
 
-  const getMessage = () => {
-    return isCancelledFromUrl ? "Thanh toán đã được hủy." : "Thanh toán không thành công.";
-  };
+    // GỌI API lấy chi tiết booking để hiển thị phim + ghế (gọi song song để hiển thị ngay)
+    apiService.getById('/api/bookings/', bookingId, (data, ok) => {
+      if (ok) {
+        console.log("Booking details:", data);
+        setBooking(data.booking);
+        setSeats(Array.isArray(data.seats) ? data.seats : []);
+      } else {
+        console.error("Failed to fetch booking details:", data);
+        setBooking(null);
+        setSeats([]);
+      }
+    });
+  }, [bookingId]);
 
   return (
-    <Box textAlign="center" py={10} px={6} bg="#0f1117" minH="100vh" color="white">
-      <VStack spacing={4}>
-        <Icon as={WarningTwoIcon} w={20} h={20} color="red.500" />
-        <Heading as="h2" size="xl" mt={6} mb={2}>
-          {getMessage()}
+    <Box 
+      textAlign="center" 
+      py={20} 
+      px={6}
+      bg="#0f1117" 
+      minH="100vh" 
+      color="white"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <VStack spacing={6} maxW="lg">
+        <Icon as={WarningTwoIcon} w={20} h={20} color="red.400" />
+        <Heading as="h1" size="2xl">
+          {params.get("cancel") === "true"
+            ? "Giao dịch đã bị hủy"
+            : "Thanh toán thất bại"}
         </Heading>
-        <Text color={"gray.500"} fontSize={"sm"}>Debug Info: URL Status = [{searchParams.get('status')}]</Text>
-        <Text color={'gray.400'}>
-          Booking ID: {bookingId}
+        <Text fontSize="lg" color="gray.300">
+          {params.get("cancel") === "true"
+            ? "Giao dịch đã được hủy theo yêu cầu của bạn. Bạn có thể thử lại thanh toán hoặc quay về trang chủ."
+            : "Rất tiếc, đã có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại sau."}
         </Text>
-        <Text color={'gray.400'}>
-          Mã đơn hàng: {orderCode}
-        </Text>
-        
-        {loading ? (
-          <VStack>
-            <Spinner color="orange.400" />
-            <Text>Đang cập nhật trạng thái đặt vé...</Text>
-          </VStack>
-        ) : (
-          <>
-            <Text color={bookingStatus === 'cancelled' ? 'green.400' : 'yellow.400'}>
-              Trạng thái đặt vé: {bookingStatus}
-            </Text>
-            {bookingStatus === 'pending' && (
-              <Button
-                mt={4}
-                colorScheme="red"
-                onClick={handleCancelBooking}
-                isLoading={isCancelling}
-              >
-                Hủy đặt vé
-              </Button>
-            )}
-          </>
+        {/* HIỂN THỊ STATUS BOOKING/PAYMENT */}
+        {booking && (
+          <Text color="gray.300">
+            Trạng thái: {booking.status === 'cancelled' ? 'Đã hủy' : booking.status === 'confirmed' ? 'Đã xác nhận' : booking.status === 'pending' ? 'Chờ thanh toán' : booking.status}
+            , Trạng thái thanh toán: {booking.payment_status === 'failed' ? 'Thất bại' : booking.payment_status === 'paid' ? 'Đã thanh toán' : booking.payment_status === 'pending' ? 'Chờ thanh toán' : booking.payment_status === 'cancelled' ? 'Đã hủy' : booking.payment_status}
+          </Text>
         )}
-
-        <VStack spacing={4} mt={6} direction="row">
-            <Button
-              colorScheme="pink"
-              onClick={() => navigate("/")}
-            >
-              Quay về trang chủ
-            </Button>
-            <Button
-              variant="outline"
-              colorScheme="gray"
-              onClick={() => navigate("/bookings/history")}
-            >
-              Xem lịch sử đặt vé
-            </Button>
+        {booking && booking.showtime_id && (
+          <VStack spacing={1} color="gray.200" bg="#1a1b23" p={4} borderRadius="lg" w="full">
+            <Heading as="h3" size="md" color="#d53f8c">Thông tin đặt vé</Heading>
+            <HStack align="start" spacing={4} w="full">
+              {/* Poster phim */}
+              {booking.showtime_id.movie_id?.poster_url && (
+                <Image
+                  src={booking.showtime_id.movie_id.poster_url}
+                  alt={booking.showtime_id.movie_id?.title || 'Poster'}
+                  boxSize={{ base: "90px", md: "120px" }}
+                  objectFit="cover"
+                  borderRadius="md"
+                />
+              )}
+              {/* Chi tiết phim và suất chiếu */}
+              <VStack align="start" spacing={1} w="full">
+                <Heading as="h4" size="sm" color="white">{booking.showtime_id.movie_id?.title}</Heading>
+                {!!(booking.showtime_id.movie_id?.genre?.length) && (
+                  <HStack spacing={2} flexWrap="wrap">
+                    {booking.showtime_id.movie_id.genre.map((g, idx) => (
+                      <Badge key={idx} colorScheme="pink" variant="subtle">{g}</Badge>
+                    ))}
+                  </HStack>
+                )}
+                {booking.showtime_id.movie_id?.duration && (
+                  <Text fontSize="sm" color="gray.400">Thời lượng: {booking.showtime_id.movie_id.duration} phút</Text>
+                )}
+                {booking.showtime_id.movie_id?.description && (
+                  <Text fontSize="sm" color="gray.400" noOfLines={3}>{booking.showtime_id.movie_id.description}</Text>
+                )}
+                <Divider borderColor="#2a2b33" my={2} />
+                <Text><strong>Rạp:</strong> {booking.showtime_id.room_id?.theater_id?.name}</Text>
+                <Text><strong>Phòng chiếu:</strong> {booking.showtime_id.room_id?.name}</Text>
+                <Text>
+                  <strong>Suất chiếu:</strong> {booking.showtime_id.start_time?.vietnamFormatted || new Date(booking.showtime_id.start_time?.vietnam || booking.showtime_id.start_time).toLocaleString('vi-VN')}
+                </Text>
+                {!!seats.length && (
+                  <Text>
+                    <strong>Ghế:</strong> {seats.map(s => s.seat_id?.seat_number || s.seat_number).join(', ')}
+                  </Text>
+                )}
+              </VStack>
+            </HStack>
+          </VStack>
+        )}
+        {bookingId && (
+          <Text color="gray.400">Mã đặt vé của bạn là: {bookingId}</Text>
+        )}
+        <VStack spacing={4} direction="column" mt={8}>
+        <Button 
+            variant="outline"
+            color="white"
+            colorScheme="gray"
+            onClick={() => navigate("/")}
+            size="lg"
+          >
+            Quay về trang chủ
+          </Button>
         </VStack>
       </VStack>
     </Box>

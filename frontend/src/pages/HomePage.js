@@ -15,11 +15,9 @@ import {
   Heading,
   Divider,
   Spinner,
-  Collapse,
-  IconButton,
   Flex,
 } from "@chakra-ui/react"
-import { StarIcon, TimeIcon, CalendarIcon, ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons"
+import { StarIcon, TimeIcon, CalendarIcon } from "@chakra-ui/icons"
 import { useEffect, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import apiService from "../services/apiService"
@@ -31,14 +29,11 @@ const Homepage = () => {
   const [featuredList, setFeaturedList] = useState([])
   const [featuredIndex, setFeaturedIndex] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 3 // 3 phim mỗi trang
+  const pageSize = 9 // 9 phim mỗi trang (3 hàng x 3 phim)
   const [selectedCategory, setSelectedCategory] = useState("")
   const [selectedCategories, setSelectedCategories] = useState([])
   const [selectedShowtimes, setSelectedShowtimes] = useState([])
   const [allShowtimes, setAllShowtimes] = useState([])
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [isGenreOpen, setIsGenreOpen] = useState(false)
-  const [isShowtimeOpen, setIsShowtimeOpen] = useState(false)
   const navigate = useNavigate()
 
   // Lấy danh sách phim
@@ -263,114 +258,57 @@ const Homepage = () => {
       <Container maxW="1400px" pb={10}>
         <Flex gap={6}>
           {/* Sidebar Filter */}
-          <Box w="280px" flexShrink={0}>
+          <Box 
+            w="280px" 
+            flexShrink={0}
+            position="sticky"
+            top="20px"
+            alignSelf="flex-start"
+          >
             <Card bg="gray.800" color="white" border="1px solid" borderColor="gray.700">
               <CardBody p={6}>
-                <VStack align="stretch" spacing={4}>
+                <VStack align="stretch" spacing={6}>
                   <HStack justify="space-between" align="center">
                     <Heading size="md" color="orange.400">Bộ lọc</Heading>
-                    <IconButton
-                      aria-label={isFilterOpen ? "Thu gọn bộ lọc" : "Mở rộng bộ lọc"}
-                      icon={isFilterOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                      size="sm"
-                      variant="ghost"
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      borderColor="gray.600"
                       color="gray.300"
-                      _hover={{ color: "orange.400" }}
-                      onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    />
+                      _hover={{ borderColor: "orange.400", color: "orange.400" }}
+                      onClick={() => {
+                        setSelectedCategories([])
+                        setSelectedShowtimes([])
+                      }}
+                      isDisabled={selectedCategories.length === 0 && selectedShowtimes.length === 0}
+                    >
+                      Xóa tất cả
+                    </Button>
                   </HStack>
                   
-                  <Collapse in={isFilterOpen}>
-                    <VStack align="stretch" spacing={4}>
-                      {/* Thể loại phim dropdown */}
-                      <Box>
-                        <HStack justify="space-between" align="center" cursor="pointer" onClick={() => setIsGenreOpen(!isGenreOpen)}>
-                          <Text fontSize="md" color="gray.200" fontWeight="medium">
-                            Thể loại phim
-                          </Text>
-                          <IconButton
-                            aria-label={isGenreOpen ? "Thu gọn thể loại" : "Mở rộng thể loại"}
-                            icon={isGenreOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                            size="xs"
-                            variant="ghost"
-                            color="gray.300"
-                            _hover={{ color: "orange.400" }}
-                          />
-                        </HStack>
-                        
-                        <Collapse in={isGenreOpen}>
-                          {!loading && !error && (
-                            (() => {
-                              const allGenres = Array.from(new Set(movies.flatMap((m) => m.genre || [])))
-                              return (
-                                <VStack align="stretch" spacing={3} mt={3}>
-                                  <CheckboxGroup
-                                    colorScheme="orange"
-                                    value={selectedCategories}
-                                    onChange={(vals) => {
-                                      setSelectedCategories(Array.isArray(vals) ? vals : [vals])
-                                      setSelectedCategory("")
-                                    }}
-                                  >
-                                    <VStack align="stretch" spacing={2}>
-                                      {allGenres.map((genre) => (
-                                        <Checkbox key={genre} value={genre} color="gray.300">
-                                          <Text fontSize="sm">{genre}</Text>
-                                        </Checkbox>
-                                      ))}
-                                    </VStack>
-                                  </CheckboxGroup>
-                                  
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline"
-                                    borderColor="gray.600"
-                                    color="gray.300"
-                                    _hover={{ borderColor: "orange.400", color: "orange.400" }}
-                                    onClick={() => setSelectedCategories([])}
-                                  >
-                                    Xóa tất cả
-                                  </Button>
-                                </VStack>
-                              )
-                            })()
-                          )}
-                        </Collapse>
-                      </Box>
-
-                      {/* Showtime dropdown */}
-                      <Box>
-                        <HStack justify="space-between" align="center" cursor="pointer" onClick={() => setIsShowtimeOpen(!isShowtimeOpen)}>
-                          <Text fontSize="md" color="gray.200" fontWeight="medium">
-                            Showtime
-                          </Text>
-                          <IconButton
-                            aria-label={isShowtimeOpen ? "Thu gọn showtime" : "Mở rộng showtime"}
-                            icon={isShowtimeOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                            size="xs"
-                            variant="ghost"
-                            color="gray.300"
-                            _hover={{ color: "orange.400" }}
-                          />
-                        </HStack>
-                        
-                        <Collapse in={isShowtimeOpen}>
-                          <VStack align="stretch" spacing={3} mt={3}>
-                            <Text fontSize="sm" color="gray.300" fontWeight="medium">
-                              Chọn suất chiếu
-                            </Text>
+                  {/* Thể loại phim - Luôn hiển thị */}
+                  <Box>
+                    <Text fontSize="md" color="gray.200" fontWeight="medium" mb={3}>
+                      Thể loại phim
+                    </Text>
+                    
+                    {!loading && !error && (
+                      (() => {
+                        const allGenres = Array.from(new Set(movies.flatMap((m) => m.genre || [])))
+                        return (
+                          <VStack align="stretch" spacing={3}>
                             <CheckboxGroup
                               colorScheme="orange"
-                              value={selectedShowtimes}
+                              value={selectedCategories}
                               onChange={(vals) => {
-                                setSelectedShowtimes(Array.isArray(vals) ? vals : [vals])
+                                setSelectedCategories(Array.isArray(vals) ? vals : [vals])
                                 setSelectedCategory("")
                               }}
                             >
                               <VStack align="stretch" spacing={2}>
-                                {getAllUniqueShowtimes().map((showtime) => (
-                                  <Checkbox key={showtime} value={showtime} color="gray.300">
-                                    <Text fontSize="sm">{showtime}</Text>
+                                {allGenres.map((genre) => (
+                                  <Checkbox key={genre} value={genre} color="gray.300">
+                                    <Text fontSize="sm">{genre}</Text>
                                   </Checkbox>
                                 ))}
                               </VStack>
@@ -382,15 +320,55 @@ const Homepage = () => {
                               borderColor="gray.600"
                               color="gray.300"
                               _hover={{ borderColor: "orange.400", color: "orange.400" }}
-                              onClick={() => setSelectedShowtimes([])}
+                              onClick={() => setSelectedCategories([])}
                             >
                               Xóa tất cả
                             </Button>
                           </VStack>
-                        </Collapse>
-                      </Box>
+                        )
+                      })()
+                    )}
+                  </Box>
+
+                  {/* Showtime - Luôn hiển thị */}
+                  <Box>
+                    <Text fontSize="md" color="gray.200" fontWeight="medium" mb={3}>
+                      Showtime
+                    </Text>
+                    
+                    <VStack align="stretch" spacing={3}>
+                      <Text fontSize="sm" color="gray.300" fontWeight="medium">
+                        Chọn suất chiếu
+                      </Text>
+                      <CheckboxGroup
+                        colorScheme="orange"
+                        value={selectedShowtimes}
+                        onChange={(vals) => {
+                          setSelectedShowtimes(Array.isArray(vals) ? vals : [vals])
+                          setSelectedCategory("")
+                        }}
+                      >
+                        <VStack align="stretch" spacing={2}>
+                          {getAllUniqueShowtimes().map((showtime) => (
+                            <Checkbox key={showtime} value={showtime} color="gray.300">
+                              <Text fontSize="sm">{showtime}</Text>
+                            </Checkbox>
+                          ))}
+                        </VStack>
+                      </CheckboxGroup>
+                      
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        borderColor="gray.600"
+                        color="gray.300"
+                        _hover={{ borderColor: "orange.400", color: "orange.400" }}
+                        onClick={() => setSelectedShowtimes([])}
+                      >
+                        Xóa tất cả
+                      </Button>
                     </VStack>
-                  </Collapse>
+                  </Box>
                 </VStack>
               </CardBody>
             </Card>
