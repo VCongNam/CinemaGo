@@ -12,6 +12,7 @@ import ShowTimeManagementPage from "./pages/admin/ShowTimeManagementPage"
 import BookingManagementPage from "./pages/admin/BookingManagementPage"
 import BookingDetailPage from "./pages/admin/BookingDetailPage"
 import MovieManagementPage from "./pages/admin/MovieManagementPage"
+import TheatersManagement from "./pages/admin/TheatersManagement"
 
 // Booking pages
 import CartPage from "./pages/bookings/CartCheckoutPage"
@@ -87,6 +88,7 @@ function App() {
               <Route path="/admin/reports" element={<ReportsPage />} />
               <Route path="/admin/user/:id" element={<UserDetailPage />} />
               <Route path="/admin/staffs" element={<StaffManagementPage />} />
+              <Route path="/admin/theaters" element={<TheatersManagement />} />
               <Route path="/showtimes" element={<ShowTimeManagementPage />} />
               <Route path="/bookings" element={<BookingManagementPage />} />
               <Route path="/bookings/:id" element={<BookingDetailPage />} />
