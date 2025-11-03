@@ -348,32 +348,37 @@ export default function ShowtimeManagementPage() {
   }
 
   // 🔹 Hiển thị trạng thái suất chiếu
-const getStatus = (showtime) => {
+  const getStatus = (showtime) => {
+    if (!showtime?.start_time?.utc || !showtime?.end_time?.utc) {
+      return { label: "Không xác định", color: "gray.400" }
+    }
 
-  if (!showtime?.start_time?.utc || !showtime?.end_time?.utc) {
+    const now = new Date()
+    const startTime = new Date(showtime.start_time.utc)
+    const endTime = new Date(showtime.end_time.utc)
+
+    // Qua giờ kết thúc → Hiển thị "Kết thúc" bất kể status
+    if (now > endTime) {
+      return { label: "Kết thúc", color: "gray.500" }
+    }
+
+    // Trong thời gian (chưa kết thúc) và status inactive → Đã hủy
+    if (showtime?.status === "inactive") {
+      return { label: "Đã hủy", color: "red.400" }
+    }
+
+    // Chưa bắt đầu
+    if (now < startTime) {
+      return { label: "Sắp chiếu", color: "blue.400" }
+    }
+
+    // Đang trong thời gian chiếu
+    if (now >= startTime && now <= endTime) {
+      return { label: "Đang chiếu", color: "green.400" }
+    }
+
     return { label: "Không xác định", color: "gray.400" }
   }
-
-  const now = new Date()
-  const startTime = new Date(showtime.start_time.utc)
-  const endTime = new Date(showtime.end_time.utc)
-
-  if (now < startTime) {
-    return { label: "Sắp chiếu", color: "blue.400" }
-  }
-
-  if (now >= startTime && now <= endTime) {
-    return { label: "Đang chiếu", color: "green.400" }
-  }
-
-  // Qua giờ kết thúc → inactive
-  if (now > endTime) {
-    return { label: "Đã kết thúc", color: "gray.500" }
-  }
-
-  return { label: "Không xác định", color: "gray.400" }
-}
-
 
   // 🔹 Format ngày giờ hiển thị
   const formatDateTime = (showtime) => {
@@ -423,7 +428,7 @@ const getStatus = (showtime) => {
         cancelled: "Đã hủy",
         upcoming: "Sắp chiếu",
         ongoing: "Đang chiếu",
-        ended: "Đã kết thúc"
+        ended: "Kết thúc"
       }
       
       if (status !== statusMap[filterStatus]) {
@@ -462,10 +467,10 @@ const getStatus = (showtime) => {
       {/* Main Content */}
       <Box flex="1" p={6}>
         <Flex justify="space-between" align="center" mb={6}>
-          <Heading color={ "orange.400" }>Quản lý suất chiếu</Heading>
+          <Heading color="orange.400">Quản lý suất chiếu</Heading>
           <Button
             leftIcon={<AddIcon />}
-            colorScheme={"orange"}
+            colorScheme="orange"
             onClick={openAdd}
             _hover={{ transform: "scale(1.05)" }}
             transition="0.2s"
@@ -510,7 +515,7 @@ const getStatus = (showtime) => {
                 Đang chiếu
               </option>
               <option value="ended" style={{ background: "#181a20", color: "#fff" }}>
-                Đã kết thúc
+                Kết thúc
               </option>
               <option value="cancelled" style={{ background: "#181a20", color: "#fff" }}>
                 Đã hủy
@@ -568,7 +573,7 @@ const getStatus = (showtime) => {
         <HStack spacing={4} mb={6}>
           <Box bg="#1a1e29" p={4} borderRadius="lg" flex="1">
             <Text fontSize="sm" color="gray.400">Tổng suất chiếu</Text>
-            <Text fontSize="2xl" fontWeight="bold" color={ "orange.400"}>
+            <Text fontSize="2xl" fontWeight="bold" color="orange.400">
               {showtimes.length}
             </Text>
           </Box>
@@ -588,7 +593,7 @@ const getStatus = (showtime) => {
 
         {loading ? (
           <Flex justify="center" align="center" minH="200px">
-            <Spinner color={ "orange.400"} size="xl" />
+            <Spinner color="orange.400" size="xl" />
           </Flex>
         ) : error ? (
           <Text color="red.400">{error}</Text>
@@ -598,17 +603,17 @@ const getStatus = (showtime) => {
           </Text>
         ) : (
           <>
-            <Box overflowX="auto" bg="#1a1e29" borderRadius="2xl" p={6} boxShadow={`0 0 15px rgba(${ '255,140,0' },0.1)`}>
+            <Box overflowX="auto" bg="#1a1e29" borderRadius="2xl" p={6} boxShadow="0 0 15px rgba(255,140,0,0.1)">
               <Table variant="simple" colorScheme="whiteAlpha" size="sm">
                 <Thead bg="#222633">
                   <Tr>
-                    <Th color={ "orange.400"}>Poster</Th>
-                    <Th color={ "orange.400"}>Tên phim</Th>
-                    <Th color={ "orange.400"}>Phòng chiếu</Th>
-                    <Th color={ "orange.400"}>Thời gian chiếu</Th>
-                    <Th color={ "orange.400"}>Người tạo</Th>
-                    <Th color={ "orange.400"}>Trạng thái</Th>
-                    <Th color={ "orange.400"}>Thao tác</Th>
+                    <Th color="orange.400">Poster</Th>
+                    <Th color="orange.400">Tên phim</Th>
+                    <Th color="orange.400">Phòng chiếu</Th>
+                    <Th color="orange.400">Thời gian chiếu</Th>
+                    <Th color="orange.400">Người tạo</Th>
+                    <Th color="orange.400">Trạng thái</Th>
+                    <Th color="orange.400">Thao tác</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -712,10 +717,10 @@ const getStatus = (showtime) => {
                           key={page}
                           size="sm"
                           onClick={() => handlePageChange(page)}
-                          bg={currentPage === page ? ( "orange.400") : "#23242a"}
+                          bg={currentPage === page ? "orange.400" : "#23242a"}
                           color="white"
                           _hover={{
-                            bg: currentPage === page ? ("orange.500" ) : "#2d2e35",
+                            bg: currentPage === page ? "orange.500" : "#2d2e35",
                           }}
                         >
                           {page}
@@ -759,8 +764,8 @@ const getStatus = (showtime) => {
                   onChange={(e) => setNewShowtime({ ...newShowtime, movie_id: e.target.value })}
                   bg="gray.800"
                   borderColor="gray.600"
-                  _hover={{ borderColor:  "orange.400" }}
-                  _focus={{ borderColor:  "orange.400", boxShadow: "0 0 0 1px" }}
+                  _hover={{ borderColor: "orange.400" }}
+                  _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
                 >
                   {movies.length === 0 ? (
                     <option disabled style={{ background: "#1a202c", color: "gray" }}>
@@ -789,8 +794,8 @@ const getStatus = (showtime) => {
                   onChange={(e) => setNewShowtime({ ...newShowtime, room_id: e.target.value })}
                   bg="gray.800"
                   borderColor="gray.600"
-                  _hover={{ borderColor:  "orange.400" }}
-                  _focus={{ borderColor:  "orange.400", boxShadow: "0 0 0 1px" }}
+                  _hover={{ borderColor: "orange.400" }}
+                  _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
                 >
                   {rooms.length === 0 ? (
                     <option disabled style={{ background: "#1a202c", color: "gray" }}>
@@ -838,8 +843,8 @@ const getStatus = (showtime) => {
                   onChange={(e) => setNewShowtime({ ...newShowtime, date: e.target.value })}
                   bg="gray.800"
                   borderColor="gray.600"
-                  _hover={{ borderColor:  "orange.400" }}
-                  _focus={{ borderColor:  "orange.400", boxShadow: "0 0 0 1px" }}
+                  _hover={{ borderColor: "orange.400" }}
+                  _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
                 />
               </FormControl>
 
@@ -851,8 +856,8 @@ const getStatus = (showtime) => {
                   onChange={(e) => setNewShowtime({ ...newShowtime, time: e.target.value })}
                   bg="gray.800"
                   borderColor="gray.600"
-                  _hover={{ borderColor:  "orange.400" }}
-                  _focus={{ borderColor:  "orange.400", boxShadow: "0 0 0 1px" }}
+                  _hover={{ borderColor: "orange.400" }}
+                  _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
                 />
               </FormControl>
 
@@ -861,7 +866,7 @@ const getStatus = (showtime) => {
                   Hủy
                 </Button>
                 <Button
-                  colorScheme={ "orange"}
+                  colorScheme="orange"
                   isLoading={adding}
                   onClick={addShowtime}
                   loadingText="Đang thêm..."
