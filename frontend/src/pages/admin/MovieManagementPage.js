@@ -30,9 +30,9 @@ import {
   FormLabel,
   Textarea,
   VStack,
+  Tooltip,
 } from "@chakra-ui/react";
-import { useNavigate } from "react-router-dom";
-import { ViewIcon, EditIcon, UnlockIcon, LockIcon, AddIcon } from "@chakra-ui/icons";
+import { EditIcon, UnlockIcon, LockIcon, AddIcon } from "@chakra-ui/icons";
 import SidebarAdmin from "../Navbar/SidebarAdmin";
 import SidebarStaff from "../Navbar/SidebarStaff";
 
@@ -46,10 +46,10 @@ const MovieManagementPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("all");
   const toast = useToast();
-  const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [ setCanceling] = useState(false);
+  const [canceling, setCanceling] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -63,12 +63,10 @@ const MovieManagementPage = () => {
   });
 
   // Lấy thông tin role từ localStorage
-  // Kiểm tra cả localStorage.getItem("role") (object) và localStorage.getItem("userRole") (string)
   let roleData = null;
   try {
     roleData = JSON.parse(localStorage.getItem("role"));
   } catch (e) {
-    // Nếu không parse được, có thể là string trực tiếp
     const directRole = localStorage.getItem("role") || localStorage.getItem("userRole");
     if (directRole) {
       roleData = { role: directRole };
@@ -78,14 +76,12 @@ const MovieManagementPage = () => {
   const role = roleData?.role || "";
   
   // Xác định role và quyền hạn
-  let userRole = "lv2"; // default
   let isAdmin = false;
   
   if (role.toLowerCase() === "admin") {
-    userRole = "admin";
     isAdmin = true;
   } else if (role.toLowerCase() === "lv2") {
-    userRole = "lv2";
+    isAdmin = false;
   }
 
   useEffect(() => {
@@ -158,124 +154,137 @@ const MovieManagementPage = () => {
     onOpen();
   };
 
+  // Kiểm tra xem có phim trùng tên đang active không
+  const hasDuplicateActiveMovie = (movieTitle, currentMovieId) => {
+    return movies.some(m => 
+      m.title?.toLowerCase() === movieTitle?.toLowerCase() && 
+      m.status === "active" && 
+      m._id !== currentMovieId
+    );
+  };
+
   const toggleMovieStatus = async (movie) => {
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user")); // hoặc lấy từ context
-  const role = user?.role; // ví dụ: "admin", "lv2", "staff", "user", ...
+    setCanceling(true);
+    const token = localStorage.getItem("token");
+    const newStatus = movie.status === "inactive" ? "active" : "inactive";
 
-  setCanceling(true);
-
-  const newStatus = movie.status === "inactive" ? "active" : "inactive";
-
-  try {
-    const res = await fetch(`http://localhost:5000/api/movies/${movie._id}/status`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
-      body: JSON.stringify({ status: newStatus }),
-    });
-
-    const responseText = await res.text();
-
-    if (!res.ok) {
-      let err;
-      try {
-        err = JSON.parse(responseText);
-      } catch {
-        err = { message: responseText };
+    // Nếu đang unlock (inactive -> active), kiểm tra trùng lặp
+    if (newStatus === "active") {
+      if (hasDuplicateActiveMovie(movie.title, movie._id)) {
+        toast({
+          title: "Không thể mở khóa",
+          description: "Đã có phim cùng tên đang hoạt động. Vui lòng khóa phim đó trước.",
+          status: "warning",
+          duration: 4000,
+          isClosable: true,
+        });
+        setCanceling(false);
+        return;
       }
-      throw new Error(err.message || "Không thể thay đổi trạng thái phim.");
     }
 
-    toast({
-      title:
-        newStatus === "inactive"
-          ? "Phim đã bị cấm (inactive)"
-          : "Phim đã được kích hoạt lại (active)",
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    });
+    try {
+      const res = await fetch(`http://localhost:5000/api/movies/${movie._id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
 
-    fetchMovies(); // tải lại danh sách phim
-  } catch (err) {
-    toast({
-      title: "Lỗi",
-      description: err.message,
-      status: "error",
-      duration: 5000,
-      isClosable: true,
-    });
-  } finally {
-    setCanceling(false);
-  }
-};
+      const responseText = await res.text();
 
+      if (!res.ok) {
+        let err;
+        try {
+          err = JSON.parse(responseText);
+        } catch {
+          err = { message: responseText };
+        }
+        throw new Error(err.message || "Không thể thay đổi trạng thái phim.");
+      }
 
+      toast({
+        title: newStatus === "inactive" ? "Phim đã bị khóa" : "Phim đã được mở khóa",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+
+      fetchMovies();
+    } catch (err) {
+      toast({
+        title: "Lỗi",
+        description: err.message,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setCanceling(false);
+    }
+  };
 
   const handleSubmit = async () => {
-  try {
-    const token = localStorage.getItem("token");
+    try {
+      const token = localStorage.getItem("token");
 
-    // Chuẩn hóa dữ liệu gửi đi
-    const payload = {
-      title: formData.title.trim(),
-      description: formData.description.trim(),
-      duration: Number(formData.duration),
-      genre: Array.isArray(formData.genre)
-        ? formData.genre
-        : formData.genre.split(",").map((g) => g.trim()).filter(Boolean),
-      poster_url: formData.poster_url.trim(),
-      trailer_url: formData.trailer_url.trim(),
-      release_date: formData.release_date, // YYYY-MM-DD string
-    };
+      // Chuẩn hóa dữ liệu gửi đi
+      const payload = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        duration: Number(formData.duration),
+        genre: Array.isArray(formData.genre)
+          ? formData.genre
+          : formData.genre.split(",").map((g) => g.trim()).filter(Boolean),
+        poster_url: formData.poster_url.trim(),
+        trailer_url: formData.trailer_url.trim(),
+        release_date: formData.release_date,
+      };
 
-    const url = selectedMovie
-      ? `http://localhost:5000/api/movies/${selectedMovie._id}`
-      : "http://localhost:5000/api/movies";
+      const url = selectedMovie
+        ? `http://localhost:5000/api/movies/${selectedMovie._id}`
+        : "http://localhost:5000/api/movies";
 
-    const method = selectedMovie ? "PUT" : "POST";
+      const method = selectedMovie ? "PUT" : "POST";
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
-      body: JSON.stringify(payload),
-    });
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(payload),
+      });
 
-    // Backend trả 201 -> coi là success
-    if (response.status !== 200 && response.status !== 201) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.message || "Không thể lưu phim");
+      if (response.status !== 200 && response.status !== 201) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || "Không thể lưu phim");
+      }
+
+      toast({
+        title: "Thành công",
+        description: selectedMovie
+          ? "Đã cập nhật phim thành công"
+          : "Đã thêm phim mới thành công",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+
+      fetchMovies();
+      onClose();
+    } catch (err) {
+      toast({
+        title: "Lỗi",
+        description: err.message,
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
     }
-
-    toast({
-      title: "Thành công",
-      description: selectedMovie
-        ? "Đã cập nhật phim thành công"
-        : "Đã thêm phim mới thành công",
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    });
-
-    fetchMovies();
-    onClose();
-  } catch (err) {
-    toast({
-      title: "Lỗi",
-      description: err.message,
-      status: "error",
-      duration: 3000,
-      isClosable: true,
-    });
-  }
-};
-
+  };
 
   const filterAndSortMovies = () => {
     let filtered = [...movies];
@@ -290,6 +299,10 @@ const MovieManagementPage = () => {
       filtered = filtered.filter(m =>
         m.genre?.includes(genreFilter)
       );
+    }
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(m => m.status === statusFilter);
     }
 
     filtered.sort((a, b) => {
@@ -317,7 +330,7 @@ const MovieManagementPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTitle, genreFilter, sortBy]);
+  }, [searchTitle, genreFilter, sortBy, statusFilter]);
 
   const formatDate = (dateObj) => {
     if (!dateObj) return "N/A";
@@ -333,10 +346,10 @@ const MovieManagementPage = () => {
       {/* Main Content */}
       <Box flex="1" p={6}>
         <Flex justify="space-between" align="center" mb={6}>
-          <Heading color={"orange.400"}>Quản lý Phim</Heading>
+          <Heading color="orange.400">Quản lý Phim</Heading>
           <Button
             leftIcon={<AddIcon />}
-            colorScheme={"orange"}
+            colorScheme="orange"
             onClick={handleAddMovie}
             _hover={{ transform: "scale(1.05)" }}
             transition="0.2s"
@@ -379,6 +392,24 @@ const MovieManagementPage = () => {
             ))}
           </Select>
           <Select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            maxW="200px"
+            bg="#181a20"
+            color="#fff"
+            border="1px solid #23242a"
+          >
+            <option value="all" style={{ background: "#181a20", color: "#fff" }}>
+              Tất cả trạng thái
+            </option>
+            <option value="active" style={{ background: "#181a20", color: "#fff" }}>
+              Đang hoạt động
+            </option>
+            <option value="inactive" style={{ background: "#181a20", color: "#fff" }}>
+              Đã khóa
+            </option>
+          </Select>
+          <Select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             maxW="200px"
@@ -405,21 +436,29 @@ const MovieManagementPage = () => {
         <HStack spacing={4} mb={6}>
           <Box bg="#1a1e29" p={4} borderRadius="lg" flex="1">
             <Text fontSize="sm" color="gray.400">Tổng số phim</Text>
-            <Text fontSize="2xl" fontWeight="bold" color={"orange.400"}>{movies.length}</Text>
+            <Text fontSize="2xl" fontWeight="bold" color="orange.400">{movies.length}</Text>
           </Box>
           <Box bg="#1a1e29" p={4} borderRadius="lg" flex="1">
             <Text fontSize="sm" color="gray.400">Kết quả lọc</Text>
             <Text fontSize="2xl" fontWeight="bold" color="green.400">{filteredMovies.length}</Text>
           </Box>
           <Box bg="#1a1e29" p={4} borderRadius="lg" flex="1">
-            <Text fontSize="sm" color="gray.400">Thể loại</Text>
-            <Text fontSize="2xl" fontWeight="bold" color="purple.400">{genres.length}</Text>
+            <Text fontSize="sm" color="gray.400">Đang hoạt động</Text>
+            <Text fontSize="2xl" fontWeight="bold" color="blue.400">
+              {movies.filter(m => m.status === "active").length}
+            </Text>
+          </Box>
+          <Box bg="#1a1e29" p={4} borderRadius="lg" flex="1">
+            <Text fontSize="sm" color="gray.400">Đã khóa</Text>
+            <Text fontSize="2xl" fontWeight="bold" color="red.400">
+              {movies.filter(m => m.status === "inactive").length}
+            </Text>
           </Box>
         </HStack>
 
         {loading ? (
           <Flex justify="center" align="center" h="50vh">
-            <Spinner size="xl" color={"#ff8c00"} />
+            <Spinner size="xl" color="#ff8c00" />
           </Flex>
         ) : filteredMovies.length === 0 ? (
           <Text textAlign="center" color="gray.400" fontSize="lg" mt={10}>
@@ -427,86 +466,102 @@ const MovieManagementPage = () => {
           </Text>
         ) : (
           <>
-            <Box overflowX="auto" bg="#1a1e29" borderRadius="2xl" p={6} boxShadow={`0 0 15px rgba(${'255,140,0'},0.1)`}>
+            <Box overflowX="auto" bg="#1a1e29" borderRadius="2xl" p={6} boxShadow="0 0 15px rgba(255,140,0,0.1)">
               <Table variant="simple" colorScheme="whiteAlpha" size="sm">
                 <Thead bg="#222633">
                   <Tr>
-                    <Th color={"orange.300"}>Poster</Th>
-                    <Th color={"orange.300"}>Tên phim</Th>
-                    <Th color={"orange.300"}>Thời lượng</Th>
-                    <Th color={"orange.300" }>Thể loại</Th>
-                    <Th color={"orange.300" }>Ngày phát hành</Th>
-                    <Th color={"orange.300" }>Thao tác</Th>
+                    <Th color="orange.300">Poster</Th>
+                    <Th color="orange.300">Tên phim</Th>
+                    <Th color="orange.300">Thời lượng</Th>
+                    <Th color="orange.300">Thể loại</Th>
+                    <Th color="orange.300">Ngày phát hành</Th>
+                    <Th color="orange.300">Trạng thái</Th>
+                    <Th color="orange.300">Thao tác</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {paginatedMovies.map((movie) => (
-                    <Tr key={movie._id} _hover={{ bg: "#252a38" }} transition="0.2s">
-                      <Td>
-                        {movie.poster_url ? (
-                          <Image
-                            src={movie.poster_url}
-                            alt={movie.title}
-                            boxSize="60px"
-                            borderRadius="md"
-                            objectFit="cover"
-                            fallbackSrc="https://via.placeholder.com/60"
-                          />
-                        ) : (
-                          <Box boxSize="60px" bg="gray.700" borderRadius="md" />
-                        )}
-                      </Td>
-                      <Td>
-                        <Text fontWeight="bold" fontSize="sm">{movie.title || "N/A"}</Text>
-                        <Text fontSize="xs" color="gray.400" noOfLines={2}>
-                          {movie.description || ""}
-                        </Text>
-                      </Td>
-                      <Td fontSize="sm">{movie.duration ? `${movie.duration} phút` : "N/A"}</Td>
-                      <Td>
-                        <Flex gap={1} flexWrap="wrap">
-                          {movie.genre?.map((g, idx) => (
-                            <Badge key={idx} colorScheme="purple" fontSize="xs">
-                              {g}
-                            </Badge>
-                          ))}
-                        </Flex>
-                      </Td>
-                      <Td fontSize="sm">{formatDate(movie.release_date)}</Td>
-                      <Td>
-                        <HStack spacing={2}>
-                          <IconButton
-                            icon={<ViewIcon />}
-                            colorScheme="green"
-                            size="sm"
-                            aria-label="Xem chi tiết"
-                            onClick={() => navigate(`/movies/${movie._id}`)}
-                            _hover={{ transform: "scale(1.1)" }}
-                            transition="0.2s"
-                          />
-                          <IconButton
-                            icon={<EditIcon />}
-                            colorScheme={"blue" }
-                            size="sm"
-                            aria-label="Chỉnh sửa"
-                            onClick={() => handleEditMovie(movie)}
-                            _hover={{ transform: "scale(1.1)" }}
-                            transition="0.2s"
-                          />
+                  {paginatedMovies.map((movie) => {
+                    const canUnlock = !hasDuplicateActiveMovie(movie.title, movie._id);
+                    
+                    return (
+                      <Tr key={movie._id} _hover={{ bg: "#252a38" }} transition="0.2s">
+                        <Td>
+                          {movie.poster_url ? (
+                            <Image
+                              src={movie.poster_url}
+                              alt={movie.title}
+                              boxSize="60px"
+                              borderRadius="md"
+                              objectFit="cover"
+                              fallbackSrc="https://via.placeholder.com/60"
+                            />
+                          ) : (
+                            <Box boxSize="60px" bg="gray.700" borderRadius="md" />
+                          )}
+                        </Td>
+                        <Td>
+                          <Text fontWeight="bold" fontSize="sm">{movie.title || "N/A"}</Text>
+                          <Text fontSize="xs" color="gray.400" noOfLines={2}>
+                            {movie.description || ""}
+                          </Text>
+                        </Td>
+                        <Td fontSize="sm">{movie.duration ? `${movie.duration} phút` : "N/A"}</Td>
+                        <Td>
+                          <Flex gap={1} flexWrap="wrap">
+                            {movie.genre?.map((g, idx) => (
+                              <Badge key={idx} colorScheme="purple" fontSize="xs">
+                                {g}
+                              </Badge>
+                            ))}
+                          </Flex>
+                        </Td>
+                        <Td fontSize="sm">{formatDate(movie.release_date)}</Td>
+                        <Td>
+                          <Badge 
+                            colorScheme={movie.status === "active" ? "green" : "red"}
+                            fontSize="xs"
+                          >
+                            {movie.status === "active" ? "Hoạt động" : "Đã khóa"}
+                          </Badge>
+                        </Td>
+                        <Td>
+                          <HStack spacing={2}>
                             <IconButton
-  icon={movie.status === "inactive" ? <UnlockIcon /> : <LockIcon />}
-  colorScheme={movie.status === "inactive" ? "green" : "red"}
-  size="sm"
-  aria-label="Thay đổi trạng thái phim"
-  onClick={() => toggleMovieStatus(movie)}
-  _hover={{ transform: "scale(1.1)" }}
-  transition="0.2s"
-/>
-
-                        </HStack>
-                      </Td>
-                    </Tr>
-                  ))}
+                              icon={<EditIcon />}
+                              colorScheme="blue"
+                              size="sm"
+                              aria-label="Chỉnh sửa"
+                              onClick={() => handleEditMovie(movie)}
+                              _hover={{ transform: "scale(1.1)" }}
+                              transition="0.2s"
+                            />
+                            <Tooltip 
+                              label={
+                                movie.status === "inactive" && !canUnlock
+                                  ? "Không thể mở khóa: Đã có phim cùng tên đang hoạt động"
+                                  : movie.status === "inactive"
+                                  ? "Mở khóa phim"
+                                  : "Khóa phim"
+                              }
+                              hasArrow
+                            >
+                              <IconButton
+                                icon={movie.status === "inactive" ? <UnlockIcon /> : <LockIcon />}
+                                colorScheme={movie.status === "inactive" ? "green" : "red"}
+                                size="sm"
+                                aria-label="Thay đổi trạng thái phim"
+                                onClick={() => toggleMovieStatus(movie)}
+                                isDisabled={movie.status === "inactive" && !canUnlock}
+                                isLoading={canceling}
+                                _hover={{ transform: "scale(1.1)" }}
+                                transition="0.2s"
+                              />
+                            </Tooltip>
+                          </HStack>
+                        </Td>
+                      </Tr>
+                    );
+                  })}
                 </Tbody>
               </Table>
             </Box>
@@ -540,10 +595,10 @@ const MovieManagementPage = () => {
                           key={page}
                           size="sm"
                           onClick={() => setCurrentPage(page)}
-                          bg={currentPage === page ? ("orange.400") : "#23242a"}
+                          bg={currentPage === page ? "orange.400" : "#23242a"}
                           color="white"
                           _hover={{
-                            bg: currentPage === page ? ("orange.500") : "#2d2e35",
+                            bg: currentPage === page ? "orange.500" : "#2d2e35",
                           }}
                         >
                           {page}
@@ -665,7 +720,7 @@ const MovieManagementPage = () => {
                     Hủy
                   </Button>
                   <Button 
-                    colorScheme={isAdmin ? "orange" : "blue"}
+                    colorScheme="orange"
                     onClick={handleSubmit}
                     isDisabled={!formData.title || !formData.description || !formData.duration || !formData.release_date}
                   >
