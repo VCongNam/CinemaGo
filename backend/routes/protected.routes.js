@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { verifyToken, requireAdmin, requireStaff, requireCustomer } from "../middlewares/auth.js";
 import { updateUserRole } from "../controllers/auth.controller.js";
-import { 
-  createMovie, 
-  updateMovie, 
-  deleteMovie, 
-  updateMovieStatus 
-} from "../controllers/movie.controller.js";
 import {
+  createMovie,
+  updateMovie,
+  deleteMovie,
+  updateMovieStatus,
+  getAllMoviesForStaff
+} from "../controllers/movie.controller.js";import {
   validateCreateMovie,
   validateUpdateMovie,
   validateStatusUpdate
@@ -125,6 +125,9 @@ router.get("/test-auth", verifyToken, (req, res) => {
 });
 
 // Protected movie routes (chỉ staff/admin)
+// Lấy tất cả phim (bao gồm cả inactive) cho staff/admin
+router.get("/movies/all", verifyToken, requireStaff, getAllMoviesForStaff);
+
 // Tạo phim mới
 router.post("/movies", verifyToken, requireStaff, validateCreateMovie, createMovie);
 
