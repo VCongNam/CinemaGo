@@ -19,16 +19,14 @@ export default function TicketCard({ ticket, bookingId }) {
           🎬 {ticket.movie}
         </Text>
         <Text fontSize="sm" color="gray.300">
-          Phòng: {ticket.room} | Ghế: {ticket.seat}
+          Phòng: {ticket.room} 
         </Text>
         <HStack>
           <Badge
-            colorScheme={ticket.status === "paid" ? "green" : "red"}
             px={2}
             py={1}
             borderRadius="md"
           >
-            {ticket.status === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}
           </Badge>
           <Text fontWeight="medium" fontSize="sm" color="gray.400">
             {ticket.date}
