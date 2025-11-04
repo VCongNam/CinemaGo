@@ -143,22 +143,6 @@ const StaffL2Page = () => {
     setOpenMovieId((prev) => (prev === movieId ? null : movieId));
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("staff");
-    toast({
-      title: "Đã đăng xuất",
-      status: "info",
-      duration: 2000,
-      position: "top",
-    });
-    navigate("/login");
-  };
-
-  const handleProfile = () => {
-    navigate("/staff/profile");
-  };
-
   return (
     <Flex minH="100vh" bg="#181a20" color="white">
       {/* Sidebar */}
@@ -171,33 +155,6 @@ const StaffL2Page = () => {
           <Heading color="orange.400" fontSize="2xl" letterSpacing="wide">
             Staff L2 - Quầy bán vé & bắp nước
           </Heading>
-
-          <Menu>
-            <MenuButton
-              as={Button}
-              rightIcon={<ChevronDownIcon />}
-              colorScheme="orange"
-              variant="outline"
-            >
-              <Flex align="center" gap={2}>
-                <Avatar size="sm" name={staff?.name || "NV"} />
-                <Text fontWeight="medium">{staff?.name || "Nhân viên"}</Text>
-              </Flex>
-            </MenuButton>
-            <MenuList bg="#23242a" border="1px solid #333">
-              <MenuItem bg="transparent" _hover={{ bg: "gray.700" }} onClick={handleProfile}>
-                Thông tin nhân viên
-              </MenuItem>
-              <MenuItem
-                bg="transparent"
-                color="red.400"
-                _hover={{ bg: "gray.700" }}
-                onClick={handleLogout}
-              >
-                Đăng xuất
-              </MenuItem>
-            </MenuList>
-          </Menu>
         </Flex>
 
         {/* Tabs chứa danh sách phim */}

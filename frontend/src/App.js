@@ -12,15 +12,14 @@ import ShowTimeManagementPage from "./pages/admin/ShowTimeManagementPage"
 import BookingManagementPage from "./pages/admin/BookingManagementPage"
 import BookingDetailPage from "./pages/admin/BookingDetailPage"
 import MovieManagementPage from "./pages/admin/MovieManagementPage"
+import TheatersManagement from "./pages/admin/TheatersManagement"
 
 // Booking pages
 import CartPage from "./pages/bookings/CartCheckoutPage"
 import TicketHistoryPage from "./pages/bookings/TicketHistoryPage"
-import TicketPage from "./pages/bookings/TicketInfo"
 import ETicketPage from "./pages/bookings/ETicketPage"
 import ShowtimeSelection from "./pages/bookings/ShowtimeSelection"
 import SeatSelection from "./pages/bookings/SeatSelection"
-import ComboSelection from "./pages/bookings/ComboSelection"
 import BookingCancelledPage from "./pages/bookings/BookingCancelledPage"
 import PaymentFailedPage from "./pages/bookings/PaymentFailedPage"
 import PaymentSuccessPage from "./pages/bookings/PaymentSuccessPage"
@@ -66,17 +65,14 @@ function App() {
 
               {/* Booking */}
               <Route path="/bookings/cart" element={<CartPage />} />
-              <Route path="/ticket-history" element={<TicketHistoryPage />} />
-              <Route path="/bookings/ticket" element={<TicketPage />} />
+              <Route path="/bookings/history" element={<TicketHistoryPage />} />
               <Route path="/bookings/eticket" element={<ETicketPage />} />
               <Route path="/ticket-detail/:id" element={<TicketDetailPage />} />
 
               {/* Booking flow with params */}
               <Route path="/bookings/showtimes/:movieId" element={<ShowtimeSelection />} />
               <Route path="/bookings/seats/:showtimeId" element={<SeatSelection />} />
-              <Route path="/bookings/combos/:showtimeId" element={<ComboSelection />} />
               <Route path="/bookings/checkout/:bookingId" element={<CartPage />} />
-              <Route path="/bookings/ticket/:bookingId" element={<TicketPage />} />
               <Route path="/bookings/cancelled" element={<BookingCancelledPage />} />
               <Route path="/payment-failed" element={<PaymentFailedPage />} />
               <Route path="/payment-success" element={<PaymentSuccessPage />} />
@@ -92,6 +88,7 @@ function App() {
               <Route path="/admin/reports" element={<ReportsPage />} />
               <Route path="/admin/user/:id" element={<UserDetailPage />} />
               <Route path="/admin/staffs" element={<StaffManagementPage />} />
+              <Route path="/admin/theaters" element={<TheatersManagement />} />
               <Route path="/showtimes" element={<ShowTimeManagementPage />} />
               <Route path="/bookings" element={<BookingManagementPage />} />
               <Route path="/bookings/:id" element={<BookingDetailPage />} />

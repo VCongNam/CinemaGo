@@ -12,7 +12,7 @@
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.12.2",
-    "date-fns": "^4.1.0",
+    "date-fns": "^2.30.0",
     "framer-motion": "^12.23.22",
     "qrcode.react": "^4.2.0",
     "react": "^19.1.1",

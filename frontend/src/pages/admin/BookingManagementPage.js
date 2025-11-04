@@ -27,19 +27,52 @@ import {
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import { ViewIcon } from "@chakra-ui/icons";
-import Sidebar from "../Navbar/SidebarAdmin";
+import SidebarAdmin from "../Navbar/SidebarAdmin";
+import SidebarStaff from "../Navbar/SidebarStaff";
 
 const BookingManagementPage = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchUser, setSearchUser] = useState("");
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [roomFilter, setRoomFilter] = useState("all");
   const [rooms, setRooms] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const toast = useToast();
   const navigate = useNavigate();
+
+  // Lấy thông tin role từ localStorage
+  let roleData = null;
+  try {
+    roleData = JSON.parse(localStorage.getItem("role"));
+  } catch (e) {
+    const directRole = localStorage.getItem("role") || localStorage.getItem("userRole");
+    if (directRole) {
+      roleData = { role: directRole };
+    }
+  }
+  
+  const role = roleData?.role || "";
+  
+  // Xác định role và quyền hạn - chỉ cho phép admin và lv2
+  let isAdmin = false;
+  let isStaff = false;
+  
+  if (role.toLowerCase() === "admin") {
+    isAdmin = true;
+  } else if (role.toLowerCase() === "lv2") {
+    isStaff = true;
+  } else {
+    // Nếu không phải admin hoặc lv2, hiển thị thông báo
+    toast({
+      title: "Không có quyền truy cập",
+      description: "Bạn không có quyền truy cập trang này",
+      status: "error",
+      duration: 3000,
+      isClosable: true,
+    });
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -61,35 +94,18 @@ const BookingManagementPage = () => {
         
         const bookingsList = bookingsData.bookings || [];
         
-        // Group bookings by user_id + showtime_id + payment_status
-        const groupedBookings = {};
-        bookingsList.forEach((booking) => {
-          const key = `${booking.user_id?._id}-${booking.showtime_id?._id}-${booking.payment_status?.toLowerCase()}`;
-          
-          if (!groupedBookings[key]) {
-            groupedBookings[key] = {
-              ...booking,
-              bookingIds: [booking._id],
-              totalAmount: parseFloat(booking.total_price?.$numberDecimal || booking.total_price || 0),
-            };
-          } else {
-            groupedBookings[key].bookingIds.push(booking._id);
-            groupedBookings[key].totalAmount += parseFloat(booking.total_price?.$numberDecimal || booking.total_price || 0);
-          }
+        // Sort by order_code descending (newest first)
+        const sortedBookings = bookingsList.sort((a, b) => {
+          const codeA = String(a.order_code || a._id || "");
+          const codeB = String(b.order_code || b._id || "");
+          return codeB.localeCompare(codeA);
         });
         
-        // Convert back to array and sort by created date
-        const mergedBookings = Object.values(groupedBookings).sort((a, b) => {
-          const dateA = new Date(a.created_at?.utc || a.created_at || 0);
-          const dateB = new Date(b.created_at?.utc || b.created_at || 0);
-          return dateB - dateA;
-        });
-        
-        setBookings(mergedBookings);
+        setBookings(sortedBookings);
         
         // Extract unique rooms for filter (loại bỏ trùng lặp)
         const roomMap = new Map();
-        mergedBookings.forEach(b => {
+        sortedBookings.forEach(b => {
           const room = b.showtime_id?.room_id;
           if (room && room._id) {
             roomMap.set(room._id, room);
@@ -132,6 +148,11 @@ const BookingManagementPage = () => {
     "cancelled": { label: "CANCELLED", color: "red" },
   };
 
+  const bookingStatusConfig = {
+    "confirmed": { label: "ĐÃ XÁC NHẬN", color: "green" },
+    "cancelled": { label: "ĐÃ HỦY", color: "red" },
+  };
+
   const getPaymentMethodColor = (method) => {
     return paymentMethodConfig[method?.toLowerCase()]?.color || "gray";
   };
@@ -150,6 +171,15 @@ const BookingManagementPage = () => {
     return paymentStatusConfig[status.toLowerCase()]?.label || status.toUpperCase();
   };
 
+  const getBookingStatusColor = (status) => {
+    return bookingStatusConfig[status?.toLowerCase()]?.color || "gray";
+  };
+
+  const getBookingStatusLabel = (status) => {
+    if (!status) return "Chưa rõ";
+    return bookingStatusConfig[status.toLowerCase()]?.label || status.toUpperCase();
+  };
+
   const formatPrice = (price) => {
     if (!price) return "0 VNĐ";
     return new Intl.NumberFormat("vi-VN", {
@@ -158,10 +188,8 @@ const BookingManagementPage = () => {
     }).format(price);
   };
 
-  const handleViewDetails = (bookingIds) => {
-    navigate(`/bookings/${bookingIds[0]}`, {
-      state: { allBookingIds: bookingIds }
-    });
+  const handleViewDetails = (bookingId) => {
+    navigate(`/bookings/${bookingId}`);
   };
 
   // Filter bookings
@@ -176,10 +204,10 @@ const BookingManagementPage = () => {
       );
     }
 
-    // Filter by payment status
-    if (paymentStatusFilter !== "all") {
+    // Filter by status
+    if (statusFilter !== "all") {
       filtered = filtered.filter(b => 
-        b.payment_status?.toLowerCase() === paymentStatusFilter.toLowerCase()
+        b.status?.toLowerCase() === statusFilter.toLowerCase()
       );
     }
 
@@ -191,15 +219,13 @@ const BookingManagementPage = () => {
     return filtered;
   };
 
-  // Separate successful and all bookings
-  const successBookings = bookings.filter(b => b.payment_status?.toLowerCase() === "success");
+  // Filter bookings
   const filteredAllBookings = filterBookings(bookings);
-  const filteredSuccessBookings = filterBookings(successBookings);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchUser, paymentStatusFilter, roomFilter]);
+  }, [searchUser, statusFilter, roomFilter]);
 
   // Render table
   const renderTable = (data) => {
@@ -221,11 +247,12 @@ const BookingManagementPage = () => {
           <Table variant="simple" colorScheme="whiteAlpha" size="sm">
             <Thead bg="#222633">
               <Tr>
-                <Th color="orange.300">Mã đặt vé</Th>
+                <Th color="orange.300">Mã đơn</Th>
                 <Th color="orange.300">Người dùng</Th>
                 <Th color="orange.300">Poster</Th>
                 <Th color="orange.300">Tên phim</Th>
                 <Th color="orange.300">Phòng</Th>
+                <Th color="orange.300">Số ghế</Th>
                 <Th color="orange.300">Tổng tiền</Th>
                 <Th color="orange.300">Phương thức</Th>
                 <Th color="orange.300">Trạng thái</Th>
@@ -233,16 +260,22 @@ const BookingManagementPage = () => {
               </Tr>
             </Thead>
             <Tbody>
-              {paginatedData.map((booking, index) => {
+              {paginatedData.map((booking) => {
+                const totalPrice = parseFloat(booking.total_price?.$numberDecimal || booking.total_price || 0);
+                // Đếm số ghế từ seat_id array
+                let seatCount = 0;
+                if (Array.isArray(booking.seat_id)) {
+                  seatCount = booking.seat_id.length;
+                } else if (booking.seat_id) {
+                  seatCount = 1;
+                }
+                
                 return (
-                  <Tr key={index} _hover={{ bg: "#252a38" }} transition="0.2s">
+                  <Tr key={booking._id} _hover={{ bg: "#252a38" }} transition="0.2s">
                     <Td fontSize="sm">
-                      <Text fontWeight="medium">{booking.order_code || booking._id || "N/A"}</Text>
-                      {booking.bookingIds.length > 1 && (
-                        <Badge ml={2} colorScheme="purple" fontSize="xs">
-                          {booking.bookingIds.length} vé
-                        </Badge>
-                      )}
+                      <Text fontWeight="bold" color="orange.300">
+                        {booking.order_code || booking._id || "N/A"}
+                      </Text>
                     </Td>
                     <Td>
                       <Text fontWeight="bold" fontSize="sm">{booking.user_id?.username || "N/A"}</Text>
@@ -270,8 +303,13 @@ const BookingManagementPage = () => {
                       </Text>
                     </Td>
                     <Td fontSize="sm">{booking.showtime_id?.room_id?.name || "N/A"}</Td>
+                    <Td fontSize="sm">
+                      <Badge colorScheme="purple" fontSize="xs" px={2} py={1}>
+                        {seatCount} GHẾ
+                      </Badge>
+                    </Td>
                     <Td fontWeight="bold" color="green.400" fontSize="sm">
-                      {formatPrice(booking.totalAmount)}
+                      {formatPrice(totalPrice)}
                     </Td>
                     <Td>
                       <Badge 
@@ -285,12 +323,12 @@ const BookingManagementPage = () => {
                     </Td>
                     <Td>
                       <Badge 
-                        colorScheme={getPaymentStatusColor(booking.payment_status)}
+                        colorScheme={getBookingStatusColor(booking.status)}
                         px={2}
                         py={1}
                         borderRadius="md"
                       >
-                        {getPaymentStatusLabel(booking.payment_status)}
+                        {getBookingStatusLabel(booking.status)}
                       </Badge>
                     </Td>
                     <Td>
@@ -299,7 +337,7 @@ const BookingManagementPage = () => {
                         colorScheme="blue"
                         size="sm"
                         aria-label="Xem chi tiết"
-                        onClick={() => handleViewDetails(booking.bookingIds)}
+                        onClick={() => handleViewDetails(booking._id)}
                         _hover={{ transform: "scale(1.1)" }}
                         transition="0.2s"
                       />
@@ -371,14 +409,27 @@ const BookingManagementPage = () => {
     );
   };
 
+  // Nếu không có quyền truy cập, không render gì cả
+  if (!isAdmin && !isStaff) {
+    return (
+      <Flex minH="100vh" bg="#181a20" color="white" justify="center" align="center">
+        <Box textAlign="center">
+          <Heading size="lg" color="red.400" mb={4}>Không có quyền truy cập</Heading>
+          <Text color="gray.400">Bạn không có quyền truy cập trang này</Text>
+        </Box>
+      </Flex>
+    );
+  }
+
   return (
     <Flex bg="#0f1117" minH="100vh" color="white">
-      <Sidebar />
+      {isAdmin ? <SidebarAdmin /> : <SidebarStaff />}
+      
       <Box flex="1" p={6}>
         <Heading mb={6} color="orange.400">Quản lý đặt phim</Heading>
 
         {/* Filters */}
-        <HStack spacing={4} mb={6}>
+        <HStack spacing={4} mb={6} flexWrap="wrap">
           <Input
             placeholder="Tìm theo tên người dùng hoặc email..."
             value={searchUser}
@@ -390,8 +441,8 @@ const BookingManagementPage = () => {
             _focus={{ bg: "gray.700" }}
           />
           <Select
-            value={paymentStatusFilter}
-            onChange={(e) => setPaymentStatusFilter(e.target.value)}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
             maxW="200px"
             bg="#181a20"
             color="#fff"
@@ -400,17 +451,11 @@ const BookingManagementPage = () => {
             <option value="all" style={{ background: "#181a20", color: "#fff" }}>
               Tất cả trạng thái
             </option>
-            <option value="success" style={{ background: "#181a20", color: "#fff" }}>
-              SUCCESS
+            <option value="confirmed" style={{ background: "#181a20", color: "#fff" }}>
+              ĐÃ XÁC NHẬN
             </option>
-            <option value="paid" style={{ background: "#181a20", color: "#fff" }}>
-              PAID
-            </option>
-            <option value="pending" style={{ background: "#181a20", color: "#fff" }}>
-              PENDING
-            </option>
-            <option value="failed" style={{ background: "#181a20", color: "#fff" }}>
-              FAILED
+            <option value="cancelled" style={{ background: "#181a20", color: "#fff" }}>
+              ĐÃ HỦY
             </option>
           </Select>
           <Select
@@ -424,15 +469,24 @@ const BookingManagementPage = () => {
             <option value="all" style={{ background: "#181a20", color: "#fff" }}>
               Tất cả phòng
             </option>
-            {rooms.map((room) => (
-              <option
-                key={room._id}
-                value={room._id}
-                style={{ background: "#181a20", color: "#fff" }}
-              >
-                {room.name}
-              </option>
-            ))}
+            {rooms
+              .sort((a, b) => {
+                const nameA = a.name || "";
+                const nameB = b.name || "";
+                // Extract number from room name (e.g., "Phòng 1" -> 1)
+                const numA = parseInt(nameA.match(/\d+/)?.[0] || "0");
+                const numB = parseInt(nameB.match(/\d+/)?.[0] || "0");
+                return numA - numB;
+              })
+              .map((room) => (
+                <option
+                  key={room._id}
+                  value={room._id}
+                  style={{ background: "#181a20", color: "#fff" }}
+                >
+                  {room.name}
+                </option>
+              ))}
           </Select>
         </HStack>
 
@@ -441,25 +495,15 @@ const BookingManagementPage = () => {
             <Spinner size="xl" color="#ff8c00" />
           </Flex>
         ) : (
-          <Tabs colorScheme="orange" variant="enclosed">
-            <TabList>
-              <Tab _selected={{ bg: "orange.400", color: "white" }}>
-                Tất cả đặt vé ({filteredAllBookings.length})
-              </Tab>
-              <Tab _selected={{ bg: "green.500", color: "white" }}>
-                Đã thanh toán ({filteredSuccessBookings.length})
-              </Tab>
-            </TabList>
-
-            <TabPanels>
-              <TabPanel px={0}>
-                {renderTable(filteredAllBookings)}
-              </TabPanel>
-              <TabPanel px={0}>
-                {renderTable(filteredSuccessBookings)}
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
+          <>
+            {filteredAllBookings.length === 0 ? (
+              <Text textAlign="center" color="gray.400" fontSize="lg" mt={10}>
+                Không có dữ liệu đặt vé
+              </Text>
+            ) : (
+              renderTable(filteredAllBookings)
+            )}
+          </>
         )}
       </Box>
     </Flex>
