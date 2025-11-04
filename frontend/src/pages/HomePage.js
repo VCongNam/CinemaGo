@@ -108,22 +108,22 @@ const Homepage = () => {
         const timeMatch = st.start_time.vietnamFormatted.match(/^(\d{2}:\d{2})/)
         return timeMatch ? timeMatch[1] : st.start_time.vietnamFormatted.split(' ')[0]
       })
-    
+
     return [...new Set(allTimes)].sort()
   }
 
   // Kiểm tra xem một ngày có phải hôm nay không (theo múi giờ Việt Nam)
   const isToday = (dateString) => {
     const today = new Date()
-    const vietnamToday = new Date(today.toLocaleString("en-US", {timeZone: "Asia/Ho_Chi_Minh"}))
-    
+    const vietnamToday = new Date(today.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }))
+
     // Parse date từ vietnamFormatted string (format: "09:30:00 14/10/2025")
     const dateMatch = dateString.match(/(\d{2}\/\d{2}\/\d{4})/)
     if (!dateMatch) return false
-    
+
     const [day, month, year] = dateMatch[1].split('/')
     const showtimeDate = new Date(year, month - 1, day)
-    
+
     return showtimeDate.toDateString() === vietnamToday.toDateString()
   }
 
@@ -143,14 +143,14 @@ const Homepage = () => {
       const vietnamFormatted = st?.start_time?.vietnamFormatted
       return movieIdMatches && typeof vietnamFormatted === 'string' && isToday(vietnamFormatted)
     })
-    
+
     // Extract time từ vietnamFormatted string và loại bỏ trùng lặp
     const allTimes = movieShowtimes.map((st) => {
       const vf = st?.start_time?.vietnamFormatted || ''
       const timeMatch = vf.match(/^(\d{2}:\d{2})/)
       return timeMatch ? timeMatch[1] : (vf.split(' ')[0] || '')
     }).filter(Boolean)
-    
+
     // Loại bỏ trùng lặp và sắp xếp
     const uniqueTimes = [...new Set(allTimes)].sort()
     return uniqueTimes
@@ -178,20 +178,28 @@ const Homepage = () => {
       const has = (m.genre || []).some((g) => selectedCategories.includes(g))
       if (!has) return false
     }
-    
+
     // filter by showtimes (if any)
     if (selectedShowtimes && selectedShowtimes.length > 0) {
       const movieShowtimes = getMovieShowtimes(m._id)
       const hasShowtime = selectedShowtimes.some((time) => movieShowtimes.includes(time))
       if (!hasShowtime) return false
     }
-    
+
     // filter by search query in title
     if (searchQuery) {
       return (m.title || "").toLowerCase().includes(searchQuery.toLowerCase())
     }
     return true
   })
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage)
+    window.scrollTo({
+      top: 0, // Cuộn về vị trí top của viewport
+      behavior: 'smooth' // Cuộn mượt mà
+    })
+  }
 
   return (
     <Box bg="gray.900" minH="calc(100vh - 140px)">
@@ -230,10 +238,10 @@ const Homepage = () => {
                 Thưởng thức những bộ phim bom tấn với chất lượng hình ảnh 4K và âm thanh Dolby Atmos
               </Text>
               <HStack spacing={4}>
-                <Button 
-                  bg="orange.400" 
+                <Button
+                  bg="orange.400"
                   color="white"
-                  _hover={{ bg: "orange.500" }} 
+                  _hover={{ bg: "orange.500" }}
                   onClick={() => {
                     const id = featuredList[featuredIndex]?._id
                     if (id) navigate(`/movies/${id}`)
@@ -241,10 +249,10 @@ const Homepage = () => {
                 >
                   Đặt vé ngay
                 </Button>
-                <Button 
-                  variant="outline" 
-                  borderColor="gray.600" 
-                  color="gray.300" 
+                <Button
+                  variant="outline"
+                  borderColor="gray.600"
+                  color="gray.300"
                   _hover={{ bg: "gray.700", borderColor: "orange.400", color: "orange.400" }}
                 >
                   Xem lịch chiếu
@@ -258,8 +266,8 @@ const Homepage = () => {
       <Container maxW="1400px" pb={10}>
         <Flex gap={6}>
           {/* Sidebar Filter */}
-          <Box 
-            w="280px" 
+          <Box
+            w="280px"
             flexShrink={0}
             position="sticky"
             top="20px"
@@ -285,13 +293,13 @@ const Homepage = () => {
                       Xóa tất cả
                     </Button>
                   </HStack>
-                  
+
                   {/* Thể loại phim - Luôn hiển thị */}
                   <Box>
                     <Text fontSize="md" color="gray.200" fontWeight="medium" mb={3}>
                       Thể loại phim
                     </Text>
-                    
+
                     {!loading && !error && (
                       (() => {
                         const allGenres = Array.from(new Set(movies.flatMap((m) => m.genre || [])))
@@ -313,9 +321,9 @@ const Homepage = () => {
                                 ))}
                               </VStack>
                             </CheckboxGroup>
-                            
-                            <Button 
-                              size="sm" 
+
+                            <Button
+                              size="sm"
                               variant="outline"
                               borderColor="gray.600"
                               color="gray.300"
@@ -335,7 +343,7 @@ const Homepage = () => {
                     <Text fontSize="md" color="gray.200" fontWeight="medium" mb={3}>
                       Showtime
                     </Text>
-                    
+
                     <VStack align="stretch" spacing={3}>
                       <Text fontSize="sm" color="gray.300" fontWeight="medium">
                         Chọn suất chiếu
@@ -356,9 +364,9 @@ const Homepage = () => {
                           ))}
                         </VStack>
                       </CheckboxGroup>
-                      
-                      <Button 
-                        size="sm" 
+
+                      <Button
+                        size="sm"
                         variant="outline"
                         borderColor="gray.600"
                         color="gray.300"
@@ -397,69 +405,69 @@ const Homepage = () => {
                   {filteredMovies
                     .slice((currentPage - 1) * pageSize, currentPage * pageSize)
                     .map((movie, idx) => (
-                    <Card key={movie._id || idx} bg="gray.800" color="white" borderRadius="md" border="1px solid" borderColor="gray.700">
-                      <Box position="relative">
-                        <Image
-                          src={movie.poster_url}
-                          alt={movie.title}
-                          borderTopRadius="md"
-                          height="260px"
-                          width="100%"
-                          objectFit="cover"
-                          fallbackSrc="https://via.placeholder.com/300x450?text=No+Image"
-                        />
-                        {movie.rating && (
-                          <Badge position="absolute" top={2} left={2} bg="orange.400" color="white" px={2} py={1} borderRadius="md" display="flex" alignItems="center" gap={1}>
-                            <StarIcon />
-                            {movie.rating}
-                          </Badge>
-                        )}
-                      </Box>
+                      <Card key={movie._id || idx} bg="gray.800" color="white" borderRadius="md" border="1px solid" borderColor="gray.700">
+                        <Box position="relative">
+                          <Image
+                            src={movie.poster_url}
+                            alt={movie.title}
+                            borderTopRadius="md"
+                            height="350px"
+                            width="100%"
+                            objectFit="contain"
+                            fallbackSrc="https://via.placeholder.com/300x450?text=No+Image"
+                          />
+                          {movie.rating && (
+                            <Badge position="absolute" top={2} left={2} bg="orange.400" color="white" px={2} py={1} borderRadius="md" display="flex" alignItems="center" gap={1}>
+                              <StarIcon />
+                              {movie.rating}
+                            </Badge>
+                          )}
+                        </Box>
 
-                      <CardBody>
-                        <VStack align="start" spacing={3}>
-                          <Heading size="md" color="orange.400">{movie.title}</Heading>
-                          <Text fontSize="sm" color="gray.300">
-                            {(movie.genre || []).join(", ")}
-                          </Text>
-                          <HStack spacing={2} color="gray.300">
-                            <TimeIcon />
-                            <Text fontSize="sm">{formatDuration(movie.duration)}</Text>
-                          </HStack>
-
-                          <Divider borderColor="gray.600" />
-
-                          <VStack align="start" spacing={2} width="100%">
-                            <HStack color="gray.300" spacing={2}>
-                              <CalendarIcon />
-                              <Text fontSize="sm">Suất chiếu hôm nay:</Text>
+                        <CardBody>
+                          <VStack align="start" spacing={3}>
+                            <Heading size="md" color="orange.400">{movie.title}</Heading>
+                            <Text fontSize="sm" color="gray.300">
+                              {(movie.genre || []).join(", ")}
+                            </Text>
+                            <HStack spacing={2} color="gray.300">
+                              <TimeIcon />
+                              <Text fontSize="sm">{formatDuration(movie.duration)}</Text>
                             </HStack>
-                            <HStack wrap="wrap" spacing={2}>
-                              {getMovieShowtimes(movie._id).length > 0 ? (
-                                getMovieShowtimes(movie._id).map((time) => (
-                                  <Box key={time} px={2} py={1} borderRadius="md" bg="gray.700" fontSize="sm" color="white">
-                                    {time}
-                                  </Box>
-                                ))
-                              ) : (
-                                <Text fontSize="sm" color="gray.400">Không có suất chiếu hôm nay</Text>
-                              )}
-                            </HStack>
+
+                            <Divider borderColor="gray.600" />
+
+                            <VStack align="start" spacing={2} width="100%">
+                              <HStack color="gray.300" spacing={2}>
+                                <CalendarIcon />
+                                <Text fontSize="sm">Suất chiếu hôm nay:</Text>
+                              </HStack>
+                              <HStack wrap="wrap" spacing={2}>
+                                {getMovieShowtimes(movie._id).length > 0 ? (
+                                  getMovieShowtimes(movie._id).map((time) => (
+                                    <Box key={time} px={2} py={1} borderRadius="md" bg="gray.700" fontSize="sm" color="white">
+                                      {time}
+                                    </Box>
+                                  ))
+                                ) : (
+                                  <Text fontSize="sm" color="gray.400">Không có suất chiếu hôm nay</Text>
+                                )}
+                              </HStack>
+                            </VStack>
+
+                            <Button
+                              bg="orange.400"
+                              color="white"
+                              _hover={{ bg: "orange.500" }}
+                              width="100%"
+                              onClick={() => navigate(`/movies/${movie._id}`)}
+                            >
+                              Xem chi tiết
+                            </Button>
                           </VStack>
-
-                          <Button 
-                            bg="orange.400" 
-                            color="white"
-                            _hover={{ bg: "orange.500" }} 
-                            width="100%" 
-                            onClick={() => navigate(`/movies/${movie._id}`)}
-                          >
-                            Xem chi tiết
-                          </Button>
-                        </VStack>
-                      </CardBody>
-                    </Card>
-                  ))}
+                        </CardBody>
+                      </Card>
+                    ))}
                 </Grid>
 
                 {/* Pagination */}
@@ -472,7 +480,7 @@ const Homepage = () => {
                     borderColor="gray.600"
                     _hover={{ bg: "orange.400", borderColor: "orange.400", color: "white" }}
                     _disabled={{ bg: "gray.800", color: "gray.500", borderColor: "gray.700" }}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    onClick={() => handlePageChange(currentPage - 1)}
                     isDisabled={currentPage === 1}
                   >
                     Trước
@@ -485,12 +493,12 @@ const Homepage = () => {
                       color={currentPage === i + 1 ? "white" : "gray.300"}
                       border="1px solid"
                       borderColor={currentPage === i + 1 ? "orange.400" : "gray.600"}
-                      _hover={{ 
-                        bg: currentPage === i + 1 ? "orange.500" : "orange.400", 
-                        borderColor: "orange.400", 
-                        color: "white" 
+                      _hover={{
+                        bg: currentPage === i + 1 ? "orange.500" : "orange.400",
+                        borderColor: "orange.400",
+                        color: "white"
                       }}
-                      onClick={() => setCurrentPage(i + 1)}
+                      onClick={() => handlePageChange(i + 1)}
                     >
                       {i + 1}
                     </Button>
@@ -503,7 +511,7 @@ const Homepage = () => {
                     borderColor="gray.600"
                     _hover={{ bg: "orange.400", borderColor: "orange.400", color: "white" }}
                     _disabled={{ bg: "gray.800", color: "gray.500", borderColor: "gray.700" }}
-                    onClick={() => setCurrentPage((p) => Math.min(Math.ceil(filteredMovies.length / pageSize), p + 1))}
+                    onClick={() => handlePageChange(currentPage + 1)} 
                     isDisabled={currentPage === Math.ceil(filteredMovies.length / pageSize) || filteredMovies.length === 0}
                   >
                     Sau
