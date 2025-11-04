@@ -21,7 +21,7 @@ export const getAllMovies = async (req, res, next) => {
         movieObj.release_date = formatForAPI(movieObj.release_date);
       }
       if (movieObj.created_at) {
-        movieObj.created_at = formatForAPI(movieObj.created_at);
+        movieObj.created_at = formatForAPI(movieObj.created);
       }
       if (movieObj.updated_at) {
         movieObj.updated_at = formatForAPI(movieObj.updated_at);
@@ -31,6 +31,42 @@ export const getAllMovies = async (req, res, next) => {
     
     res.status(200).json({
       message: "Lấy danh sách phim thành công",
+      data: formattedMovies,
+      totalCount: formattedMovies.length
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Lấy tất cả movies cho staff/admin (bao gồm cả inactive)
+export const getAllMoviesForStaff = async (req, res, next) => {
+  try {
+    const { search = '' } = req.query;
+
+    const query = {}; // No status filter for staff/admin
+    if (search) {
+      query.title = { $regex: search, $options: 'i' };
+    }
+
+    const movies = await Movie.find(query).sort({ created_at: -1 });
+    
+    const formattedMovies = movies.map(movie => {
+      const movieObj = movie.toObject();
+      if (movieObj.release_date) {
+        movieObj.release_date = formatForAPI(movieObj.release_date);
+      }
+      if (movieObj.created_at) {
+        movieObj.created_at = formatForAPI(movieObj.created_at);
+      }
+      if (movieObj.updated_at) {
+        movieObj.updated_at = formatForAPI(movieObj.updated_at);
+      }
+      return movieObj;
+    });
+    
+    res.status(200).json({
+      message: "Lấy danh sách phim (cho staff/admin) thành công",
       data: formattedMovies,
       totalCount: formattedMovies.length
     });
