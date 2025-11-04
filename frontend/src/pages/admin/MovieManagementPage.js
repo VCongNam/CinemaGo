@@ -49,7 +49,7 @@ const MovieManagementPage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [canceling, setCanceling] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -164,7 +164,7 @@ const MovieManagementPage = () => {
   };
 
   const toggleMovieStatus = async (movie) => {
-    setCanceling(true);
+    setTogglingStatus(true);
     const token = localStorage.getItem("token");
     const newStatus = movie.status === "inactive" ? "active" : "inactive";
 
@@ -178,7 +178,7 @@ const MovieManagementPage = () => {
           duration: 4000,
           isClosable: true,
         });
-        setCanceling(false);
+        setTogglingStatus(false);
         return;
       }
     }
@@ -193,16 +193,9 @@ const MovieManagementPage = () => {
         body: JSON.stringify({ status: newStatus }),
       });
 
-      const responseText = await res.text();
-
       if (!res.ok) {
-        let err;
-        try {
-          err = JSON.parse(responseText);
-        } catch {
-          err = { message: responseText };
-        }
-        throw new Error(err.message || "Không thể thay đổi trạng thái phim.");
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Không thể thay đổi trạng thái phim.");
       }
 
       toast({
@@ -222,7 +215,7 @@ const MovieManagementPage = () => {
         isClosable: true,
       });
     } finally {
-      setCanceling(false);
+      setTogglingStatus(false);
     }
   };
 
@@ -520,6 +513,8 @@ const MovieManagementPage = () => {
                           <Badge 
                             colorScheme={movie.status === "active" ? "green" : "red"}
                             fontSize="xs"
+                            px={2}
+                            py={1}
                           >
                             {movie.status === "active" ? "Hoạt động" : "Đã khóa"}
                           </Badge>
@@ -552,7 +547,7 @@ const MovieManagementPage = () => {
                                 aria-label="Thay đổi trạng thái phim"
                                 onClick={() => toggleMovieStatus(movie)}
                                 isDisabled={movie.status === "inactive" && !canUnlock}
-                                isLoading={canceling}
+                                isLoading={togglingStatus}
                                 _hover={{ transform: "scale(1.1)" }}
                                 transition="0.2s"
                               />
