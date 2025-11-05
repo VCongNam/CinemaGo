@@ -37,7 +37,10 @@ export default function SidebarStaff() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     sessionStorage.clear();
-    navigate("/login");
+    onClose(); 
+    setTimeout(() => {
+      window.location.href = "/login";
+    }, 100);
   };
 
   const STAFF_LINKS = [

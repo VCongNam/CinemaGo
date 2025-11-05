@@ -151,7 +151,7 @@ const StaffL1Page = () => {
       duration: 2000,
       position: "top",
       onCloseComplete: () => {
-        window.location.href = "login";
+        window.location.href = "/login";
       }
     });
   };

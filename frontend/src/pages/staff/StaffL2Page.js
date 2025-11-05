@@ -158,10 +158,12 @@ const StaffL2Page = () => {
         </Flex>
 
         {/* Tabs chứa danh sách phim */}
+      <Flex justify="center">
         <Tabs
           variant="enclosed"
           colorScheme="orange"
           w="100%"
+          maxW="1200px"
           bg="#23242a"
           borderRadius="lg"
           p={6}
@@ -270,24 +272,7 @@ const StaffL2Page = () => {
                             <Icon as={FaClock} mr={1} />{" "}
                             {movie.duration || "?"} phút
                           </Flex>
-                          <Button
-                            w="100%"
-                            colorScheme="orange"
-                            mt={2}
-                            fontWeight="bold"
-                            rightIcon={
-                              openMovieId === movie._id ? (
-                                <FaChevronUp />
-                              ) : (
-                                <FaChevronDown />
-                              )
-                            }
-                            onClick={() => handleToggleShowtimes(movie._id)}
-                          >
-                            Mua vé
-                          </Button>
-                          <Collapse in={openMovieId === movie._id} animateOpacity>
-                            <Box mt={3}>
+                          <Box mt={3}>
                               <Flex
                                 align="center"
                                 color="gray.400"
@@ -302,9 +287,9 @@ const StaffL2Page = () => {
                                     <Button
                                       key={st._id + st.time}
                                       size="sm"
-                                      bg="gray.700"
-                                      color="white"
-                                      _hover={{ bg: "orange.400" }}
+                                      colorScheme="orange"
+                                      variant="outline"
+                                      _hover={{ bg: "orange.500", color: "white" }}
                                       onClick={() =>
                                         navigate("/staff/ticket", {
                                           state: { movie, time: st.time, showtime: st },
@@ -321,7 +306,6 @@ const StaffL2Page = () => {
                                 )}
                               </Flex>
                             </Box>
-                          </Collapse>
                         </Box>
                       </Box>
                     );
@@ -331,6 +315,7 @@ const StaffL2Page = () => {
             </TabPanel>
           </TabPanels>
         </Tabs>
+      </Flex>
       </Box>
     </Flex>
   );
