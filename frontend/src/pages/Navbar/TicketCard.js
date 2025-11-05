@@ -1,8 +1,16 @@
-import { Box, Text, Badge, HStack, VStack } from "@chakra-ui/react";
+import { Box, Text, Badge, HStack, VStack, Button } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 export default function TicketCard({ ticket, bookingId }) {
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handlePayment = (e) => {
+    e.stopPropagation();
+    navigate(`/bookings/checkout/${bookingId}`);
+  };
+
   return (
     <Box
       borderWidth="1px"
@@ -35,6 +43,17 @@ export default function TicketCard({ ticket, bookingId }) {
         <Text color="orange.300" fontWeight="bold" fontSize="lg">
           {ticket.total?.toLocaleString("vi-VN")} ₫
         </Text>
+        {(ticket.status === 'pending' || ticket.payment_status === 'pending') && (
+          <Button
+            colorScheme="orange"
+            size="sm"
+            width="full"
+            onClick={handlePayment}
+            isLoading={isLoading}
+          >
+            Tiếp tục thanh toán
+          </Button>
+        )}
       </VStack>
     </Box>
   );

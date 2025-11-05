@@ -22,6 +22,7 @@ import {
   AlertDialogOverlay,
   useDisclosure,
 } from "@chakra-ui/react";
+import { Image, HStack, Stack, Divider, Badge } from "@chakra-ui/react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import apiService from "../../services/apiService";
@@ -155,31 +156,52 @@ const CartCheckoutPage = () => {
     <Box bg="#0f1117" minH="100vh" color="white" p={6}>
       <VStack spacing={6} align="stretch" maxW="600px" mx="auto">
         <Heading mb={4} textAlign="center">Xác nhận và thanh toán</Heading>
+        {booking && booking.showtime_id && (
+          <VStack spacing={1} color="gray.200" bg="#1a1b23" p={4} borderRadius="lg" w="full">
+            <Heading as="h3" size="md" color="#d53f8c">Thông tin đặt vé</Heading>
+            <HStack align="start" spacing={4} w="full">
+              {/* Poster phim */}
+              {booking.showtime_id.movie_id?.poster_url && (
+                <Image
+                  src={booking.showtime_id.movie_id.poster_url}
+                  alt={booking.showtime_id.movie_id?.title || 'Poster'}
+                  boxSize={{ base: "90px", md: "120px" }}
+                  objectFit="cover"
+                  borderRadius="md"
+                />
+              )}
+              {/* Chi tiết phim và suất chiếu */}
+              <VStack align="start" spacing={1} w="full">
+                <Heading as="h4" size="sm" color="white">{booking.showtime_id.movie_id?.title}</Heading>
+                {!!(booking.showtime_id.movie_id?.genre?.length) && (
+                  <HStack spacing={2} flexWrap="wrap">
+                    {booking.showtime_id.movie_id.genre.map((g, idx) => (
+                      <Badge key={idx} colorScheme="pink" variant="subtle">{g}</Badge>
+                    ))}
+                  </HStack>
+                )}
+                {booking.showtime_id.movie_id?.duration && (
+                  <Text fontSize="sm" color="gray.400">Thời lượng: {booking.showtime_id.movie_id.duration} phút</Text>
+                )}
+                {booking.showtime_id.movie_id?.description && (
+                  <Text fontSize="sm" color="gray.400" noOfLines={3}>{booking.showtime_id.movie_id.description}</Text>
+                )}
+                <Divider borderColor="#2a2b33" my={2} />
+                <Text><strong>Rạp:</strong> {booking.showtime_id.room_id?.theater_id?.name}</Text>
+                <Text><strong>Phòng chiếu:</strong> {booking.showtime_id.room_id?.name}</Text>
+                <Text>
+                  <strong>Suất chiếu:</strong> {booking.showtime_id.start_time?.vietnamFormatted || new Date(booking.showtime_id.start_time?.vietnam || booking.showtime_id.start_time).toLocaleString('vi-VN')}
+                </Text>
+                {!!seats.length && (
+                  <Text>
+                    <strong>Ghế:</strong> {seats.map(s => s.seat_id?.seat_number || s.seat_number).join(', ')}
+                  </Text>
+                )}
+              </VStack>
+            </HStack>
+          </VStack>
+        )}
         
-        <Box bg="#1a1b23" p={5} borderRadius="lg">
-          <Heading size="md">{showtime.movie_id.title}</Heading>
-          <Text color="gray.400">
-            {new Date(showtime.start_time.vietnam).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })} - {new Date(showtime.start_time.vietnam).toLocaleDateString("vi-VN")} - {showtime.room_id.name}
-          </Text>
-        </Box>
-
-        <TableContainer bg="#1a1b23" p={5} borderRadius="lg">
-          <Table variant="simple">
-            <Thead>
-              <Tr>
-                <Th color="gray.300">Ghế</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {seats.map(bookingSeat => (
-                <Tr key={bookingSeat.seat_id._id}>
-                  <Td>{bookingSeat.seat_id.seat_number}</Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
-        </TableContainer>
-
         <Flex justify="space-between" align="center" bg="#1a1b23" p={5} borderRadius="lg">
           <Text fontSize="lg" fontWeight="bold">Tổng cộng</Text>
           <Text fontSize="2xl" fontWeight="bold" color="orange.300">{parseFloat(total_price.$numberDecimal).toLocaleString("vi-VN")}đ</Text>
@@ -190,8 +212,8 @@ const CartCheckoutPage = () => {
         )}
 
         <VStack spacing={4} mt={4}>
-          <Button 
-            bg="#d53f8c" 
+          <Button
+            bg="#d53f8c"
             color="white"
             size="lg"
             w="full"
@@ -202,7 +224,7 @@ const CartCheckoutPage = () => {
           >
             {isProcessingPayment ? "Đang xử lý..." : "Thanh toán với PayOS"}
           </Button>
-          <Button 
+          <Button
             variant="outline"
             colorScheme="red"
             size="lg"

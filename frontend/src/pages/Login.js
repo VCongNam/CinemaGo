@@ -139,17 +139,6 @@ const Login = () => {
                   >
                     Đăng nhập
                   </Button>
-                  {/* Nút chuyển sang trang đăng nhập admin */}
-                  <Button
-                    as={RouterLink}
-                    to="/admin/login"
-                    variant="outline"
-                    colorScheme="orange"
-                    w="full"
-                  >
-                    Đăng nhập Admin
-                  </Button>
-
                   <HStack w="full" align="center">
                     <Divider borderColor="gray.600" />
                     <Text color="gray.400" whiteSpace="nowrap" px={2}>hoặc</Text>

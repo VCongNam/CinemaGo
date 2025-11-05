@@ -150,8 +150,10 @@ const StaffL1Page = () => {
       status: "info",
       duration: 2000,
       position: "top",
+      onCloseComplete: () => {
+        window.location.href = "login";
+      }
     });
-    navigate("/login");
   };
 
   const handleProfile = () => {
@@ -160,39 +162,33 @@ const StaffL1Page = () => {
 
   return (
     <Box minH="100vh" bg="#181a20" color="white" p={6}>
-      {/* Header có tiêu đề và dropdown */}
-      <Flex justify="space-between" align="center" mb={6}>
-        <Heading color="orange.400" fontSize="2xl" letterSpacing="wide">
-          Staff L1 - Quầy bán vé & bắp nước
-        </Heading>
-
-        <Menu>
-          <MenuButton
-            as={Button}
-            rightIcon={<ChevronDownIcon />}
-            colorScheme="orange"
-            variant="outline"
+      <Menu position="absolute" top="4" right="4">
+        <MenuButton
+          as={Button}
+          rightIcon={<ChevronDownIcon />}
+          colorScheme="orange"
+          variant="outline"
+          size="sm"
+        >
+          <Flex align="center" gap={2}>
+            <Avatar size="xs" name={staff?.name || "NV"} />
+            <Text fontSize="sm">{staff?.name || "Nhân viên"}</Text>
+          </Flex>
+        </MenuButton>
+        <MenuList bg="#23242a" border="1px solid #333">
+          <MenuItem bg="transparent" _hover={{ bg: "gray.700" }} onClick={handleProfile}>
+            Thông tin nhân viên
+          </MenuItem>
+          <MenuItem
+            bg="transparent"
+            color="red.400"
+            _hover={{ bg: "gray.700" }}
+            onClick={handleLogout}
           >
-            <Flex align="center" gap={2}>
-              <Avatar size="sm" name={staff?.name || "NV"} />
-              <Text fontWeight="medium">{staff?.name || "Nhân viên"}</Text>
-            </Flex>
-          </MenuButton>
-          <MenuList bg="#23242a" border="1px solid #333">
-            <MenuItem bg="transparent" _hover={{ bg: "gray.700" }} onClick={handleProfile}>
-              Thông tin nhân viên
-            </MenuItem>
-            <MenuItem
-              bg="transparent"
-              color="red.400"
-              _hover={{ bg: "gray.700" }}
-              onClick={handleLogout}
-            >
-              Đăng xuất
-            </MenuItem>
-          </MenuList>
-        </Menu>
-      </Flex>
+            Đăng xuất
+          </MenuItem>
+        </MenuList>
+      </Menu>
 
       {/* Tabs chứa danh sách phim */}
       <Flex justify="center">
@@ -309,24 +305,7 @@ const StaffL1Page = () => {
                             <Icon as={FaClock} mr={1} />{" "}
                             {movie.duration || "?"} phút
                           </Flex>
-                          <Button
-                            w="100%"
-                            colorScheme="orange"
-                            mt={2}
-                            fontWeight="bold"
-                            rightIcon={
-                              openMovieId === movie._id ? (
-                                <FaChevronUp />
-                              ) : (
-                                <FaChevronDown />
-                              )
-                            }
-                            onClick={() => handleToggleShowtimes(movie._id)}
-                          >
-                            Mua vé
-                          </Button>
-                          <Collapse in={openMovieId === movie._id} animateOpacity>
-                            <Box mt={3}>
+                          <Box mt={3}>
                               <Flex
                                 align="center"
                                 color="gray.400"
@@ -341,9 +320,9 @@ const StaffL1Page = () => {
                                     <Button
                                       key={st._id + st.time}
                                       size="sm"
-                                      bg="gray.700"
-                                      color="white"
-                                      _hover={{ bg: "orange.400" }}
+                                      colorScheme="orange"
+                                      variant="outline"
+                                      _hover={{ bg: "orange.500", color: "white" }}
                                       onClick={() =>
                                         navigate("/staff/ticket", {
                                           state: { movie, time: st.time, showtime: st },
@@ -360,7 +339,6 @@ const StaffL1Page = () => {
                                 )}
                               </Flex>
                             </Box>
-                          </Collapse>
                         </Box>
                       </Box>
                     );
