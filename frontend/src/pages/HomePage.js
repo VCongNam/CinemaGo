@@ -227,8 +227,8 @@ const Homepage = () => {
                 src={featuredList[featuredIndex].poster_url}
                 alt={featuredList[featuredIndex]?.title || "featured"}
                 display={{ base: "none", md: "block" }}
-                boxSize="260px"
-                objectFit="cover"
+                boxSize="350px"
+                objectFit="contain"
                 borderRadius="md"
               />
             )}
@@ -248,14 +248,6 @@ const Homepage = () => {
                   }}
                 >
                   Đặt vé ngay
-                </Button>
-                <Button
-                  variant="outline"
-                  borderColor="gray.600"
-                  color="gray.300"
-                  _hover={{ bg: "gray.700", borderColor: "orange.400", color: "orange.400" }}
-                >
-                  Xem lịch chiếu
                 </Button>
               </HStack>
             </VStack>
@@ -321,17 +313,6 @@ const Homepage = () => {
                                 ))}
                               </VStack>
                             </CheckboxGroup>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              borderColor="gray.600"
-                              color="gray.300"
-                              _hover={{ borderColor: "orange.400", color: "orange.400" }}
-                              onClick={() => setSelectedCategories([])}
-                            >
-                              Xóa tất cả
-                            </Button>
                           </VStack>
                         )
                       })()
@@ -364,17 +345,6 @@ const Homepage = () => {
                           ))}
                         </VStack>
                       </CheckboxGroup>
-
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        borderColor="gray.600"
-                        color="gray.300"
-                        _hover={{ borderColor: "orange.400", color: "orange.400" }}
-                        onClick={() => setSelectedShowtimes([])}
-                      >
-                        Xóa tất cả
-                      </Button>
                     </VStack>
                   </Box>
                 </VStack>

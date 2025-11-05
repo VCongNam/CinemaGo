@@ -50,8 +50,13 @@ function App() {
     <ChakraProvider>
       <Router>
         <Box minHeight="100vh" display="flex" flexDirection="column">
-          {/* Hiển thị AdminHeader cho các route admin dashboard, customers, reports, staffs, user/:id. Các route khác dùng Header */}
-          {/^\/admin\/(dashboard|customers|reports|staffs|user)/.test(window.location.pathname) ? <AdminHeader /> : <Header />}
+          {/* Hiển thị AdminHeader cho các route admin, Header cho các route thông thường, không hiển thị cho staff */}
+          {/^\/admin\/(dashboard|customers|reports|staffs|user)/.test(window.location.pathname) 
+            ? <AdminHeader /> 
+            : !window.location.pathname.startsWith('/staff/') 
+              ? <Header /> 
+              : null
+          }
           <Box flex="1">
             <Routes>
               {/* Root */}
@@ -65,7 +70,7 @@ function App() {
 
               {/* Booking */}
               <Route path="/bookings/cart" element={<CartPage />} />
-              <Route path="/bookings/history" element={<TicketHistoryPage />} />
+              <Route path="/ticket-history" element={<TicketHistoryPage />} />
               <Route path="/bookings/eticket" element={<ETicketPage />} />
               <Route path="/ticket-detail/:id" element={<TicketDetailPage />} />
 
@@ -109,7 +114,8 @@ function App() {
 
             </Routes>
           </Box>
-          <Footer />
+          {/* Hiển thị Footer cho tất cả các trang ngoại trừ trang staff */}
+          {!window.location.pathname.startsWith('/staff/') && <Footer />}
         </Box>
       </Router>
     </ChakraProvider>
