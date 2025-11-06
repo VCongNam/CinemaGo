@@ -46,10 +46,6 @@ export const validateOfflineBooking = [
 
     body('payment_method')
         .isIn(['online', 'cash']).withMessage('Phương thức thanh toán phải là "online" hoặc "cash".'),
-    
-    body('phone')
-        .notEmpty().withMessage('Cần cung cấp số điện thoại.')
-        .isMobilePhone('vi-VN').withMessage('Số điện thoại không hợp lệ.'),
 
     handleValidationErrors
 ];
