@@ -6,13 +6,13 @@ import LoginPagetest from "./pages/LoginPagetest"
 import DashboardPage from "./pages/admin/DashboardPage"
 import StaffManagementPage from "./pages/admin/StaffManagementPage"
 import CustomerManagementPage from "./pages/admin/CustomerManagementPage"
-import ReportsPage from "./pages/admin/ReportsPage"
 import UserDetailPage from "./pages/admin/UserDetailPage"
 import ShowTimeManagementPage from "./pages/admin/ShowTimeManagementPage"
 import BookingManagementPage from "./pages/admin/BookingManagementPage"
 import BookingDetailPage from "./pages/admin/BookingDetailPage"
 import MovieManagementPage from "./pages/admin/MovieManagementPage"
 import TheatersManagement from "./pages/admin/TheatersManagement"
+import RoomManagement from "./pages/admin/RoomManagementPage"
 
 // Booking pages
 import CartPage from "./pages/bookings/CartCheckoutPage"
@@ -85,10 +85,10 @@ function App() {
               {/* Admin */}
               <Route path="/admin/dashboard" element={<DashboardPage />} />
               <Route path="/admin/customers" element={<CustomerManagementPage />} />
-              <Route path="/admin/reports" element={<ReportsPage />} />
               <Route path="/admin/user/:id" element={<UserDetailPage />} />
               <Route path="/admin/staffs" element={<StaffManagementPage />} />
               <Route path="/admin/theaters" element={<TheatersManagement />} />
+              <Route path="/admin/rooms" element={<RoomManagement />} />
               <Route path="/showtimes" element={<ShowTimeManagementPage />} />
               <Route path="/bookings" element={<BookingManagementPage />} />
               <Route path="/bookings/:id" element={<BookingDetailPage />} />

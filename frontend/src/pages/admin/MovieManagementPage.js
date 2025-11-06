@@ -92,7 +92,7 @@ const MovieManagementPage = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/movies", {
+      const response = await fetch("http://localhost:5000/api/movies/all", {
         headers: {
           "Content-Type": "application/json",
           ...(token && { Authorization: `Bearer ${token}` }),
@@ -238,7 +238,7 @@ const MovieManagementPage = () => {
 
       const url = selectedMovie
         ? `http://localhost:5000/api/movies/${selectedMovie._id}`
-        : "http://localhost:5000/api/movies";
+        : "http://localhost:5000/api/movies/all";
 
       const method = selectedMovie ? "PUT" : "POST";
 

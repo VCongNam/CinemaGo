@@ -54,7 +54,7 @@ export default function SidebarAdmin() {
     { to: "/showtimes", label: "Quản lý xuất chiếu", icon: FaClock },
     { to: "/bookings", label: "Quản lý đặt phim", icon: FaTicketAlt },
     { to: "/admin/theaters", label: "Quản lý rạp chiếu", icon: FaFilm },
-    { to: "/admin/reports", label: "Báo cáo khác", icon: FaFileAlt },
+    { to: "/admin/rooms", label: "Quản lý phòng", icon: FaFilm },
   ];
 
   return (
