@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 // Giả sử các middleware được export từ file này
@@ -243,4 +244,188 @@ describe('Movie Validation Middlewares', () => {
       }));
     });
   });
+=======
+import { jest, describe, it, expect, beforeAll, beforeEach } from '@jest/globals';
+
+// --- KHAI BÁO BIẾN Ở PHẠM VI NGOÀI CÙNG ---
+let validateCreateMovie, validateUpdateMovie, validateStatusUpdate;
+let toVietnamTime, getCurrentVietnamTime;
+
+// -----------------------------------------------------------------
+// --- SETUP MOCK VÀ IMPORT ĐỘNG BÊN TRONG beforeAll ---
+// -----------------------------------------------------------------
+beforeAll(async () => {
+  // Mock các module phụ thuộc TRƯỚC KHI import chúng
+  await jest.unstable_mockModule('../utils/timezone.js', () => ({
+    toVietnamTime: jest.fn((date) => new Date(date)),
+    getCurrentVietnamTime: jest.fn(),
+    formatVietnamTime: jest.fn(),
+  }));
+
+  // Import động các module SAU KHI đã mock
+  const timezoneUtils = await import('../utils/timezone.js');
+  toVietnamTime = timezoneUtils.toVietnamTime;
+  getCurrentVietnamTime = timezoneUtils.getCurrentVietnamTime;
+  
+  const middlewares = await import('../middlewares/movieValidation.js');
+  validateCreateMovie = middlewares.validateCreateMovie;
+  validateUpdateMovie = middlewares.validateUpdateMovie;
+  validateStatusUpdate = middlewares.validateStatusUpdate;
+});
+// -----------------------------------------------------------------
+
+
+describe('Movie Validation Middlewares', () => {
+    let mockReq, mockRes, mockNext;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockReq = { body: {} };
+        mockRes = {
+            status: jest.fn().mockReturnThis(),
+            json: jest.fn(),
+        };
+        mockNext = jest.fn();
+
+        // Cố định thời gian hiện tại để test logic ngày tháng một cách đáng tin cậy
+        const fixedCurrentTime = new Date('2025-10-15T12:00:00.000Z');
+        getCurrentVietnamTime.mockReturnValue(fixedCurrentTime);
+    });
+
+    // ===============================================
+    // == Tests for validateCreateMovie
+    // ===============================================
+    describe('validateCreateMovie', () => {
+        const validBody = {
+            title: 'Inception',
+            duration: 148,
+        };
+
+        it('1.1: nên gọi next() với dữ liệu đầy đủ và hợp lệ', () => {
+            mockReq.body = { 
+                ...validBody,
+                description: 'A mind-bending thriller',
+                genre: ['Sci-Fi', 'Action'],
+                release_date: '2010-07-16'
+            };
+            validateCreateMovie(mockReq, mockRes, mockNext);
+            expect(mockNext).toHaveBeenCalled();
+            expect(mockRes.status).not.toHaveBeenCalled();
+        });
+
+        it('1.2: nên chuẩn hóa (trim) các chuỗi trước khi gọi next()', () => {
+            mockReq.body = { title: '  The Dark Knight   ', duration: 152, status: '  ACTIVE ' };
+            validateCreateMovie(mockReq, mockRes, mockNext);
+
+            expect(mockNext).toHaveBeenCalled();
+            expect(mockReq.body.title).toBe('The Dark Knight');
+            expect(mockReq.body.status).toBe('active');
+        });
+
+        it.each([
+            ['title', { duration: 148 }, 'Tiêu đề phim là bắt buộc'],
+            ['duration', { title: 'Inception' }, 'Thời lượng phim là bắt buộc'],
+            ['title', { title: '  ', duration: 148 }, 'phải là chuỗi văn bản không rỗng'],
+            ['duration', { title: 'Inception', duration: 0 }, 'phải là số dương'],
+            ['duration', { title: 'Inception', duration: '120' }, 'phải là số dương'],
+        ])('2.1: nên trả về lỗi 400 nếu trường bắt buộc "%s" không hợp lệ', (field, body, messagePart) => {
+            mockReq.body = body;
+            validateCreateMovie(mockReq, mockRes, mockNext);
+            
+            expect(mockNext).not.toHaveBeenCalled();
+            expect(mockRes.status).toHaveBeenCalledWith(400);
+            expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+                details: expect.arrayContaining([expect.objectContaining({ field })])
+            }));
+        });
+        
+        it('2.2: nên trả về lỗi 400 nếu ngày phát hành trong tương lai', () => {
+            mockReq.body = { ...validBody, release_date: '2099-01-01' };
+            validateCreateMovie(mockReq, mockRes, mockNext);
+            
+            expect(mockNext).not.toHaveBeenCalled();
+            expect(mockRes.status).toHaveBeenCalledWith(400);
+        });
+
+        it('2.3: nên trả về một mảng lỗi nếu nhiều trường không hợp lệ', () => {
+            mockReq.body = { title: '', duration: -10, genre: 'Action' };
+            validateCreateMovie(mockReq, mockRes, mockNext);
+            
+            expect(mockNext).not.toHaveBeenCalled();
+            const errorDetails = mockRes.json.mock.calls[0][0].details;
+            expect(errorDetails).toHaveLength(3); // title, duration, genre
+        });
+    });
+
+    // ===============================================
+    // == Tests for validateUpdateMovie
+    // ===============================================
+    describe('validateUpdateMovie', () => {
+        it('3.1: nên gọi next() khi body rỗng', () => {
+            mockReq.body = {};
+            validateUpdateMovie(mockReq, mockRes, mockNext);
+            expect(mockNext).toHaveBeenCalled();
+        });
+
+        it.each([
+            ['description', 123, 'Mô tả phim phải là chuỗi văn bản'],
+            ['genre', 'Action', 'Thể loại phim phải là mảng'],
+            ['genre', ['Action', 123], 'Thể loại phim phải là mảng các chuỗi'],
+            ['genre', ['Action', '  '], 'văn bản không rỗng'],
+            ['release_date', 'not-a-date', 'Ngày phát hành phải là ngày hợp lệ'],
+            ['trailer_url', true, 'URL trailer phải là chuỗi văn bản'],
+            ['poster_url', {}, 'URL poster phải là chuỗi văn bản'],
+            ['status', 'pending', "Trạng thái phải là 'active' hoặc 'inactive'"],
+        ])('4.1: nên trả về lỗi 400 nếu trường "%s" không hợp lệ', (field, value, messagePart) => {
+            mockReq.body = { [field]: value };
+            validateUpdateMovie(mockReq, mockRes, mockNext);
+        
+            expect(mockNext).not.toHaveBeenCalled();
+            expect(mockRes.status).toHaveBeenCalledWith(400);
+            expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+                details: expect.arrayContaining([
+                    expect.objectContaining({ field, message: expect.stringContaining(messagePart) })
+                ])
+            }));
+        });
+    });
+    
+    // ===============================================
+    // == Tests for validateStatusUpdate
+    // ===============================================
+    describe('validateStatusUpdate', () => {
+        it.each(['active', 'inactive'])('5.1: nên gọi next() và chuẩn hóa status hợp lệ: "%s"', (status) => {
+            mockReq.body = { status: `  ${status.toUpperCase()}  ` };
+            validateStatusUpdate(mockReq, mockRes, mockNext);
+            expect(mockNext).toHaveBeenCalled();
+            expect(mockReq.body.status).toBe(status);
+        });
+
+        it('6.1: nên trả về lỗi 400 nếu thiếu status', () => {
+            mockReq.body = {};
+            validateStatusUpdate(mockReq, mockRes, mockNext);
+            expect(mockNext).not.toHaveBeenCalled();
+            expect(mockRes.status).toHaveBeenCalledWith(400);
+            expect(mockRes.json).toHaveBeenCalledWith({ message: 'Trạng thái là bắt buộc', error: 'MISSING_STATUS' });
+        });
+        
+        it('6.2: nên trả về lỗi 400 nếu status là chuỗi rỗng', () => {
+            mockReq.body = { status: '   ' };
+            validateStatusUpdate(mockReq, mockRes, mockNext);
+            expect(mockNext).not.toHaveBeenCalled();
+            expect(mockRes.status).toHaveBeenCalledWith(400);
+            expect(mockRes.json).toHaveBeenCalledWith({ message: 'Trạng thái không được để trống', error: 'EMPTY_STATUS' });
+        });
+
+        it('6.3: nên trả về lỗi 400 nếu status có giá trị không được phép', () => {
+            mockReq.body = { status: 'pending' };
+            validateStatusUpdate(mockReq, mockRes, mockNext);
+            expect(mockNext).not.toHaveBeenCalled();
+            expect(mockRes.status).toHaveBeenCalledWith(400);
+            expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+                error: "INVALID_STATUS_VALUE",
+            }));
+        });
+    });
+>>>>>>> Stashed changes
 });

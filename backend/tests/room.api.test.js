@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import mongoose from 'mongoose';
 
@@ -268,4 +269,132 @@ describe('Room API Controllers', () => {
             expect(mockRes.status).toHaveBeenCalledWith(404);
         });
     });
+=======
+import { jest, describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+let request, mongoose, MongoMemoryServer, express, Room, Theater, Seat, roomRoutes, errorHandler;
+let mongoServer;
+let app;
+
+beforeAll(async () => {
+  await jest.unstable_mockModule('../middlewares/auth.js', () => ({
+    verifyToken: jest.fn((req, res, next) => next()),
+    requireStaff: jest.fn((req, res, next) => next()),
+    requireAdmin: jest.fn((req, res, next) => next()),
+    requireRole: jest.fn(() => (req, res, next) => next()),
+  }));
+
+  request = (await import('supertest')).default;
+  mongoose = (await import('mongoose')).default;
+  MongoMemoryServer = (await import('mongodb-memory-server')).MongoMemoryServer;
+  express = (await import('express')).default;
+
+  roomRoutes = (await import('../routes/room.routes.js')).default;
+  Room = (await import('../models/room.js')).default;
+  Theater = (await import('../models/theater.js')).default;
+  Seat = (await import('../models/seat.js')).default;
+  errorHandler = (await import('../middlewares/errorHandler.js')).default;
+
+  mongoServer = await MongoMemoryServer.create();
+  await mongoose.connect(mongoServer.getUri());
+
+  app = express();
+  app.use(express.json());
+  app.use('/api/rooms', roomRoutes); 
+  app.use(errorHandler);
+});
+
+afterAll(async () => {
+  if (mongoose) await mongoose.disconnect();
+  if (mongoServer) await mongoServer.stop();
+  jest.unmock('../middlewares/auth.js'); 
+});
+
+beforeEach(async () => {
+  await Room.deleteMany({});
+  await Theater.deleteMany({});
+  await Seat.deleteMany({});
+});
+
+describe('Room API', () => {
+  let theater;
+  beforeEach(async () => {
+    theater = await Theater.create({ name: 'CGV Vincom', address: '123 Nguyen Hue' });
+  });
+
+  describe('POST /api/rooms', () => {
+    it('1.1: nên tạo phòng thành công và trả về 201', async () => {
+      const newRoomData = { name: 'Room 1', theater_id: theater._id.toString(), rows: 5, cols: 10, base_price: 100000 };
+      const response = await request(app).post('/api/rooms').send(newRoomData);
+
+      expect(response.status).toBe(201);
+      expect(response.body.data.name).toBe('Room 1');
+      expect(response.body.data.seats).toHaveLength(50);
+    });
+
+    it('2.1: nên trả về 400 nếu thiếu trường bắt buộc', async () => {
+        const invalidData = { theater_id: theater._id.toString(), rows: 5, cols: 10, base_price: 100000 };
+        const response = await request(app).post('/api/rooms').send(invalidData);
+        expect(response.status).toBe(400); 
+    });
+
+    it('2.3: nên trả về 404 nếu theater_id không tồn tại', async () => {
+      const nonExistentTheaterId = '60d0fe4f5311236168a109de';
+      const newRoomData = { name: 'Room 3', theater_id: nonExistentTheaterId, rows: 5, cols: 5, base_price: 100000 };
+      const response = await request(app).post('/api/rooms').send(newRoomData);
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('GET /api/rooms', () => {
+    it('3.1: nên lấy về danh sách tất cả các phòng', async () => {
+      await Room.create({ name: 'Room A', theater_id: theater._id });
+      const response = await request(app).get('/api/rooms');
+
+      expect(response.status).toBe(200);
+      expect(response.body.data).toHaveLength(1);
+    });
+  });
+
+  describe('GET /api/rooms/:id', () => {
+    it('4.1: nên lấy về thông tin chi tiết một phòng', async () => {
+      const room = await Room.create({ name: 'Detail Room', theater_id: theater._id });
+      const response = await request(app).get(`/api/rooms/${room._id}`);
+      expect(response.status).toBe(200);
+      expect(response.body.data.name).toBe('Detail Room');
+    });
+  });
+  
+  describe('PUT /api/rooms/:id', () => {
+    it('6.1: nên cập nhật thông tin phòng mà không thay đổi số ghế', async () => {
+      const room = await Room.create({ name: 'Old Name', theater_id: theater._id, rows: 2, cols: 2 });
+      await Seat.insertMany([
+        { room_id: room._id, seat_number: 'A1', type: 'normal', base_price: 100000 },
+        { room_id: room._id, seat_number: 'A2', type: 'normal', base_price: 100000 },
+      ]);
+
+      const response = await request(app)
+        .put(`/api/rooms/${room._id}`)
+        .send({ name: 'New Name' }); 
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.name).toBe('New Name');
+      const seatsCount = await Seat.countDocuments({ room_id: room._id });
+      
+      expect(seatsCount).toBe(2);
+    });
+  });
+
+  describe('DELETE /api/rooms/:id', () => {
+    it('8.1: nên xóa (mềm) phòng thành công', async () => {
+      const roomToDelete = await Room.create({ name: 'To Delete', theater_id: theater._id });
+      const response = await request(app).delete(`/api/rooms/${roomToDelete._id}`);
+      
+      expect(response.status).toBe(200);
+      const roomInDb = await Room.findById(roomToDelete._id);
+      
+      expect(roomInDb).toBeDefined();
+      expect(roomInDb.status).toBe('inactive');
+    });
+  });
+>>>>>>> Stashed changes
 });

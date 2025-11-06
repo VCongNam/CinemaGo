@@ -150,7 +150,7 @@ describe('Auth API', () => {
 
             [customerUser, staffUser, lockedUser] = await User.create([
                 { username: 'customeruser', password: hashedPassword, email: 'customer@test.com', role: 'customer', status: 'active' },
-                { username: 'staffuser', password: hashedPassword, email: 'staff@test.com', role: 'staff', status: 'active' },
+                { username: 'staffuser', password: hashedPassword, email: 'staff@test.com', role: 'staff2', status: 'active' },
                 { username: 'lockedcustomer', password: hashedPassword, email: 'locked@test.com', role: 'customer', status: 'locked' },
             ]);
         });

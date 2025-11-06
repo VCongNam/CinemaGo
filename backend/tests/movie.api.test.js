@@ -1,7 +1,10 @@
 import { jest, describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
 import jwt from 'jsonwebtoken';
 
+<<<<<<< Updated upstream
 // --- Khai báo biến ---
+=======
+>>>>>>> Stashed changes
 let request, mongoose, MongoMemoryServer, express, Movie, User;
 let publicMovieRoutes, protectedRoutes, errorHandler;
 let mongoServer;
@@ -9,10 +12,15 @@ let app;
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
+<<<<<<< Updated upstream
 // --- Bắt đầu thiết lập môi trường test ---
 
 beforeAll(async () => {
   // Import động các module
+=======
+
+beforeAll(async () => {
+>>>>>>> Stashed changes
   request = (await import('supertest')).default;
   mongoose = (await import('mongoose')).default;
   MongoMemoryServer = (await import('mongodb-memory-server')).MongoMemoryServer;
@@ -24,6 +32,7 @@ beforeAll(async () => {
   User = (await import('../models/user.js')).default;
   errorHandler = (await import('../middlewares/errorHandler.js')).default;
 
+<<<<<<< Updated upstream
   // Khởi tạo server DB ảo và kết nối
   mongoServer = await MongoMemoryServer.create();
   await mongoose.connect(mongoServer.getUri());
@@ -35,6 +44,19 @@ beforeAll(async () => {
   // Gắn cả hai file route vào app
   app.use('/api/movies', publicMovieRoutes); // Route public cho phim
   app.use('/api', protectedRoutes);          // Route protected (chứa /movies, /movies/:id/status, ...)
+=======
+  
+  mongoServer = await MongoMemoryServer.create();
+  await mongoose.connect(mongoServer.getUri());
+
+  
+  app = express();
+  app.use(express.json());
+  
+  
+  app.use('/api/movies', publicMovieRoutes); 
+  app.use('/api', protectedRoutes);          
+>>>>>>> Stashed changes
   app.use(errorHandler);
 });
 
@@ -43,11 +65,16 @@ afterAll(async () => {
   await mongoServer.stop();
 });
 
+<<<<<<< Updated upstream
 // Trước mỗi bài test, xóa sạch dữ liệu phim
+=======
+
+>>>>>>> Stashed changes
 beforeEach(async () => {
     await Movie.deleteMany({});
 });
 
+<<<<<<< Updated upstream
 // --- Bắt đầu viết các bài test ---
 
 describe('Movie API', () => {
@@ -55,6 +82,10 @@ describe('Movie API', () => {
   // ==========================================================
   // == Phần 1: Test các Route Public (Không cần đăng nhập) ==
   // ==========================================================
+=======
+
+describe('Movie API', () => {
+>>>>>>> Stashed changes
   
   describe('Public Routes', () => {
     
@@ -123,17 +154,24 @@ describe('Movie API', () => {
   });
 
 
+<<<<<<< Updated upstream
   // ==============================================================
   // == Phần 2: Test các Route Protected (Cần đăng nhập & quyền) ==
   // ==============================================================
 
+=======
+>>>>>>> Stashed changes
   describe('Protected Routes', () => {
     let staffToken, customerToken;
 
     beforeEach(async () => {
         await User.deleteMany({});
         const [staffUser, customerUser] = await User.create([
+<<<<<<< Updated upstream
             { username: 'stafftest', email: 'staff@test.com', role: 'staff', password: '123' },
+=======
+            { username: 'stafftest', email: 'staff@test.com', role: 'LV2', password: '123' },
+>>>>>>> Stashed changes
             { username: 'customertest', email: 'customer@test.com', role: 'customer', password: '123' },
         ]);
         staffToken = jwt.sign({ sub: staffUser._id, role: staffUser.role }, JWT_SECRET);
