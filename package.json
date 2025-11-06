@@ -21,17 +21,13 @@
     "express": "^5.1.0",
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.2",
-<<<<<<< HEAD
-    "mongoose": "^8.18.3",
-    "nodemailer": "^7.0.6"
-=======
+
     "moment-timezone": "^0.6.0",
     "mongoose": "^8.18.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.6",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0"
->>>>>>> origin/main
   },
   "devDependencies": {
     "@babel/core": "^7.28.4",
