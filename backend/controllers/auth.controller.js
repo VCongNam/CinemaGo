@@ -1,48 +1,58 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
+import { getCurrentVietnamTime } from "../utils/timezone.js";
 import { signAccessToken } from "../utils/jwt.js";
 import { sendResetLinkEmail } from "../utils/email.js";
+import { logAction } from "../utils/logger.js";
 
 export const registerStaff = async (req, res, next) => {
   try {
-    const { username, password, email, fullName } = req.body;
+    const { username, password, email, fullName, role } = req.body;
 
     // Validation dữ liệu đầu vào
-    if (!username || !password || !email) {
-      return res.status(400).json({ 
-        message: "Username, password và email là bắt buộc" 
+    if (!username || !password || !email || !role) {
+      return res.status(400).json({
+        message: "Username, password, email và role là bắt buộc"
       });
     }
 
+    const validStaffRoles = ["LV1", "LV2"];
+    if (!validStaffRoles.includes(role)) {
+      return res.status(400).json({ message: `Vai trò không hợp lệ. Chỉ chấp nhận: ${validStaffRoles.join(", ")}` });
+    }
+
     if (password.length < 6) {
-      return res.status(400).json({ 
-        message: "Mật khẩu phải có ít nhất 6 ký tự" 
+      return res.status(400).json({
+        message: "Mật khẩu phải có ít nhất 6 ký tự"
       });
     }
 
     // Kiểm tra username và email đã tồn tại chưa
-    const existingUser = await User.findOne({ 
-      $or: [{ username }, { email }] 
+    const existingUser = await User.findOne({
+      $or: [{ username }, { email }]
     });
-    
+
     if (existingUser) {
-      return res.status(400).json({ 
-        message: "Username hoặc email đã tồn tại" 
+      return res.status(400).json({
+        message: "Username hoặc email đã tồn tại"
       });
     }
 
     // Mã hóa mật khẩu
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     // Tạo user mới
-    await User.create({ 
+    const newUser = await User.create({ 
       username, 
       password: hashedPassword, 
       email,
       full_name: fullName || '',
-      role: "staff" 
+      role: role
     });
+
+    // Ghi log hành động tạo staff (người thực hiện là admin/staff đang đăng nhập)
+    await logAction(req.user.id, 'User', newUser._id, 'document', null, newUser);
     
     res.status(201).json({ 
       message: "Tạo tài khoản nhân viên thành công" 
@@ -93,21 +103,25 @@ export const loginStaff = async (req, res, next) => {
 export const registerCustomer = async (req, res, next) => {
   try {
     const { username, password, email, fullName } = req.body;
-    
+
     // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
     if (existingUser) {
       return res.status(400).json({ message: "Tên đăng nhập hoặc email đã tồn tại" });
     }
-    
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    await User.create({ 
+    const newCustomer = await User.create({ 
       username, 
       password: hashedPassword, 
       email,
       full_name: fullName,
-      role: "customer" 
+      role: "customer"
     });
+
+    // Ghi log hành động tự đăng ký (người thực hiện là chính user mới)
+    await logAction(newCustomer._id, 'User', newCustomer._id, 'document', null, newCustomer);
+
     res.status(201).json({ message: "Tạo tài khoản khách hàng thành công" });
   } catch (error) {
     next(error);
@@ -159,20 +173,20 @@ export const changePassword = async (req, res, next) => {
 
     // Validation dữ liệu đầu vào
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ 
-        message: "Mật khẩu hiện tại và mật khẩu mới là bắt buộc" 
+      return res.status(400).json({
+        message: "Mật khẩu hiện tại và mật khẩu mới là bắt buộc"
       });
     }
 
     if (newPassword.length < 6) {
-      return res.status(400).json({ 
-        message: "Mật khẩu mới phải có ít nhất 6 ký tự" 
+      return res.status(400).json({
+        message: "Mật khẩu mới phải có ít nhất 6 ký tự"
       });
     }
 
     if (currentPassword === newPassword) {
-      return res.status(400).json({ 
-        message: "Mật khẩu mới phải khác mật khẩu hiện tại" 
+      return res.status(400).json({
+        message: "Mật khẩu mới phải khác mật khẩu hiện tại"
       });
     }
 
@@ -190,7 +204,7 @@ export const changePassword = async (req, res, next) => {
 
     // Mã hóa mật khẩu mới
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    
+
     // Cập nhật mật khẩu
     user.password = hashedNewPassword;
     await user.save();
@@ -244,6 +258,15 @@ export const updateProfile = async (req, res, next) => {
       { new: true, runValidators: true }
     );
 
+    // Ghi log cho các trường đã thay đổi
+    const changes = Object.keys(updateData);
+    for (const field of changes) {
+      const modelField = field === 'fullName' ? 'full_name' : field;
+      if (user[modelField] !== updatedUser[modelField]) {
+        await logAction(req.user.id, 'User', updatedUser._id, modelField, user[modelField], updatedUser[modelField]);
+      }
+    }
+
     res.status(200).json({
       message: "Cập nhật thông tin thành công",
       user: {
@@ -269,11 +292,11 @@ export const getUsers = async (req, res, next) => {
     // Validation
     const pageNum = parseInt(page);
     const limit = parseInt(pageSize);
-    
+
     if (pageNum < 1) {
       return res.status(400).json({ message: "Page phải là số nguyên dương" });
     }
-    
+
     if (limit < 1 || limit > 100) {
       return res.status(400).json({ message: "PageSize phải từ 1 đến 100" });
     }
@@ -282,7 +305,7 @@ export const getUsers = async (req, res, next) => {
 
     // Build filter
     const filter = {};
-    
+
     // Filter by role
     if (role && role.trim() !== '') {
       filter.role = role;
@@ -291,7 +314,7 @@ export const getUsers = async (req, res, next) => {
     // Apply additional filterCriterias
     filterCriterias.forEach(criteria => {
       const { field, operator, value } = criteria;
-      
+
       switch (operator) {
         case 'equals':
           filter[field] = value;
@@ -651,6 +674,205 @@ export const resetPasswordWithToken = async (req, res, next) => {
   }
 };
 
+export const socialLoginCallback = (req, res) => {
+  // Passport đã xác thực user và gắn vào req.user
+  const user = req.user;
 
+  // Tạo Access Token cho ứng dụng của bạn
+  const accessToken = signAccessToken({
+    sub: user._id.toString(),
+    role: user.role,
+    username: user.username,
+  });
+  const expiresIn = 3600; // 1 giờ
 
- 
+  // Chuẩn bị thông tin user để gửi về frontend
+  const userPayload = {
+    id: user._id,
+    username: user.username,
+    email: user.email,
+    fullName: user.full_name,
+    role: user.role,
+  };
+
+  // Mã hóa thông tin user để gửi an toàn qua URL
+  const encodedUser = Buffer.from(JSON.stringify(userPayload)).toString('base64');
+
+  // Chuyển hướng người dùng về frontend với token
+  // Frontend sẽ lấy token từ URL, lưu lại và chuyển hướng đến trang chính
+  const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/social-auth-success?token=${accessToken}&expiresIn=${expiresIn}&user=${encodedUser}`;
+
+  res.redirect(redirectUrl);
+};
+
+// Hàm này chỉ để chuyển hướng, không cần logic phức tạp
+export const redirectToSocialAuth = (req, res, next) => {
+  // Passport sẽ tự động xử lý việc chuyển hướng
+};
+
+export const updateUserStatus = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { status } = req.body;
+    const adminId = req.user._id;
+
+    // Validation
+    if (!userId) {
+      return res.status(400).json({
+        message: "ID người dùng là bắt buộc"
+      });
+    }
+
+    if (!status) {
+      return res.status(400).json({
+        message: "Trạng thái là bắt buộc"
+      });
+    }
+
+    // Kiểm tra ID có hợp lệ không
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        message: "ID người dùng không hợp lệ"
+      });
+    }
+
+    // Kiểm tra trạng thái có hợp lệ không
+    const validStatuses = ["active", "locked", "suspended"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: `Trạng thái không hợp lệ. Các trạng thái cho phép: ${validStatuses.join(", ")}`
+      });
+    }
+
+    // Tìm user cần thay đổi trạng thái
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({
+        message: "Không tìm thấy người dùng"
+      });
+    }
+
+    // Không cho phép admin thay đổi trạng thái của chính mình
+    if (targetUser._id.toString() === adminId.toString()) {
+      return res.status(400).json({
+        message: "Không thể thay đổi trạng thái tài khoản của chính mình"
+      });
+    }
+
+    // Không cho phép thay đổi trạng thái admin khác
+    if (targetUser.role === "admin") {
+      return res.status(403).json({
+        message: "Không thể thay đổi trạng thái tài khoản admin khác"
+      });
+    }
+
+    // Kiểm tra trạng thái hiện tại
+    if (targetUser.status === status) {
+      const statusMessages = {
+        active: "hoạt động",
+        locked: "bị khóa",
+        suspended: "bị tạm khóa"
+      };
+
+      return res.status(200).json({
+        message: `Tài khoản đã ở trạng thái ${statusMessages[status]}`,
+        data: {
+          id: targetUser._id,
+          username: targetUser.username,
+          email: targetUser.email,
+          status: targetUser.status
+        }
+      });
+    }
+
+    // Cập nhật trạng thái
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { status },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    // Tạo thông báo phù hợp
+    const statusMessages = {
+      active: "Mở khóa tài khoản thành công",
+      locked: "Khóa tài khoản thành công",
+      suspended: "Tạm khóa tài khoản thành công"
+    };
+
+    const actionMessages = {
+      active: "unlockedAt",
+      locked: "lockedAt",
+      suspended: "suspendedAt"
+    };
+
+    const currentTime = getCurrentVietnamTime();
+    const responseData = {
+      id: updatedUser._id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      fullName: updatedUser.full_name,
+      role: updatedUser.role,
+      status: updatedUser.status,
+      [actionMessages[status]]: currentTime.toISOString()
+    };
+
+    res.status(200).json({
+      message: statusMessages[status],
+      data: responseData
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUserRole = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+    const adminId = req.user._id;
+
+    // Validation
+    if (!userId || !role) {
+      return res.status(400).json({ message: "ID người dùng và vai trò là bắt buộc" });
+    }
+
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "ID người dùng không hợp lệ" });
+    }
+
+    const validStaffRoles = ["LV1", "LV2"];
+    if (!validStaffRoles.includes(role)) {
+      return res.status(400).json({ message: `Vai trò không hợp lệ. Chỉ chấp nhận: ${validStaffRoles.join(", ")}` });
+    }
+
+    // Tìm user cần thay đổi vai trò
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    // Không cho phép admin thay đổi vai trò của chính mình
+    if (targetUser._id.toString() === adminId.toString()) {
+      return res.status(400).json({ message: "Không thể thay đổi vai trò của chính mình" });
+    }
+
+    // Chỉ cho phép thay đổi vai trò của staff
+    if (!["staff", "LV1", "LV2"].includes(targetUser.role)) {
+      return res.status(403).json({ message: "Chỉ có thể thay đổi vai trò cho tài khoản nhân viên" });
+    }
+
+    // Cập nhật vai trò
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { role },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    res.status(200).json({
+      message: "Cập nhật vai trò người dùng thành công",
+      data: updatedUser
+    });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -1,3 +1,5 @@
+import { toVietnamTime, getCurrentVietnamTime, formatVietnamTime } from '../utils/timezone.js';
+
 // Validation middleware for movie operations
 export const validateMovieStatus = (req, res, next) => {
   const { status } = req.body;
@@ -100,11 +102,28 @@ const validateOptionalMovieFields = (req, res, next) => {
     });
   }
 
-  if (release_date !== undefined && (release_date !== null && isNaN(Date.parse(release_date)))) {
-    errors.push({
-      field: 'release_date',
-      message: 'Ngày phát hành phải là ngày hợp lệ'
-    });
+  if (release_date !== undefined && release_date !== null) {
+    const parsedDate = new Date(release_date);
+    if (isNaN(parsedDate.getTime())) {
+      errors.push({
+        field: 'release_date',
+        message: 'Ngày phát hành phải là ngày hợp lệ'
+      });
+    } else {
+      // Convert to Vietnam timezone and validate it's not in the future
+      const vietnamDate = toVietnamTime(parsedDate);
+      const currentVietnamTime = getCurrentVietnamTime();
+      
+      if (vietnamDate > currentVietnamTime) {
+        errors.push({
+          field: 'release_date',
+          message: 'Ngày phát hành không được là ngày trong tương lai'
+        });
+      } else {
+        // Normalize to Vietnam timezone
+        req.body.release_date = vietnamDate;
+      }
+    }
   }
 
   if (trailer_url !== undefined && (typeof trailer_url !== 'string')) {

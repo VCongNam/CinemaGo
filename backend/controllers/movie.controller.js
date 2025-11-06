@@ -1,12 +1,10 @@
 import Movie from "../models/movie.js";
+import { formatForAPI, formatVietnamTime } from "../utils/timezone.js";
 
-// Lấy tất cả movies (có phân trang và tìm kiếm)
+// Lấy tất cả movies (không phân trang, có tìm kiếm)
 export const getAllMovies = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search = '' } = req.query;
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    const skip = (pageNum - 1) * limitNum;
+    const { search = '' } = req.query;
 
     const query = { status: "active" };
     if (search) {
@@ -14,20 +12,63 @@ export const getAllMovies = async (req, res, next) => {
       query.title = { $regex: search, $options: 'i' };
     }
 
-    const [movies, totalCount] = await Promise.all([
-      Movie.find(query)
-        .sort({ created_at: -1 })
-        .skip(skip)
-        .limit(limitNum),
-      Movie.countDocuments(query)
-    ]);
+    const movies = await Movie.find(query).sort({ created_at: -1 });
+    
+    // Format dates to Vietnam timezone
+    const formattedMovies = movies.map(movie => {
+      const movieObj = movie.toObject();
+      if (movieObj.release_date) {
+        movieObj.release_date = formatForAPI(movieObj.release_date);
+      }
+      if (movieObj.created_at) {
+        movieObj.created_at = formatForAPI(movieObj.created);
+      }
+      if (movieObj.updated_at) {
+        movieObj.updated_at = formatForAPI(movieObj.updated_at);
+      }
+      return movieObj;
+    });
     
     res.status(200).json({
       message: "Lấy danh sách phim thành công",
-      data: movies,
-      page: pageNum,
-      limit: limitNum,
-      totalCount
+      data: formattedMovies,
+      totalCount: formattedMovies.length
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Lấy tất cả movies cho staff/admin (bao gồm cả inactive)
+export const getAllMoviesForStaff = async (req, res, next) => {
+  try {
+    const { search = '' } = req.query;
+
+    const query = {}; // No status filter for staff/admin
+    if (search) {
+      query.title = { $regex: search, $options: 'i' };
+    }
+
+    const movies = await Movie.find(query).sort({ created_at: -1 });
+    
+    const formattedMovies = movies.map(movie => {
+      const movieObj = movie.toObject();
+      if (movieObj.release_date) {
+        movieObj.release_date = formatForAPI(movieObj.release_date);
+      }
+      if (movieObj.created_at) {
+        movieObj.created_at = formatForAPI(movieObj.created_at);
+      }
+      if (movieObj.updated_at) {
+        movieObj.updated_at = formatForAPI(movieObj.updated_at);
+      }
+      return movieObj;
+    });
+    
+    res.status(200).json({
+      message: "Lấy danh sách phim (cho staff/admin) thành công",
+      data: formattedMovies,
+      totalCount: formattedMovies.length
     });
   } catch (error) {
     next(error);
@@ -46,9 +87,21 @@ export const getMovieById = async (req, res, next) => {
       });
     }
     
+    // Format dates to Vietnam timezone
+    const movieObj = movie.toObject();
+    if (movieObj.release_date) {
+      movieObj.release_date = formatForAPI(movieObj.release_date);
+    }
+    if (movieObj.created_at) {
+      movieObj.created_at = formatForAPI(movieObj.created_at);
+    }
+    if (movieObj.updated_at) {
+      movieObj.updated_at = formatForAPI(movieObj.updated_at);
+    }
+    
     res.status(200).json({
       message: "Lấy thông tin phim thành công",
-      data: movie
+      data: movieObj
     });
   } catch (error) {
     next(error);
@@ -72,9 +125,21 @@ export const createMovie = async (req, res, next) => {
       status: status || "active" 
     });
     
+    // Format dates to Vietnam timezone
+    const movieObj = movie.toObject();
+    if (movieObj.release_date) {
+      movieObj.release_date = formatForAPI(movieObj.release_date);
+    }
+    if (movieObj.created_at) {
+      movieObj.created_at = formatForAPI(movieObj.created_at);
+    }
+    if (movieObj.updated_at) {
+      movieObj.updated_at = formatForAPI(movieObj.updated_at);
+    }
+    
     res.status(201).json({
       message: "Tạo phim mới thành công",
-      data: movie
+      data: movieObj
     });
   } catch (error) {
     next(error);
@@ -99,9 +164,21 @@ export const updateMovie = async (req, res, next) => {
       });
     }
     
+    // Format dates to Vietnam timezone
+    const movieObj = movie.toObject();
+    if (movieObj.release_date) {
+      movieObj.release_date = formatForAPI(movieObj.release_date);
+    }
+    if (movieObj.created_at) {
+      movieObj.created_at = formatForAPI(movieObj.created_at);
+    }
+    if (movieObj.updated_at) {
+      movieObj.updated_at = formatForAPI(movieObj.updated_at);
+    }
+    
     res.status(200).json({
       message: "Cập nhật phim thành công",
-      data: movie
+      data: movieObj
     });
   } catch (error) {
     next(error);
@@ -164,9 +241,21 @@ export const updateMovieStatus = async (req, res, next) => {
       { new: true, runValidators: true }
     );
     
+    // Format dates to Vietnam timezone
+    const movieObj = movie.toObject();
+    if (movieObj.release_date) {
+      movieObj.release_date = formatForAPI(movieObj.release_date);
+    }
+    if (movieObj.created_at) {
+      movieObj.created_at = formatForAPI(movieObj.created_at);
+    }
+    if (movieObj.updated_at) {
+      movieObj.updated_at = formatForAPI(movieObj.updated_at);
+    }
+    
     res.status(200).json({
       message: "Cập nhật trạng thái phim thành công",
-      data: movie,
+      data: movieObj,
       changes: {
         previousStatus: existingMovie.status,
         newStatus: status
@@ -211,10 +300,25 @@ export const getMoviesByGenre = async (req, res, next) => {
       genre: { $in: [genre] }
     }).sort({ created_at: -1 });
     
+    // Format dates to Vietnam timezone
+    const formattedMovies = movies.map(movie => {
+      const movieObj = movie.toObject();
+      if (movieObj.release_date) {
+        movieObj.release_date = formatForAPI(movieObj.release_date);
+      }
+      if (movieObj.created_at) {
+        movieObj.created_at = formatForAPI(movieObj.created_at);
+      }
+      if (movieObj.updated_at) {
+        movieObj.updated_at = formatForAPI(movieObj.updated_at);
+      }
+      return movieObj;
+    });
+    
     res.status(200).json({
       message: `Lấy danh sách phim thể loại "${genre}" thành công`,
-      data: movies,
-      count: movies.length,
+      data: formattedMovies,
+      count: formattedMovies.length,
       genre: genre
     });
   } catch (error) {
