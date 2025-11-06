@@ -68,7 +68,10 @@ export default function SidebarStaff() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     sessionStorage.clear();
-    navigate("/login");
+    onClose(); 
+    setTimeout(() => {
+      window.location.href = "/login";
+    }, 100);
   };
 
   // ✅ Gọi API đổi mật khẩu (ngay trong modal)
