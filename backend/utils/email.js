@@ -140,7 +140,8 @@ export const sendBookingConfirmationEmail = async (bookingData) => {
       showtime,
       seats,
       totalPrice,
-      paymentMethod
+      paymentMethod,
+      orderCode
     } = bookingData;
 
     const formatCurrency = (amount) => {
@@ -206,7 +207,7 @@ export const sendBookingConfirmationEmail = async (bookingData) => {
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center;">
             <p style="color: #fff; margin: 0 0 8px 0; font-size: 14px;">Tổng tiền</p>
             <p style="color: #fff; margin: 0; font-size: 32px; font-weight: bold;">${formatCurrency(totalPrice)}</p>
-            <p style="color: #e3f2fd; margin: 8px 0 0 0; font-size: 13px;">Phương thức: ${paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}</p>
+            <p style="color: #e3f2fd; margin: 8px 0 0 0; font-size: 13px;">Mã đơn hàng: ${orderCode || bookingId}</p>
           </div>
 
           <div style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 6px; padding: 16px; margin: 24px 0;">

@@ -214,7 +214,8 @@ export const handlePayosWebhook = async (req, res, next) => {
             showtime: populatedBooking.showtime_id.start_time,
             seats: bookingSeats.map(bs => ({ seat_number: bs.seat_id.seat_number })),
             totalPrice: parseFloat(populatedBooking.total_price.toString()),
-            paymentMethod: populatedBooking.payment_method
+            paymentMethod: populatedBooking.payment_method,
+            orderCode: populatedBooking.order_code || null
           });
         } catch (emailError) {
           console.error('Failed to send booking confirmation email:', emailError);
