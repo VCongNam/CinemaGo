@@ -5,6 +5,9 @@ import Showtime from '../models/showtime.js'; // Import Showtime model
 import User from '../models/user.js'; // Import User model for population
 import Movie from '../models/movie.js'; // Import Movie model for population
 import Room from '../models/room.js'; // Import Room model for population
+import Theater from '../models/theater.js'; // Import Theater model
+import Seat from '../models/seat.js'; // Import Seat model
+import { sendBookingConfirmationEmail } from '../utils/email.js';
 
 // Helper function to update booking status and handle seat release
 const updateBookingStatusAndSeats = async (booking, newStatus, newPaymentStatus, paidAmount = 0, session = null) => {
@@ -182,8 +185,40 @@ export const handlePayosWebhook = async (req, res, next) => {
         booking.status = 'confirmed';
         booking.paid_amount = verifiedData.amount;
         await booking.save();
-        // TODO: Gửi email xác nhận cho khách hàng
-        // TODO: Tạo vé điện tử
+        
+        // Gửi email xác nhận cho khách hàng
+        try {
+          const populatedBooking = await Booking.findById(booking._id)
+            .populate('user_id', 'username email')
+            .populate({
+              path: 'showtime_id',
+              populate: [
+                { path: 'movie_id' },
+                { 
+                  path: 'room_id',
+                  populate: { path: 'theater_id' }
+                }
+              ]
+            });
+
+          const bookingSeats = await BookingSeat.find({ booking_id: booking._id })
+            .populate('seat_id');
+
+          await sendBookingConfirmationEmail({
+            email: populatedBooking.user_id.email,
+            userName: populatedBooking.user_id.username,
+            bookingId: populatedBooking._id.toString(),
+            movieTitle: populatedBooking.showtime_id.movie_id.title,
+            theaterName: populatedBooking.showtime_id.room_id.theater_id.name,
+            roomName: populatedBooking.showtime_id.room_id.name,
+            showtime: populatedBooking.showtime_id.start_time,
+            seats: bookingSeats.map(bs => ({ seat_number: bs.seat_id.seat_number })),
+            totalPrice: parseFloat(populatedBooking.total_price.toString()),
+            paymentMethod: populatedBooking.payment_method
+          });
+        } catch (emailError) {
+          console.error('Failed to send booking confirmation email:', emailError);
+        }
         break;
 
       case "24": // Bị hủy
@@ -280,6 +315,40 @@ export const checkBookingPaymentStatus = async (req, res, next) => {
                 console.log(`Reconciling booking ${bookingId}: PayOS status is PAID, DB status is PENDING. Updating to CONFIRMED.`);
                 // Use the helper to update status and paid amount. Pass null for session.
                 await updateBookingStatusAndSeats(booking, 'confirmed', 'success', paymentInfo.amountPaid, null);
+                
+                // Gửi email xác nhận
+                try {
+                  const populatedBooking = await Booking.findById(booking._id)
+                    .populate('user_id', 'username email')
+                    .populate({
+                      path: 'showtime_id',
+                      populate: [
+                        { path: 'movie_id' },
+                        { 
+                          path: 'room_id',
+                          populate: { path: 'theater_id' }
+                        }
+                      ]
+                    });
+
+                  const bookingSeats = await BookingSeat.find({ booking_id: booking._id })
+                    .populate('seat_id');
+
+                  await sendBookingConfirmationEmail({
+                    email: populatedBooking.user_id.email,
+                    userName: populatedBooking.user_id.username,
+                    bookingId: populatedBooking._id.toString(),
+                    movieTitle: populatedBooking.showtime_id.movie_id.title,
+                    theaterName: populatedBooking.showtime_id.room_id.theater_id.name,
+                    roomName: populatedBooking.showtime_id.room_id.name,
+                    showtime: populatedBooking.showtime_id.start_time,
+                    seats: bookingSeats.map(bs => ({ seat_number: bs.seat_id.seat_number })),
+                    totalPrice: parseFloat(populatedBooking.total_price.toString()),
+                    paymentMethod: populatedBooking.payment_method
+                  });
+                } catch (emailError) {
+                  console.error('Failed to send booking confirmation email:', emailError);
+                }
             } else if (paymentInfo.status === 'CANCELLED' || paymentInfo.status === 'FAILED') {
                 console.log(`Reconciling booking ${bookingId}: PayOS status is ${paymentInfo.status}, DB status is PENDING. Updating to CANCELLED/FAILED.`);
                 // Use the helper to update status and release seats. Pass null for session.
