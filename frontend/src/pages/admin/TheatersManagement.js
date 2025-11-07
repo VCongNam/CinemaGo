@@ -28,9 +28,13 @@ import {
   FormControl,
   FormLabel,
   VStack,
+  SimpleGrid,
+  Divider,
 } from "@chakra-ui/react";
 import { ViewIcon, EditIcon, AddIcon } from "@chakra-ui/icons";
+import { MdMeetingRoom } from "react-icons/md";
 import Sidebar from "../Navbar/SidebarAdmin";
+import { useNavigate } from "react-router-dom";
 
 const TheatersManagement = () => {
   const [theaters, setTheaters] = useState([]);
@@ -41,8 +45,11 @@ const TheatersManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [selectedTheater, setSelectedTheater] = useState(null);
+  const [theaterRooms, setTheaterRooms] = useState([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isDetailOpen, onOpen: onDetailOpen, onClose: onDetailClose } = useDisclosure();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -58,7 +65,6 @@ const TheatersManagement = () => {
     try {
       const token = localStorage.getItem("token");
       
-      // Thử gọi API với method POST và body như mẫu
       const response = await fetch("http://localhost:5000/api/theaters/list", {
         method: "POST",
         headers: {
@@ -77,7 +83,7 @@ const TheatersManagement = () => {
       }
 
       const data = await response.json();
-      console.log("Theater data:", data); // Debug
+      console.log("Theater data:", data);
       setTheaters(data.list || []);
     } catch (err) {
       console.error("Fetch theaters error:", err);
@@ -115,7 +121,7 @@ const TheatersManagement = () => {
       setSelectedTheater(data.data);
       setFormData({
         name: data.data.name || "",
-        location: data.data.location || "",
+        location: "",
       });
       onOpen();
     } catch (err) {
@@ -129,14 +135,47 @@ const TheatersManagement = () => {
     }
   };
 
+  const handleViewTheater = async (theater) => {
+    try {
+      setLoadingRooms(true);
+      const token = localStorage.getItem("token");
+      
+      const response = await fetch(`http://localhost:5000/api/theaters/${theater._id}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) throw new Error("Không thể tải chi tiết rạp");
+
+      const data = await response.json();
+      setSelectedTheater(data.data);
+      setTheaterRooms(data.data.rooms || []);
+      onDetailOpen();
+    } catch (err) {
+      toast({
+        title: "Lỗi",
+        description: err.message,
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       const token = localStorage.getItem("token");
 
-      const payload = {
-        name: formData.name.trim(),
-        location: formData.location.trim(),
-      };
+      const payload = selectedTheater
+        ? { name: formData.name.trim() } // Chỉ gửi name khi update
+        : {
+            name: formData.name.trim(),
+            location: formData.location.trim(),
+          };
 
       const url = selectedTheater
         ? `http://localhost:5000/api/theaters/${selectedTheater._id}`
@@ -223,11 +262,6 @@ const TheatersManagement = () => {
     setCurrentPage(1);
   }, [searchName, statusFilter, sortBy]);
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "N/A";
-    return new Date(dateStr).toLocaleDateString("vi-VN");
-  };
-
   return (
     <Flex minH="100vh" bg="#181a20" color="white">
       <Sidebar />
@@ -283,12 +317,6 @@ const TheatersManagement = () => {
             color="#fff"
             border="1px solid #23242a"
           >
-            <option value="newest" style={{ background: "#181a20", color: "#fff" }}>
-              Mới nhất
-            </option>
-            <option value="oldest" style={{ background: "#181a20", color: "#fff" }}>
-              Cũ nhất
-            </option>
             <option value="name_asc" style={{ background: "#181a20", color: "#fff" }}>
               Tên A-Z
             </option>
@@ -351,7 +379,6 @@ const TheatersManagement = () => {
                     <Th color={"orange.300"}>Số phòng</Th>
                     <Th color={"orange.300"}>Tổng ghế</Th>
                     <Th color={"orange.300"}>Trạng thái</Th>
-                    <Th color={"orange.300"}>Ngày tạo</Th>
                     <Th color={"orange.300"}>Thao tác</Th>
                   </Tr>
                 </Thead>
@@ -371,7 +398,6 @@ const TheatersManagement = () => {
                           {theater.status === "active" ? "HOẠT ĐỘNG" : "KHÔNG HOẠT ĐỘNG"}
                         </Badge>
                       </Td>
-                      <Td fontSize="sm">{formatDate(theater.created_at)}</Td>
                       <Td>
                         <HStack spacing={2}>
                           <IconButton
@@ -489,6 +515,11 @@ const TheatersManagement = () => {
                     placeholder="Ví dụ: Hà Nội, HN"
                     isDisabled={!!selectedTheater}
                   />
+                  {selectedTheater && (
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      Không thể thay đổi địa điểm khi chỉnh sửa
+                    </Text>
+                  )}
                 </FormControl>
 
                 <Flex gap={3} w="100%" justify="flex-end" pt={4}>
