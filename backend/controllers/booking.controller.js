@@ -120,18 +120,13 @@ export const getMyBookings = async (req, res) => {
 
 // Create a new offline booking
 export const createOfflineBooking = async (req, res) => {
-    const { showtime_id, seat_ids, payment_method, phone } = req.body;
+    const { showtime_id, seat_ids, payment_method } = req.body;
+    const user_id = req.user._id?.toString();
 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-        const user = await User.findOne({ phone }).session(session);
-        if (!user) {
-            throw new Error('Không tìm thấy người dùng với số điện thoại này');
-        }
-        const user_id = user._id.toString();
-
         const showtime = await Showtime.findById(showtime_id).session(session);
         if (!showtime) {
             throw new Error('Không tìm thấy suất chiếu');
@@ -166,8 +161,9 @@ export const createOfflineBooking = async (req, res) => {
             showtime_id,
             total_price: totalPrice,
             payment_method,
-            status: 'pending',
+            status: payment_method === 'cash' ? 'confirmed' : 'pending',
             payment_status: payment_method === 'cash' ? 'success' : 'pending',
+            paid_amount: payment_method === 'cash' ? totalPrice : 0,
         });
 
         const savedBooking = await newBooking.save({ session });
