@@ -70,7 +70,7 @@ export default function SidebarStaff() {
     sessionStorage.clear();
     onClose(); 
     setTimeout(() => {
-      window.location.href = "/login";
+      window.location.href = "/admin/login";
     }, 100);
   };
 

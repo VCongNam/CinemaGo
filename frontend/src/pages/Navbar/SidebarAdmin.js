@@ -21,7 +21,6 @@ import {
   FaUserTie,
   FaFilm,
   FaTicketAlt,
-  FaFileAlt,
   FaClock,
   FaSignOutAlt,
 } from "react-icons/fa";
@@ -43,7 +42,7 @@ export default function SidebarAdmin() {
     sessionStorage.clear();
 
     // ✅ Chuyển hướng về trang login
-    navigate("/login");
+    navigate("/admin/login");
   };
 
   const ADMIN_LINKS = [
