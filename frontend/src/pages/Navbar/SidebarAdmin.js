@@ -21,7 +21,6 @@ import {
   FaUserTie,
   FaFilm,
   FaTicketAlt,
-  FaFileAlt,
   FaClock,
   FaSignOutAlt,
 } from "react-icons/fa";
@@ -43,7 +42,7 @@ export default function SidebarAdmin() {
     sessionStorage.clear();
 
     // ✅ Chuyển hướng về trang login
-    navigate("/login");
+    navigate("/admin/login");
   };
 
   const ADMIN_LINKS = [
@@ -54,7 +53,7 @@ export default function SidebarAdmin() {
     { to: "/showtimes", label: "Quản lý xuất chiếu", icon: FaClock },
     { to: "/bookings", label: "Quản lý đặt phim", icon: FaTicketAlt },
     { to: "/admin/theaters", label: "Quản lý rạp chiếu", icon: FaFilm },
-    { to: "/admin/reports", label: "Báo cáo khác", icon: FaFileAlt },
+    { to: "/admin/rooms", label: "Quản lý phòng", icon: FaFilm },
   ];
 
   return (

@@ -5,6 +5,7 @@ import Seat from '../models/seat.js';
 import User from '../models/user.js';
 import mongoose from 'mongoose';
 import { formatForAPI } from '../utils/timezone.js';
+import { sendBookingConfirmationEmail } from '../utils/email.js';
 
 // Create a new booking
 export const createBooking = async (req, res) => {
@@ -64,6 +65,44 @@ export const createBooking = async (req, res) => {
         await BookingSeat.insertMany(bookingSeats, { session });
 
         await session.commitTransaction();
+        
+        // Nếu thanh toán bằng tiền mặt, gửi email xác nhận ngay
+        if (payment_method === 'cash') {
+            try {
+                const populatedBooking = await Booking.findById(savedBooking._id)
+                    .populate('user_id', 'username email')
+                    .populate({
+                        path: 'showtime_id',
+                        populate: [
+                            { path: 'movie_id' },
+                            { 
+                                path: 'room_id',
+                                populate: { path: 'theater_id' }
+                            }
+                        ]
+                    });
+
+                const bookingSeatsData = await BookingSeat.find({ booking_id: savedBooking._id })
+                    .populate('seat_id');
+
+                await sendBookingConfirmationEmail({
+                    email: populatedBooking.user_id.email,
+                    userName: populatedBooking.user_id.username,
+                    bookingId: populatedBooking._id.toString(),
+                    movieTitle: populatedBooking.showtime_id.movie_id.title,
+                    theaterName: populatedBooking.showtime_id.room_id.theater_id.name,
+                    roomName: populatedBooking.showtime_id.room_id.name,
+                    showtime: populatedBooking.showtime_id.start_time,
+                    seats: bookingSeatsData.map(bs => ({ seat_number: bs.seat_id.seat_number })),
+                    totalPrice: parseFloat(populatedBooking.total_price.toString()),
+                    paymentMethod: populatedBooking.payment_method,
+                    orderCode: populatedBooking.order_code || null
+                });
+            } catch (emailError) {
+                console.error('Failed to send booking confirmation email:', emailError);
+            }
+        }
+        
         res.status(201).json({ message: "Tạo đặt vé thành công", booking: savedBooking });
     } catch (error) {
         await session.abortTransaction();
@@ -120,18 +159,13 @@ export const getMyBookings = async (req, res) => {
 
 // Create a new offline booking
 export const createOfflineBooking = async (req, res) => {
-    const { showtime_id, seat_ids, payment_method, phone } = req.body;
+    const { showtime_id, seat_ids, payment_method } = req.body;
+    const user_id = req.user._id?.toString();
 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-        const user = await User.findOne({ phone }).session(session);
-        if (!user) {
-            throw new Error('Không tìm thấy người dùng với số điện thoại này');
-        }
-        const user_id = user._id.toString();
-
         const showtime = await Showtime.findById(showtime_id).session(session);
         if (!showtime) {
             throw new Error('Không tìm thấy suất chiếu');
@@ -166,8 +200,9 @@ export const createOfflineBooking = async (req, res) => {
             showtime_id,
             total_price: totalPrice,
             payment_method,
-            status: 'pending',
+            status: payment_method === 'cash' ? 'confirmed' : 'pending',
             payment_status: payment_method === 'cash' ? 'success' : 'pending',
+            paid_amount: payment_method === 'cash' ? totalPrice : 0,
         });
 
         const savedBooking = await newBooking.save({ session });

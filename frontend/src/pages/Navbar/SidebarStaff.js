@@ -13,6 +13,14 @@ import {
   AlertDialogHeader,
   AlertDialogContent,
   AlertDialogOverlay,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  Input,
+  FormControl,
+  FormLabel,
+  useToast,
 } from "@chakra-ui/react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -21,26 +29,124 @@ import {
   FaClock,
   FaTicketAlt,
   FaSignOutAlt,
+  FaChevronUp,
+  FaChevronDown,
+  FaLock,
 } from "react-icons/fa";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
+import axios from "axios";
 
 export default function SidebarStaff() {
   const location = useLocation();
   const navigate = useNavigate();
+  const toast = useToast();
+
+  const [username, setUsername] = useState("Tài khoản");
+  const [isMenuOpen, setMenuOpen] = useState(false);
+  const [showChangePass, setShowChangePass] = useState(false);
+
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+   const [isChangingPass, setIsChangingPass] = useState(false);
+  
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const cancelRef = useRef();
 
   const activeColor = "orange.400";
   const hoverColor = "orange.500";
 
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const cancelRef = useRef();
+  // ✅ Lấy username từ localStorage
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    if (storedUser && storedUser.username) {
+      setUsername(storedUser.username);
+    }
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     sessionStorage.clear();
     onClose(); 
     setTimeout(() => {
-      window.location.href = "/login";
+      window.location.href = "/admin/login";
     }, 100);
+  };
+
+  // ✅ Gọi API đổi mật khẩu (ngay trong modal)
+   const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      toast({
+        title: "Vui lòng nhập đầy đủ thông tin.",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Mật khẩu mới không khớp.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    try {
+      if (isChangingPass) return;
+      setIsChangingPass(true);
+      const token = localStorage.getItem("token");
+      await axios.post(
+        "http://localhost:5000//reset-password-link",
+        { oldPassword, newPassword },
+       {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+     // endpoint: PUT /api/user/change-password (tự chỉnh nếu backend khác)
+      const res = await axios.put(
+        "http://localhost:5000/api/user/change-password",
+        { oldPassword, newPassword },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (res?.data?.success === false) {
+        throw new Error(res.data.message || "Đổi mật khẩu thất bại");
+      }
+
+      toast({
+        title: "Đổi mật khẩu thành công!",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowChangePass(false);
+    } catch (error) {
+      toast({
+        title: "Đổi mật khẩu thất bại.",
+        description: error.response?.data?.message || error.message || "Lỗi máy chủ.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsChangingPass(false);
+    }
   };
 
   const STAFF_LINKS = [
@@ -56,7 +162,7 @@ export default function SidebarStaff() {
       direction="column"
       justify="space-between"
       w="260px"
-      bg="#1a1d29"
+      bg="#11141d"
       color="white"
       borderRight="1px solid"
       borderColor="gray.700"
@@ -100,12 +206,16 @@ export default function SidebarStaff() {
                 }}
                 bg={isActive ? activeColor : "transparent"}
                 fontWeight={isActive ? "bold" : "normal"}
-                color={isActive ? "white" : "gray.300"}
+                color={isActive ? "white" : "gray.400"}
                 textDecoration="none"
                 _focus={{ boxShadow: "none" }}
               >
                 <Flex align="center" gap={3}>
-                  {link.icon && <Icon as={link.icon} boxSize={5} />}
+                  <Icon
+                    as={link.icon}
+                    boxSize={5}
+                    color={isActive ? "white" : "gray.300"}
+                  />
                   <Text fontSize="sm">{link.label}</Text>
                 </Flex>
               </Link>
@@ -114,24 +224,52 @@ export default function SidebarStaff() {
         </VStack>
       </Box>
 
-      {/* Logout button */}
+      {/* Dropdown account menu */}
       <Box p={5} borderTop="1px solid" borderColor="gray.700">
-        <Button
-          w="100%"
-          colorScheme="red"
-          leftIcon={<FaSignOutAlt />}
-          onClick={onOpen}
-        >
-          Đăng xuất
-        </Button>
+        <Menu onOpen={() => setMenuOpen(true)} onClose={() => setMenuOpen(false)}>
+          <MenuButton
+            as={Button}
+            w="100%"
+            variant="outline"
+            borderColor="gray.600"
+            bg="#1a1d29"
+            color="gray.200"
+            _hover={{
+              bg: "gray.700",
+              color: "orange.300",
+              borderColor: "orange.400",
+            }}
+            rightIcon={
+              isMenuOpen ? (
+                <FaChevronUp color="orange.300" />
+              ) : (
+                <FaChevronDown color="orange.300" />
+              )
+            }
+          >
+            {username}
+          </MenuButton>
+          <MenuList bg="#1a1d29" borderColor="gray.700">
+            <MenuItem
+              icon={<FaLock color="orange.300" />}
+              _hover={{ bg: "orange.500", color: "white" }}
+              onClick={() => setShowChangePass(true)}
+            >
+              Đổi mật khẩu
+            </MenuItem>
+            <MenuItem
+              icon={<FaSignOutAlt color="red.400" />}
+              _hover={{ bg: "red.500", color: "white" }}
+              onClick={onOpen}
+            >
+              Đăng xuất
+            </MenuItem>
+          </MenuList>
+        </Menu>
       </Box>
 
       {/* Logout confirm dialog */}
-      <AlertDialog
-        isOpen={isOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onClose}
-      >
+      <AlertDialog isOpen={isOpen} leastDestructiveRef={cancelRef} onClose={onClose}>
         <AlertDialogOverlay>
           <AlertDialogContent bg="#1a1d29" color="white">
             <AlertDialogHeader fontSize="lg" fontWeight="bold">
@@ -153,6 +291,62 @@ export default function SidebarStaff() {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Modal đổi mật khẩu */}
+      {showChangePass && (
+        <AlertDialog isOpen={showChangePass} onClose={() => setShowChangePass(false)}>
+          <AlertDialogOverlay>
+            <AlertDialogContent bg="#1a1d29" color="white">
+              <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                Đổi mật khẩu
+              </AlertDialogHeader>
+
+              <AlertDialogBody>
+                <FormControl mb={3}>
+                  <FormLabel>Mật khẩu hiện tại</FormLabel>
+                  <Input
+                    type="password"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    bg="gray.800"
+                    borderColor="gray.600"
+                    placeholder="Nhập mật khẩu hiện tại"
+                  />
+                </FormControl>
+                <FormControl mb={3}>
+                  <FormLabel>Mật khẩu mới</FormLabel>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    bg="gray.800"
+                    borderColor="gray.600"
+                    placeholder="Nhập mật khẩu mới"
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Nhập lại mật khẩu mới</FormLabel>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    bg="gray.800"
+                    borderColor="gray.600"
+                    placeholder="Xác nhận mật khẩu mới"
+                  />
+                </FormControl>
+              </AlertDialogBody>
+
+              <AlertDialogFooter>
+                <Button onClick={() => setShowChangePass(false)}>Hủy</Button>
+                <Button colorScheme="orange" onClick={handleChangePassword} ml={3}>
+                  Xác nhận
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogOverlay>
+        </AlertDialog>
+      )}
     </Flex>
   );
 }

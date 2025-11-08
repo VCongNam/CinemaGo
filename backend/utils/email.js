@@ -126,3 +126,128 @@ export const sendResetLinkEmail = async (email, resetLink, displayName) => {
     html
   });
 };
+
+// Gửi email xác nhận đặt vé thành công
+export const sendBookingConfirmationEmail = async (bookingData) => {
+  try {
+    const {
+      email,
+      userName,
+      bookingId,
+      movieTitle,
+      theaterName,
+      roomName,
+      showtime,
+      seats,
+      totalPrice,
+      paymentMethod,
+      orderCode
+    } = bookingData;
+
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+    };
+
+    const formatDateTime = (dateString) => {
+      const date = new Date(dateString);
+      return date.toLocaleString('vi-VN', { 
+        weekday: 'long',
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    const seatList = seats.map(seat => seat.seat_number).join(', ');
+
+    const html = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; background: #f4f6fb; border-radius: 14px; box-shadow: 0 4px 24px rgba(0,0,0,0.07); padding: 0 0 32px 0;">
+        <div style="background: linear-gradient(90deg, #007bff 0%, #00c6ff 100%); border-radius: 14px 14px 0 0; padding: 32px 0 24px 0; text-align: center;">
+          <img src="https://placehold.co/600x400?text=CinemaGo" alt="CinemaGo Logo" style="width: 64px; height: 64px; margin-bottom: 12px;" />
+          <h1 style="color: #fff; font-size: 2.1rem; margin: 0;">CinemaGo</h1>
+          <p style="color: #e3f2fd; font-size: 1.1rem; margin: 8px 0 0 0;">Xác nhận đặt vé thành công</p>
+        </div>
+        
+        <div style="padding: 32px 32px 24px 32px; background: #fff; border-radius: 0 0 14px 14px;">
+          <h2 style="color: #222; text-align: center; font-size: 1.5rem; margin-bottom: 18px;">🎉 Đặt vé thành công!</h2>
+          
+          <p style="font-size: 16px; color: #444; margin-bottom: 24px; text-align: center;">
+            Xin chào <strong>${userName}</strong>,<br>
+            Cảm ơn bạn đã đặt vé tại CinemaGo. Dưới đây là thông tin chi tiết về vé của bạn.
+          </p>
+
+          <div style="background: #f8f9fa; border-radius: 12px; padding: 24px; margin: 24px 0;">
+            <h3 style="color: #007bff; margin: 0 0 16px 0; font-size: 1.2rem;">📽️ Thông tin phim</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 14px;">Phim:</td>
+                <td style="padding: 8px 0; color: #222; font-weight: 600; text-align: right;">${movieTitle}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 14px;">Rạp:</td>
+                <td style="padding: 8px 0; color: #222; font-weight: 600; text-align: right;">${theaterName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 14px;">Phòng:</td>
+                <td style="padding: 8px 0; color: #222; font-weight: 600; text-align: right;">${roomName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 14px;">Suất chiếu:</td>
+                <td style="padding: 8px 0; color: #222; font-weight: 600; text-align: right;">${formatDateTime(showtime)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666; font-size: 14px;">Ghế:</td>
+                <td style="padding: 8px 0; color: #007bff; font-weight: 600; text-align: right;">${seatList}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center;">
+            <p style="color: #fff; margin: 0 0 8px 0; font-size: 14px;">Tổng tiền</p>
+            <p style="color: #fff; margin: 0; font-size: 32px; font-weight: bold;">${formatCurrency(totalPrice)}</p>
+            <p style="color: #e3f2fd; margin: 8px 0 0 0; font-size: 13px;">Mã đơn hàng: ${orderCode || bookingId}</p>
+          </div>
+
+          <div style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 6px; padding: 16px; margin: 24px 0;">
+            <p style="margin: 0; color: #856404; font-size: 14px;">
+              <strong>⚠️ Lưu ý quan trọng:</strong><br>
+              • Vui lòng đến rạp trước giờ chiếu ít nhất 15 phút<br>
+              • Mang theo email này hoặc mã đặt vé: <strong>${bookingId}</strong><br>
+              • Liên hệ hotline nếu cần hỗ trợ
+            </p>
+          </div>
+
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="${process.env.FRONTEND_URL || 'https://cinemago.vn'}/bookings/${bookingId}" style="display: inline-block; background: linear-gradient(90deg, #007bff 0%, #00c6ff 100%); color: #fff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 12px 32px; border-radius: 6px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,123,255,0.10);">
+              Xem chi tiết vé
+            </a>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 24px; padding-bottom: 12px;">
+          <p style="font-size: 13px; color: #aaa; margin: 0;">
+            Cần hỗ trợ? Liên hệ <a href="mailto:support@cinemago.vn" style="color: #007bff; text-decoration: underline;">support@cinemago.vn</a>
+          </p>
+          <p style="font-size: 12px; color: #bbb; margin: 8px 0 0 0;">
+            © ${new Date().getFullYear()} CinemaGo. All rights reserved.<br>
+            Chúc bạn có trải nghiệm xem phim tuyệt vời! 🍿
+          </p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: `🎬 Xác nhận đặt vé - ${movieTitle} - CinemaGo`,
+      html
+    });
+
+    console.log(`Booking confirmation email sent to ${email}`);
+  } catch (error) {
+    console.error('Error sending booking confirmation email:', error);
+    // Không throw error để không ảnh hưởng đến flow chính
+  }
+};

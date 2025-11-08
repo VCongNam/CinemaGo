@@ -787,53 +787,55 @@ export default function ShowtimeManagementPage() {
               </FormControl>
 
               <FormControl isRequired>
-                <FormLabel>Phòng chiếu</FormLabel>
-                <Select
-                  placeholder="Chọn phòng"
-                  value={newShowtime.room_id}
-                  onChange={(e) => setNewShowtime({ ...newShowtime, room_id: e.target.value })}
-                  bg="gray.800"
-                  borderColor="gray.600"
-                  _hover={{ borderColor: "orange.400" }}
-                  _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
-                >
-                  {rooms.length === 0 ? (
-                    <option disabled style={{ background: "#1a202c", color: "gray" }}>
-                      Đang tải phòng...
-                    </option>
-                  ) : (
-                    rooms.map((r) => {
-                      const roomId = r._id || r.id
-                      const roomName = r.name || `Phòng ${roomId}`
-                      
-                      return (
-                        <option 
-                          key={roomId} 
-                          value={roomId} 
-                          style={{ background: "#1a202c", color: "white" }}
-                        >
-                          {roomName}
-                        </option>
-                      )
-                    })
-                  )}
-                </Select>
-                {newShowtime.room_id && (
-                  <Text fontSize="xs" color="gray.400" mt={1}>
-                    ID đã chọn: {newShowtime.room_id}
-                  </Text>
-                )}
-                {rooms.length === 0 && (
-                  <Text fontSize="xs" color="red.400" mt={1}>
-                    ⚠️ Không có phòng nào. Vui lòng thêm phòng trước.
-                  </Text>
-                )}
-                {rooms.length > 0 && (
-                  <Text fontSize="xs" color="blue.300" mt={1}>
-                    ℹ️ Có {rooms.length} phòng khả dụng
-                  </Text>
-                )}
-              </FormControl>
+  <FormLabel>Phòng chiếu</FormLabel>
+  <Select
+    placeholder="Chọn phòng"
+    value={newShowtime.room_id}
+    onChange={(e) => setNewShowtime({ ...newShowtime, room_id: e.target.value })}
+    bg="gray.800"
+    borderColor="gray.600"
+    _hover={{ borderColor: "orange.400" }}
+    _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
+  >
+    {rooms.length === 0 ? (
+      <option disabled style={{ background: "#1a202c", color: "gray" }}>
+        Đang tải phòng...
+      </option>
+    ) : (
+      rooms
+        .filter(r => r.status === "active") // Chỉ lọc phòng đang active
+        .map((r) => {
+          const roomId = r._id || r.id;
+          const roomName = r.name || `Phòng ${roomId}`;
+          
+          return (
+            <option 
+              key={roomId} 
+              value={roomId} 
+              style={{ background: "#1a202c", color: "white" }}
+            >
+              {roomName}
+            </option>
+          );
+        })
+    )}
+  </Select>
+  {newShowtime.room_id && (
+    <Text fontSize="xs" color="gray.400" mt={1}>
+      ID đã chọn: {newShowtime.room_id}
+    </Text>
+  )}
+  {rooms.length === 0 && (
+    <Text fontSize="xs" color="red.400" mt={1}>
+      ⚠️ Không có phòng nào. Vui lòng thêm phòng trước.
+    </Text>
+  )}
+  {rooms.length > 0 && (
+    <Text fontSize="xs" color="blue.300" mt={1}>
+      ℹ️ Có {rooms.filter(r => r.status === "active").length} phòng khả dụng
+    </Text>
+  )}
+</FormControl>
 
               <FormControl isRequired>
                 <FormLabel>Ngày chiếu</FormLabel>
