@@ -36,13 +36,28 @@ export default function MovieSeatBookingPage() {
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [selectedFoods, setSelectedFoods] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [bookedSeatIds, setBookedSeatIds] = useState([]);
+  const [paymentMethod, setPaymentMethod] = useState(null);
 
   // 🔹 Fetch seats from API
   useEffect(() => {
-    if (!showtime?.room_id?._id) return;
+    // room_id may be populated as an object or may be just the id string depending on what StaffL1Page passed.
+    const roomId = showtime?.room_id?._id || showtime?.room_id || null;
+    if (!roomId) return;
 
     setLoading(true);
-    fetch(`http://localhost:5000/api/public/rooms/${showtime.room_id._id}/seats`)
+
+    // Load booked seats for this showtime
+    fetch(`http://localhost:5000/api/showtimes/${showtime._id || showtime.id}/booked-seats`)
+      .then((res) => res.json())
+      .then((data) => {
+        const ids = (data?.booked_seats || []).map((id) => String(id));
+        setBookedSeatIds(ids);
+      })
+      .catch((err) => console.error("Failed to load booked seats:", err));
+
+    // Load seats for the room
+    fetch(`http://localhost:5000/api/public/rooms/${roomId}/seats`)
       .then((res) => {
         if (!res.ok) throw new Error("Không thể tải danh sách ghế");
         return res.json();
@@ -53,7 +68,9 @@ export default function MovieSeatBookingPage() {
         if (!Array.isArray(seatData)) {
           throw new Error("Dữ liệu ghế không hợp lệ");
         }
-        setSeats(seatData);
+        // normalize id field
+        const seatsWithId = seatData.map((s) => ({ ...s, id: s._id || s.id }));
+        setSeats(seatsWithId);
         setRoom(showtime.room_id);
       })
       .catch((err) => {
@@ -71,13 +88,14 @@ export default function MovieSeatBookingPage() {
   // 🔹 Handle seat selection
   const handleSelect = (seat) => {
     // ✅ Kiểm tra ghế đã được đặt chưa
-    if (seat.is_booked || seat.isBooked) return;
+    const seatIdStr = String(seat.id || seat._id);
+    if (seat.is_booked || seat.isBooked || bookedSeatIds.includes(seatIdStr)) return;
 
     setSelectedSeats((prev) => {
       // So sánh bằng id hoặc _id tùy API
       const seatId = seat.id || seat._id;
       const exists = prev.some((s) => (s.id || s._id) === seatId);
-      
+
       if (exists) {
         return prev.filter((s) => (s.id || s._id) !== seatId);
       } else {
@@ -121,9 +139,10 @@ export default function MovieSeatBookingPage() {
 
   // 🔹 Compute totals
   const seatTotal = selectedSeats.reduce((sum, s) => {
-    let price = 50000;
-    if (s.type === "vip") price = 80000;
-    if (s.type === "couple") price = 150000;
+    // Prefer showtime price when available
+    let price = showtime?.price || 50000;
+    if (s.type === "vip") price = Math.round(price * 1.5);
+    if (s.type === "couple") price = Math.round(price * 3); // example multiplier
     return sum + price;
   }, 0);
 
@@ -134,8 +153,61 @@ export default function MovieSeatBookingPage() {
 
   const total = seatTotal + foodTotal;
 
-  // 🔹 Go to next step
-  const handleNext = () => {
+  // 🔹 Print ticket helper
+  const handlePrintTicket = () => {
+    const ticketWindow = window.open("", "_blank");
+    ticketWindow.document.write(`
+      <html>
+        <head>
+          <title>Vé xem phim</title>
+          <style>
+            body { font-family: Arial, sans-serif; background: #fff; padding: 20px; }
+            .ticket {
+              border: 2px dashed #333;
+              border-radius: 10px;
+              padding: 20px;
+              width: 350px;
+              margin: auto;
+              text-align: center;
+            }
+            h2 { color: #333; margin-bottom: 10px; }
+            p { margin: 6px 0; font-size: 14px; }
+            .divider { border-top: 1px dashed #999; margin: 12px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="ticket">
+            <h2>🎬 Vé Xem Phim</h2>
+            <p><strong>Phim:</strong> ${movie?.title}</p>
+            <p><strong>Suất chiếu:</strong> ${new Date(showtime?.start_time).toLocaleString("vi-VN")}</p>
+            <p><strong>Ghế:</strong> ${selectedSeats.map((s) => s.seat_number).join(", ")}</p>
+            <p><strong>Tổng tiền:</strong> ${total.toLocaleString("vi-VN")}đ</p>
+            <div class="divider"></div>
+            <p>Cảm ơn quý khách đã mua vé!</p>
+          </div>
+          <script>
+            window.print();
+            window.onafterprint = () => window.close();
+          </script>
+        </body>
+      </html>
+    `);
+    ticketWindow.document.close();
+    // Sau khi mở cửa sổ in, chuyển về trang staff để tiếp tục công việc
+    navigate('/staff/l1');
+  };
+
+  // 🔹 Format showtime date safely (avoid Invalid Date)
+  const startTimeSource =
+    typeof showtime?.start_time === "object" && showtime?.start_time !== null
+      ? showtime.start_time.vietnam || showtime.start_time.utc || ""
+      : showtime?.start_time;
+  const showtimeDateText = startTimeSource
+    ? new Date(startTimeSource).toLocaleDateString("vi-VN")
+    : "";
+
+  // 🔹 Handle cash payment
+  const handleCashPayment = () => {
     if (selectedSeats.length === 0) {
       toast({
         title: "Chưa chọn ghế",
@@ -145,9 +217,121 @@ export default function MovieSeatBookingPage() {
       });
       return;
     }
-    navigate("/staff/payment", {
-      state: { movie, time, showtime, room, selectedSeats, selectedFoods, total },
-    });
+
+    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+    const isStaff = localStorage.getItem("isStaff") === "true";
+    
+    if (!token || !isStaff) {
+      toast({ title: "Unauthorized", description: "Staff access required", status: "error", duration: 2000 });
+      navigate("/admin/login");
+      return;
+    }
+
+    // Create offline booking with cash payment
+    fetch("http://localhost:5000/api/bookings/offline", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        showtime_id: showtime._id || showtime.id,
+        seat_ids: selectedSeats.map((s) => s.id || s._id),
+        payment_method: "cash",
+      }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.message || "Tạo đặt vé thất bại");
+        
+        toast({ title: "Thanh toán thành công", status: "success", duration: 1500 });
+        setTimeout(() => {
+          handlePrintTicket();
+          navigate("/staff/l1");
+        }, 1000);
+      })
+      .catch((err) => {
+        console.error("Offline booking error:", err);
+        toast({ title: "Lỗi đặt vé", description: err.message, status: "error", duration: 4000 });
+      });
+  };
+
+  // 🔹 Handle online payment
+  const handleOnlinePayment = () => {
+    if (selectedSeats.length === 0) {
+      toast({
+        title: "Chưa chọn ghế",
+        description: "Vui lòng chọn ít nhất 1 ghế để tiếp tục.",
+        status: "warning",
+        duration: 3000,
+      });
+      return;
+    }
+
+    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+    const isStaff = localStorage.getItem("isStaff") === "true";
+    
+    if (!token || !isStaff) {
+      toast({ title: "Unauthorized", description: "Staff access required", status: "error", duration: 2000 });
+      navigate("/admin/login");
+      return;
+    }
+
+    // Create booking with online payment
+    fetch("http://localhost:5000/api/bookings/offline", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        showtime_id: showtime._id || showtime.id,
+        seat_ids: selectedSeats.map((s) => s.id || s._id),
+        payment_method: "online",
+      }),
+    })
+      .then(async (res) => {
+        const createBookingData = await res.json();
+        if (!res.ok) throw new Error(createBookingData?.message || "Tạo đặt vé thất bại");
+
+        const bookingId = createBookingData.booking?._id || createBookingData.booking?.id;
+        if (!bookingId) throw new Error('Không lấy được bookingId từ server');
+
+        // Request backend to create a PayOS payment link for this booking
+        const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+        const returnUrl = `${window.location.origin}/staff/payment-success?bookingId=${bookingId}`;
+        const cancelUrl = `${window.location.origin}/staff/payment-failed?bookingId=${bookingId}`;
+
+        return fetch("http://localhost:5000/api/payments/create-payment-link", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ bookingId, returnUrl, cancelUrl }),
+        });
+      })
+      .then(async (res) => {
+        // The backend should return JSON; if it returns HTML (e.g. 404 page), parsing will fail and be caught below
+        const payResp = await res.json();
+        if (!res.ok) throw new Error(payResp?.message || "Không thể tạo link thanh toán");
+
+        // backend returns data.paymentLink (checkoutUrl)
+        const paymentUrl = payResp?.data?.paymentLink || payResp?.data?.paymentLinkUrl || payResp?.data?.checkoutUrl;
+        if (!paymentUrl) throw new Error('Server không trả về payment URL');
+
+        // Redirect to PayOS payment page
+        window.location.href = paymentUrl;
+      })
+      .catch((err) => {
+        console.error("Booking/Payment creation error:", err);
+        toast({ 
+          title: "Lỗi tạo đơn hàng", 
+          description: err.message, 
+          status: "error", 
+          duration: 4000 
+        });
+      });
   };
 
   if (!movie || !showtime)
@@ -219,7 +403,10 @@ export default function MovieSeatBookingPage() {
                     // ✅ Kiểm tra trạng thái ghế - hỗ trợ cả id và _id
                     const seatId = seat.id || seat._id;
                     const isSelected = selectedSeats.some((s) => (s.id || s._id) === seatId);
-                    const isBooked = seat.is_booked === true || seat.isBooked === true;
+                    const isBooked =
+                      seat.is_booked === true ||
+                      seat.isBooked === true ||
+                      bookedSeatIds.includes(String(seatId));
 
                     let color;
                     let hoverColor;
@@ -311,7 +498,7 @@ export default function MovieSeatBookingPage() {
                 {movie.title}
               </Text>
               <Text fontSize="sm" color="gray.400">
-                {time} · {new Date(showtime.start_time).toLocaleDateString("vi-VN")}{" "}
+                {time} · {showtimeDateText}{" "}
                 · {room?.name} · 2D Phụ đề
               </Text>
             </Box>
@@ -383,18 +570,29 @@ export default function MovieSeatBookingPage() {
               </Text>
             </Flex>
 
-            <Button
-              bg="#d53f8c"
-              color="white"
-              size="lg"
-              w="full"
-              isDisabled={selectedSeats.length === 0}
-              onClick={handleNext}
-              _hover={{ bg: "#b83280" }}
-              _active={{ bg: "#9c2868" }}
-            >
-              Mua vé
-            </Button>
+            <VStack spacing={3}>
+              <Button
+                bgGradient="linear(to-r, teal.400, green.400)"
+                color="white"
+                size="lg"
+                w="full"
+                isDisabled={selectedSeats.length === 0}
+                onClick={handleCashPayment}
+              >
+                Thanh toán tiền mặt
+              </Button>
+
+              <Button
+                bgGradient="linear(to-r, pink.400, purple.400)"
+                color="white"
+                size="lg"
+                w="full"
+                isDisabled={selectedSeats.length === 0}
+                onClick={handleOnlinePayment}
+              >
+                Thanh toán online
+              </Button>
+            </VStack>
           </Box>
         </Box>
       </Box>

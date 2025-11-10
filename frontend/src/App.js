@@ -29,7 +29,7 @@ import TicketDetailPage from "./pages/bookings/TicketDetailPage";
 import StaffL1Page from "./pages/staff/StaffL1Page"
 import StaffL2Page from "./pages/staff/StaffL2Page"
 import TicketSeatSelectPage from "./pages/staff/TicketSeatSelectPage"
-import StaffPaymentPage from "./pages/bookings/StaffPaymentPage"
+import PayOSReturnHandler from "./pages/staff/PayOSReturnHandler"
 
 // Homepage & Auth
 import HomePage from "./pages/HomePage"
@@ -44,8 +44,21 @@ import AdminHeader from "./pages/Navbar/AdminHeader"
 import Footer from "./pages/Navbar/Footer"
 import SocialAuthSuccess from './pages/SocialAuthSuccess';
 import AdminAndStaffLoginPage from "./pages/admin/AdminAndStaffLoginPage"
+import StaffPaymentSuccessPage from "./pages/staff/StaffPaymentSuccessPage"
+import StaffPaymentFailedPage from "./pages/staff/StaffPaymentFailedPage"
 
 function App() {
+  // Redirect staff/admin who land on user payment pages to staff pages, preserving query string
+  const UserPaymentToStaffRedirect = ({ target }) => {
+    const search = typeof window !== "undefined" ? window.location.search || "" : "";
+    const isStaff = localStorage.getItem("isStaff") === "true";
+    const role = (localStorage.getItem("userRole") || "").toLowerCase();
+    const isStaffRole = role === "lv1" || role === "lv2" || role === "admin";
+    if (isStaff || isStaffRole) {
+      return <Navigate to={`/staff/${target}${search}`} replace />;
+    }
+    return target === "payment-success" ? <PaymentSuccessPage /> : <PaymentFailedPage />;
+  };
   return (
     <ChakraProvider>
       <Router>
@@ -79,13 +92,15 @@ function App() {
               <Route path="/bookings/seats/:showtimeId" element={<SeatSelection />} />
               <Route path="/bookings/checkout/:bookingId" element={<CartPage />} />
               <Route path="/bookings/cancelled" element={<BookingCancelledPage />} />
-              <Route path="/payment-failed" element={<PaymentFailedPage />} />
-              <Route path="/payment-success" element={<PaymentSuccessPage />} />
+              <Route path="/payment-failed" element={<UserPaymentToStaffRedirect target="payment-failed" />} />
+              <Route path="/payment-success" element={<UserPaymentToStaffRedirect target="payment-success" />} />
               {/* Staff */}
               <Route path="/staff/l1" element={<StaffL1Page />} />
               <Route path="/staff/l2" element={<StaffL2Page />} />
               <Route path="/staff/ticket" element={<TicketSeatSelectPage />} />
-              <Route path="/staff/payment" element={<StaffPaymentPage />} />
+              <Route path="/staff/payos-return" element={<PayOSReturnHandler />} />
+              <Route path="/staff/payment-success" element={<StaffPaymentSuccessPage />} />
+              <Route path="/staff/payment-failed" element={<StaffPaymentFailedPage />} />
 
               {/* Admin */}
               <Route path="/admin/dashboard" element={<DashboardPage />} />

@@ -120,14 +120,24 @@ const PaymentFailedPage = () => {
           <Text color="gray.400">Mã đặt vé của bạn là: {bookingId}</Text>
         )}
         <VStack spacing={4} direction="column" mt={8}>
-        <Button 
+          <Button 
             variant="outline"
             color="white"
             colorScheme="gray"
-            onClick={() => navigate("/")}
+            onClick={() => {
+              const isStaff = localStorage.getItem("isStaff") === "true";
+              const role = (localStorage.getItem("userRole") || "").toLowerCase();
+              const isStaffRole = role === "lv1" || role === "lv2" || role === "admin";
+              navigate(isStaff || isStaffRole ? "/staff/l1" : "/");
+            }}
             size="lg"
           >
-            Quay về trang chủ
+            {(() => {
+              const isStaff = localStorage.getItem("isStaff") === "true";
+              const role = (localStorage.getItem("userRole") || "").toLowerCase();
+              const isStaffRole = role === "lv1" || role === "lv2" || role === "admin";
+              return isStaff || isStaffRole ? "Quay về trang staff" : "Quay về trang chủ";
+            })()}
           </Button>
         </VStack>
       </VStack>

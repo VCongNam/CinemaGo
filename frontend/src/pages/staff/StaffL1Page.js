@@ -145,13 +145,16 @@ const StaffL1Page = () => {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("staff");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("isStaff");
+    localStorage.removeItem("user");
     toast({
       title: "Đã đăng xuất",
       status: "info",
       duration: 2000,
       position: "top",
       onCloseComplete: () => {
-        window.location.href = "/login";
+        window.location.href = "/admin/login";
       }
     });
   };
