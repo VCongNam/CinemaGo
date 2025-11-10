@@ -38,17 +38,30 @@ export default function AdminAndStaffLoginPage() {
       
       if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại");
       
-      // Lưu token
-      localStorage.setItem("token", data.accessToken);
-      
-      // Lưu role theo 2 cách để đảm bảo tương thích
+      const accessToken = data.accessToken;
       const userRole = data.user?.role || "lv1";
-      
-      // Lưu dạng object (cách cũ)
+      const userInfo = data.user || null;
+      const normalizedRole = (userRole || "").toLowerCase();
+      const isStaff =
+        normalizedRole.startsWith("lv") || normalizedRole === "admin";
+
+      // Lưu token theo cả 2 key để tương thích
+      if (accessToken) {
+        localStorage.setItem("token", accessToken);
+        localStorage.setItem("accessToken", accessToken);
+      }
+
+      // Lưu role theo 2 cách để đảm bảo tương thích
       localStorage.setItem("role", JSON.stringify({ role: userRole }));
-      
-      // Lưu thêm dạng string trực tiếp
       localStorage.setItem("userRole", userRole);
+
+      // Lưu cờ staff và thông tin người dùng để các trang staff sử dụng
+      localStorage.setItem("isStaff", isStaff ? "true" : "false");
+      if (userInfo) {
+        localStorage.setItem("staff", JSON.stringify(userInfo));
+        // Đồng bộ với authService để các hook/services tái sử dụng
+        localStorage.setItem("user", JSON.stringify(userInfo));
+      }
       
       // Console log để debug
       console.log("Login successful - Role:", userRole);

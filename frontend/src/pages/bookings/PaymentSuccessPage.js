@@ -182,8 +182,18 @@ const PaymentSuccessPage = () => {
           <>
             <Heading color="red.400">Đã xảy ra lỗi</Heading>
             <Text>{error}</Text>
-            <Button colorScheme="pink" onClick={() => navigate("/")}>
-              Về trang chủ
+            <Button colorScheme="pink" onClick={() => {
+              const isStaff = localStorage.getItem("isStaff") === "true";
+              const role = (localStorage.getItem("userRole") || "").toLowerCase();
+              const isStaffRole = role === "lv1" || role === "lv2" || role === "admin";
+              navigate(isStaff || isStaffRole ? "/staff/l1" : "/");
+            }}>
+              {(() => {
+                const isStaff = localStorage.getItem("isStaff") === "true";
+                const role = (localStorage.getItem("userRole") || "").toLowerCase();
+                const isStaffRole = role === "lv1" || role === "lv2" || role === "admin";
+                return isStaff || isStaffRole ? "Về trang staff" : "Về trang chủ";
+              })()}
             </Button>
           </>
         ) : status === "confirmed" && booking ? (

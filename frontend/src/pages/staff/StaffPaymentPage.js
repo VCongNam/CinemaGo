@@ -11,6 +11,7 @@ import {
 } from "@chakra-ui/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { QRCodeCanvas } from "qrcode.react";
+import apiService from "../../services/apiService";
 
 export default function StaffPaymentPage() {
   const navigate = useNavigate();
@@ -18,8 +19,6 @@ export default function StaffPaymentPage() {
   const printRef = useRef(null);
   const { movie, showtime, selectedSeats, selectedFoods, total } =
     useLocation().state || {};
-  const [paymentMethod, setPaymentMethod] = useState(null);
-
   if (!movie || !showtime || !selectedSeats) {
     return (
       <Box p={8}>
@@ -30,13 +29,6 @@ export default function StaffPaymentPage() {
       </Box>
     );
   }
-
-  const qrData = JSON.stringify({
-    movie: movie.title,
-    showtime: showtime.start_time,
-    seats: selectedSeats.map((s) => s.seat_number),
-    total,
-  });
 
   // ✅ Hàm in vé
   const handlePrintTicket = () => {
@@ -82,211 +74,200 @@ export default function StaffPaymentPage() {
     ticketWindow.document.close();
   };
 
+  const returnUrl = `${window.location.origin}/staff/payos-return?status=success`;
+  const cancelUrl = `${window.location.origin}/staff/payos-return?status=cancel`;
+
   // ✅ Xử lý thanh toán tiền mặt + in vé
   const handleCashPayment = () => {
-    toast({
-      title: "Thanh toán thành công",
-      description: `Đã thanh toán ${total.toLocaleString(
-        "vi-VN"
-      )}đ bằng tiền mặt`,
-      status: "success",
-      duration: 2000,
-    });
-    setTimeout(() => {
-      handlePrintTicket();
-      navigate("/staff/l1");
-    }, 1000);
-  };
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("accessToken");
+    const isStaff = localStorage.getItem("isStaff") === "true";
+    if (!token || !isStaff) {
+      toast({
+        title: "Unauthorized",
+        description: "Staff access required",
+        status: "error",
+        duration: 2000,
+      });
+      navigate("/admin/login");
+      return;
+    }
 
-  // ✅ Xử lý thanh toán QR + in vé
-  const handleQrPayment = () => {
     toast({
       title: "Đang xử lý thanh toán...",
       status: "info",
       duration: 2000,
     });
-    setTimeout(() => {
-      toast({
-        title: "Thanh toán thành công",
-        description: `Đã thanh toán ${total.toLocaleString("vi-VN")}đ qua QR`,
-        status: "success",
-        duration: 2000,
+
+    // Align with backend API: showtime_id, seat_ids, payment_method
+    fetch("http://localhost:5000/api/bookings/offline", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        showtime_id: showtime._id || showtime.id,
+        seat_ids: selectedSeats.map((s) => s._id || s.id),
+        payment_method: "cash",
+      }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.message || "Tạo đặt vé thất bại");
+        }
+        toast({
+          title: "Thanh toán thành công",
+          description: `Đã thanh toán ${total.toLocaleString("vi-VN")}đ bằng tiền mặt`,
+          status: "success",
+          duration: 2000,
+        });
+        setTimeout(() => {
+          handlePrintTicket();
+          navigate("/staff/l1");
+        }, 1000);
+      })
+      .catch((err) => {
+        console.error("Error creating offline cash booking:", err);
+        toast({
+          title: "Thanh toán thất bại",
+          description: err.message || "Đã có lỗi xảy ra khi tạo booking.",
+          status: "error",
+          duration: 3000,
+        });
       });
-      setTimeout(() => {
-        handlePrintTicket();
-        navigate("/staff/l1");
-      }, 1000);
-    }, 2500);
   };
 
-  // ✅ Màn hình chọn phương thức
-  if (!paymentMethod) {
-    return (
-      <Box bg="#0f1117" minH="100vh" color="white" p={6}>
-        <Heading mb={6} textAlign="center">
-          Chọn phương thức thanh toán
-        </Heading>
+  // ✅ Xử lý thanh toán PayOS
+  const handlePayOSPayment = async () => {
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("accessToken");
+    const isStaff = localStorage.getItem("isStaff") === "true";
+    if (!token || !isStaff) {
+      toast({
+        title: "Unauthorized",
+        description: "Staff access required",
+        status: "error",
+        duration: 2000,
+      });
+      navigate("/admin/login");
+      return;
+    }
 
-        <Flex justify="center" align="center" gap={8} wrap="wrap">
-          <Box
-            bg="#1a1b23"
-            borderRadius="lg"
-            p={8}
-            minW="250px"
-            textAlign="center"
-            cursor="pointer"
-            _hover={{ bg: "#23242a" }}
-            onClick={() => setPaymentMethod("cash")}
-          >
-            <Heading size="md" mb={2}>
-              💵 Tiền mặt
-            </Heading>
-            <Text>Thanh toán trực tiếp tại quầy</Text>
-          </Box>
+    try {
+      toast({
+        title: "Đang tạo liên kết thanh toán...",
+        status: "info",
+        duration: 3000,
+      });
 
-          <Box
-            bg="#1a1b23"
-            borderRadius="lg"
-            p={8}
-            minW="250px"
-            textAlign="center"
-            cursor="pointer"
-            _hover={{ bg: "#23242a" }}
-            onClick={() => setPaymentMethod("qr")}
-          >
-            <Heading size="md" mb={2}>
-              📱 QR Code
-            </Heading>
-            <Text>Thanh toán bằng mã QR</Text>
-          </Box>
-        </Flex>
+      // Step 1: create booking with payment_method "online"
+      const createRes = await fetch(
+        "http://localhost:5000/api/bookings/offline",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            showtime_id: showtime._id || showtime.id,
+            seat_ids: selectedSeats.map((s) => s._id || s.id),
+            payment_method: "online",
+          }),
+        }
+      );
+      const createData = await createRes.json();
+      if (!createRes.ok) {
+        throw new Error(createData?.message || "Tạo đặt vé thất bại");
+      }
+      const bookingId = createData?.booking?._id || createData?.booking?.id;
+      if (!bookingId) throw new Error("Không lấy được bookingId từ server");
 
-        <Divider my={8} borderColor="#23242a" />
+      // Step 2: ask backend for payment link
+      const payRes = await fetch(
+        "http://localhost:5000/api/payments/create-payment-link",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            bookingId,
+            returnUrl: `${window.location.origin}/staff/payment-success?bookingId=${bookingId}`,
+            cancelUrl: `${window.location.origin}/staff/payment-failed?bookingId=${bookingId}`,
+          }),
+        }
+      );
+      const payData = await payRes.json();
+      if (!payRes.ok) {
+        throw new Error(payData?.message || "Không thể tạo link thanh toán");
+      }
 
-        <Button colorScheme="pink" onClick={() => navigate(-1)}>
-          Quay lại
-        </Button>
-      </Box>
-    );
-  }
+      const paymentUrl =
+        payData?.data?.paymentLink ||
+        payData?.data?.paymentLinkUrl ||
+        payData?.data?.checkoutUrl;
+      if (!paymentUrl) throw new Error("Server không trả về payment URL");
+      window.location.href = paymentUrl;
+    } catch (error) {
+      console.error("Error creating PayOS payment link:", error);
+      toast({
+        title: "Lỗi hệ thống",
+        description: error.message || "Không thể tạo liên kết thanh toán.",
+        status: "error",
+        duration: 3000,
+      });
+    }
+  };
 
-  // ✅ Giao diện thanh toán tiền mặt
-  if (paymentMethod === "cash") {
-    return (
-      <Box bg="#0f1117" minH="100vh" color="white" p={6}>
-        <Heading mb={6} textAlign="center">
-          Thanh toán bằng tiền mặt
-        </Heading>
+  return (
+    <Box bg="#0f1117" minH="100vh" color="white" p={6}>
+      <Heading mb={6} textAlign="center">
+        Chọn phương thức thanh toán
+      </Heading>
 
-        <VStack spacing={6} align="center">
-          <Box
-            borderRadius="lg"
-            overflow="hidden"
-            boxShadow="0 0 20px rgba(255, 255, 255, 0.1)"
-          >
-            <img
-              src="/mnt/data/beb1e4ca-49ec-4ce1-8857-39635a94f3d9.png"
-              alt="Vé xem phim"
-              style={{
-                width: "280px",
-                borderRadius: "12px",
-                objectFit: "cover",
-              }}
-            />
-          </Box>
+      <Flex justify="center" align="center" gap={8} wrap="wrap">
+        <Box
+          bg="#1a1b23"
+          borderRadius="lg"
+          p={8}
+          minW="250px"
+          textAlign="center"
+          cursor="pointer"
+          _hover={{ bg: "#23242a" }}
+          onClick={handleCashPayment}
+        >
+          <Heading size="md" mb={2}>
+            💵 Tiền mặt
+          </Heading>
+          <Text>Thanh toán trực tiếp tại quầy</Text>
+        </Box>
 
-          <Text fontSize="lg" fontWeight="bold">
-            Tổng cộng: {total.toLocaleString("vi-VN")}đ
-          </Text>
+        <Box
+          bg="#1a1b23"
+          borderRadius="lg"
+          p={8}
+          minW="250px"
+          textAlign="center"
+          cursor="pointer"
+          _hover={{ bg: "#23242a" }}
+          onClick={handlePayOSPayment}
+        >
+          <Heading size="md" mb={2}>
+            💳 PayOS
+          </Heading>
+          <Text>Thanh toán qua PayOS (QR Code, Ngân hàng...)</Text>
+        </Box>
+      </Flex>
 
-          <Button
-            bgGradient="linear(to-r, teal.400, green.400)"
-            _hover={{ bgGradient: "linear(to-r, teal.500, green.500)" }}
-            color="white"
-            px={8}
-            py={6}
-            fontWeight="bold"
-            borderRadius="full"
-            onClick={handleCashPayment}
-          >
-            Xác nhận thanh toán & In vé
-          </Button>
+      <Divider my={8} borderColor="#23242a" />
 
-          <Button
-            variant="outline"
-            colorScheme="gray"
-            borderColor="gray.500"
-            color="gray.300"
-            _hover={{ bg: "gray.700" }}
-            onClick={() => setPaymentMethod(null)}
-          >
-            Quay lại chọn phương thức
-          </Button>
-        </VStack>
-      </Box>
-    );
-  }
-
-  // ✅ Giao diện thanh toán QR
-  if (paymentMethod === "qr") {
-    return (
-      <Box bg="#0f1117" minH="100vh" color="white" p={6}>
-        <Heading mb={6} textAlign="center">
-          Thanh toán bằng QR Code
-        </Heading>
-
-        <VStack spacing={6} align="center">
-          <Box
-            borderRadius="lg"
-            overflow="hidden"
-            boxShadow="0 0 20px rgba(255, 255, 255, 0.1)"
-          >
-            <img
-              src="/mnt/data/beb1e4ca-49ec-4ce1-8857-39635a94f3d9.png"
-              alt="Vé xem phim"
-              style={{
-                width: "280px",
-                borderRadius: "12px",
-                objectFit: "cover",
-              }}
-            />
-          </Box>
-
-          <Box bg="white" p={4} borderRadius="lg" display="inline-block">
-            <QRCodeCanvas value={qrData} size={220} />
-          </Box>
-
-          <Text mt={2} fontSize="sm" color="gray.300">
-            Quét mã QR để thanh toán
-          </Text>
-
-          <Button
-            bgGradient="linear(to-r, pink.400, purple.400)"
-            _hover={{ bgGradient: "linear(to-r, pink.500, purple.500)" }}
-            color="white"
-            px={8}
-            py={6}
-            fontWeight="bold"
-            borderRadius="full"
-            onClick={handleQrPayment}
-          >
-            Xác nhận & In vé
-          </Button>
-
-          <Button
-            variant="outline"
-            colorScheme="gray"
-            borderColor="gray.500"
-            color="gray.300"
-            _hover={{ bg: "gray.700" }}
-            onClick={() => setPaymentMethod(null)}
-          >
-            Quay lại chọn phương thức
-          </Button>
-        </VStack>
-      </Box>
-    );
-  }
-
-  return null;
+      <Button colorScheme="pink" onClick={() => navigate(-1)}>
+        Quay lại
+      </Button>
+    </Box>
+  );
 }
