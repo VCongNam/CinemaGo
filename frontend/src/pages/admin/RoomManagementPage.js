@@ -53,11 +53,14 @@ const RoomsManagement = () => {
   const { isOpen: isDetailOpen, onOpen: onDetailOpen, onClose: onDetailClose } = useDisclosure();
   const { isOpen: isStatusOpen, onOpen: onStatusOpen, onClose: onStatusClose } = useDisclosure();
 
-const [formData, setFormData] = useState({
-  theater_id: "",
-  name: "",
-  status: "active"
-});
+  const [formData, setFormData] = useState({
+    theater_id: "",
+    name: "",
+    status: "active"
+  });
+
+  // Helper function to get ID from object (handles both _id and id)
+  const getId = (obj) => obj?.id || obj?._id || "";
 
   useEffect(() => {
     fetchTheaters();
@@ -91,7 +94,6 @@ const [formData, setFormData] = useState({
       }
 
       const data = await response.json();
-      // nhiều backend trả { list: [...] } hoặc trực tiếp mảng hoặc { data: { list: [...] } }
       const list = data?.list || data?.data?.list || (Array.isArray(data) ? data : []);
       setTheaters(list);
     } catch (err) {
@@ -116,7 +118,6 @@ const [formData, setFormData] = useState({
         payload.theater_id = theaterId;
       }
 
-      // IMPORTANT: backend collection endpoint uses /api/rooms/list (match API design used for theaters)
       const response = await fetch("http://localhost:5000/api/rooms/list", {
         method: "POST",
         headers: {
@@ -132,7 +133,6 @@ const [formData, setFormData] = useState({
       }
 
       const data = await response.json();
-      // Hỗ trợ nhiều shape của response
       const list = data?.list || data?.data?.list || (Array.isArray(data) ? data : []);
       setRooms(list);
     } catch (err) {
@@ -179,120 +179,156 @@ const [formData, setFormData] = useState({
     onStatusOpen();
   };
 
-const getId = (obj) => obj?._id || obj?.id || "";
+  const handleUpdateStatus = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const roomId = getId(selectedRoom);
+      if (!roomId) throw new Error("Room ID không hợp lệ");
 
-const handleUpdateStatus = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    const roomId = getId(selectedRoom);
-    if (!roomId) throw new Error("Room ID không hợp lệ");
+      const newStatus = selectedRoom.status === "active" ? "inactive" : "active";
 
-    const newStatus = selectedRoom.status === "active" ? "inactive" : "active";
+      const response = await fetch(`http://localhost:5000/api/rooms/${roomId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
 
-    const response = await fetch(`http://localhost:5000/api/rooms/${roomId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
-      body: JSON.stringify({ status: newStatus }),
-    });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || `Lỗi ${response.status}: Không thể cập nhật trạng thái`);
+      }
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.message || `Lỗi ${response.status}: Không thể cập nhật trạng thái`);
+      const resData = await response.json().catch(() => ({}));
+      if (resData.success === false) throw new Error(resData.message || "Không thể cập nhật trạng thái");
+
+      toast({
+        title: "Thành công",
+        description: `Đã ${newStatus === "active" ? "kích hoạt" : "vô hiệu hóa"} phòng`,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+
+      const theaterIdFromUrl = searchParams.get("theater");
+      fetchRooms(theaterIdFromUrl);
+      onStatusClose();
+    } catch (err) {
+      toast({
+        title: "Lỗi",
+        description: err.message || "Đổi trạng thái thất bại",
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      });
     }
+  };
 
-    const resData = await response.json().catch(() => ({}));
-    if (resData.success === false) throw new Error(resData.message || "Không thể cập nhật trạng thái");
+  const handleSubmit = async () => {
+    try {
+      const token = localStorage.getItem("token");
 
-    toast({
-      title: "Thành công",
-      description: `Đã ${newStatus === "active" ? "kích hoạt" : "vô hiệu hóa"} phòng`,
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    });
+      // Validation
+      if (!formData.name?.trim()) {
+        throw new Error("Vui lòng nhập tên phòng");
+      }
+      
+      if (!selectedRoom && !formData.theater_id) {
+        throw new Error("Vui lòng chọn rạp");
+      }
 
-    const theaterIdFromUrl = searchParams.get("theater");
-    fetchRooms(theaterIdFromUrl);
-    onStatusClose();
-  } catch (err) {
-    toast({
-      title: "Lỗi",
-      description: err.message || "Đổi trạng thái thất bại",
-      status: "error",
-      duration: 4000,
-      isClosable: true,
-    });
-  }
-};
+      let response;
+      
+      if (selectedRoom) {
+        // Edit room - PUT request
+        const roomId = getId(selectedRoom);
+        if (!roomId) throw new Error("Room ID không hợp lệ");
 
-const handleSubmit = async () => {
-  try {
-    const token = localStorage.getItem("token");
+        const payload = {
+          name: formData.name.trim()
+        };
+        
+        console.log("PUT payload:", payload);
 
-    // Validation
-    if (!formData.name?.trim()) {
-      throw new Error("Vui lòng nhập tên phòng");
+        response = await fetch(`http://localhost:5000/api/rooms/${roomId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        // Add new room - POST request
+        const theaterId = formData.theater_id?.trim();
+        
+        if (!theaterId) {
+          throw new Error("Vui lòng chọn rạp");
+        }
+
+        // Verify theater exists - check both id and _id
+        const theaterExists = theaters.find(t => getId(t) === theaterId);
+        if (!theaterExists) {
+          throw new Error("Rạp được chọn không hợp lệ");
+        }
+
+        const payload = {
+          theater_id: theaterId,
+          name: formData.name.trim(),
+        };
+        
+        console.log("=== CREATE ROOM DEBUG ===");
+        console.log("POST payload:", payload);
+        console.log("Theater ID:", theaterId);
+        console.log("Theater exists:", theaterExists);
+        console.log("Payload stringified:", JSON.stringify(payload));
+        console.log("========================");
+
+        response = await fetch("http://localhost:5000/api/rooms", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      const responseData = await response.json().catch(() => ({}));
+      console.log("Response:", responseData);
+
+      if (!response.ok) {
+        throw new Error(responseData.message || `Không thể ${selectedRoom ? 'cập nhật' : 'tạo'} phòng`);
+      }
+
+      toast({
+        title: "Thành công",
+        description: selectedRoom ? "Đã cập nhật phòng" : "Đã tạo phòng mới",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+
+      onClose();
+      
+      // Keep filter when reload
+      const theaterIdFromUrl = searchParams.get("theater");
+      fetchRooms(theaterIdFromUrl);
+      
+    } catch (err) {
+      console.error("Submit room error:", err);
+      toast({
+        title: "Lỗi",
+        description: err.message || `${selectedRoom ? 'Cập nhật' : 'Tạo'} phòng thất bại`,
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      });
     }
-    if (!formData.theater_id) {
-      throw new Error("Vui lòng chọn rạp");
-    }
+  };
 
-    // Prepare payload with theater_id
-    const payload = {
-      name: formData.name.trim(),
-      theater_id: formData.theater_id, // Send ID instead of name
-      status: "active"
-    };
-
-    console.log("Payload:", payload); // Debug payload
-
-    const response = await fetch("http://localhost:5000/api/rooms", {
-      method: "POST", 
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.message || `Lỗi ${response.status}: Không thể tạo phòng`);
-    }
-
-    const resData = await response.json();
-    console.log("Create room response:", resData);
-
-    if (resData?.success === false) {
-      throw new Error(resData.message || "Không thể tạo phòng"); 
-    }
-
-    toast({
-      title: "Thành công",
-      description: "Đã thêm phòng mới",
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    });
-
-    const theaterIdFromUrl = searchParams.get("theater");
-    fetchRooms(theaterIdFromUrl);
-    onClose();
-
-  } catch (err) {
-    console.error("Create room error:", err);
-    toast({
-      title: "Lỗi", 
-      description: err.message || "Tạo phòng thất bại",
-      status: "error",
-      duration: 4000,
-      isClosable: true,
-    });
-  }
-};
   const filterAndSortRooms = () => {
     let filtered = [...rooms];
 
@@ -339,7 +375,7 @@ const handleSubmit = async () => {
     setCurrentPage(1);
   }, [searchName, theaterFilter, statusFilter, sortBy]);
 
-  const selectedTheaterInfo = theaters.find(t => t._id === theaterFilter);
+  const selectedTheaterInfo = theaters.find(t => getId(t) === theaterFilter);
 
   return (
     <Flex minH="100vh" bg="#181a20" color="white">
@@ -389,11 +425,14 @@ const handleSubmit = async () => {
             border="1px solid #23242a"
           >
             <option value="all" style={{ background: "#181a20", color: "#fff" }}>Tất cả rạp</option>
-            {theaters.map((theater) => (
-              <option key={theater._id} value={theater._id} style={{ background: "#181a20", color: "#fff" }}>
-                {theater.name} - {theater.location}
-              </option>
-            ))}
+            {theaters.map((theater) => {
+              const theaterId = getId(theater);
+              return (
+                <option key={theaterId} value={theaterId} style={{ background: "#181a20", color: "#fff" }}>
+                  {theater.name} - {theater.location}
+                </option>
+              );
+            })}
           </Select>
           <Select
             value={statusFilter}
@@ -415,8 +454,6 @@ const handleSubmit = async () => {
             color="#fff"
             border="1px solid #23242a"
           >
-            <option value="newest" style={{ background: "#181a20", color: "#fff" }}>Mới nhất</option>
-            <option value="oldest" style={{ background: "#181a20", color: "#fff" }}>Cũ nhất</option>
             <option value="name_asc" style={{ background: "#181a20", color: "#fff" }}>Tên A-Z</option>
             <option value="name_desc" style={{ background: "#181a20", color: "#fff" }}>Tên Z-A</option>
           </Select>
@@ -468,7 +505,7 @@ const handleSubmit = async () => {
                 </Thead>
                 <Tbody>
                   {paginatedRooms.map((room) => (
-                    <Tr key={room._id} _hover={{ bg: "#252a38" }}>
+                    <Tr key={getId(room)} _hover={{ bg: "#252a38" }}>
                       <Td>
                         <Text fontWeight="bold">{room.name || "N/A"}</Text>
                       </Td>
@@ -574,45 +611,47 @@ const handleSubmit = async () => {
             <ModalBody pb={6}>
               <VStack spacing={4}>
                 {!selectedRoom && (
-          <FormControl isRequired>
-            <FormLabel>Rạp chiếu</FormLabel>
-            <Select
-              placeholder="Chọn rạp"
-              value={formData.theater_id} // Vẫn dùng theater_id làm value
-              onChange={(e) => {
-                // Chỉ cần lưu ID
-                setFormData({ 
-                  ...formData,
-                  theater_id: e.target.value // Lưu ID của rạp được chọn
-                });
-              }}
-              bg="gray.800"
-              isRequired
-            >
-              {theaters
-                .filter(t => t.status === "active") // Chỉ hiện rạp đang hoạt động
-                .map((theater) => (
-                  <option 
-                    key={theater._id} 
-                    value={theater._id} // Value là ID
-                    style={{ background: "#181a20", color: "#fff" }}
-                  >
-                    {theater.name} - {theater.location} {/* Hiển thị tên và địa điểm */}
-                  </option>
-                ))}
-            </Select>
-          </FormControl>
-        )}
+                  <FormControl isRequired>
+                    <FormLabel>Rạp chiếu</FormLabel>
+                    <Select
+                      placeholder="Chọn rạp"
+                      value={formData.theater_id}
+                      onChange={(e) => {
+                        setFormData({ 
+                          ...formData,
+                          theater_id: e.target.value
+                        });
+                      }}
+                      bg="gray.800"
+                      isRequired
+                    >
+                      {theaters
+                        .filter(t => t.status === "active")
+                        .map((theater) => {
+                          const theaterId = getId(theater);
+                          return (
+                            <option 
+                              key={theaterId}
+                              value={theaterId}
+                              style={{ background: "#181a20", color: "#fff" }}
+                            >
+                              {theater.name} - {theater.location}
+                            </option>
+                          );
+                        })}
+                    </Select>
+                  </FormControl>
+                )}
 
-        <FormControl isRequired>
-          <FormLabel>Tên phòng</FormLabel>
-          <Input
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            bg="gray.800"
-            placeholder="Nhập tên phòng..."
-          />
-        </FormControl>
+                <FormControl isRequired>
+                  <FormLabel>Tên phòng</FormLabel>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    bg="gray.800"
+                    placeholder="Nhập tên phòng..."
+                  />
+                </FormControl>
                 <Flex gap={3} w="100%" justify="flex-end" pt={4}>
                   <Button onClick={onClose} bg="gray.700">Hủy</Button>
                   <Button
