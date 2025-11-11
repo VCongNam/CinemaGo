@@ -32,7 +32,6 @@ import {
   Divider,
 } from "@chakra-ui/react";
 import { ViewIcon, EditIcon, AddIcon } from "@chakra-ui/icons";
-import { MdMeetingRoom } from "react-icons/md";
 import Sidebar from "../Navbar/SidebarAdmin";
 import { useNavigate } from "react-router-dom";
 
@@ -118,30 +117,53 @@ const handleSubmit = async () => {
       throw new Error("Tên rạp không được để trống");
     }
 
+    if (!selectedTheater && !formData.location.trim()) {
+      throw new Error("Địa điểm không được để trống");
+    }
+
     const token = localStorage.getItem("token");
-    const url = selectedTheater
-      ? `http://localhost:5000/api/theaters/${selectedTheater._id}`
-      : "http://localhost:5000/api/theaters";
+    
+    if (selectedTheater) {
+      // PUT request - chỉ cập nhật name
+      const theaterId = selectedTheater.id || selectedTheater._id;
+      const response = await fetch(
+        `http://localhost:5000/api/theaters/${theaterId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: formData.name.trim()
+          }),
+        }
+      );
 
-    const method = selectedTheater ? "PUT" : "POST";
-    const payload = {
-      name: formData.name.trim(),
-      ...(method === "POST" && { location: formData.location.trim() })
-    };
+      const data = await response.json();
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    });
+      if (!response.ok) {
+        throw new Error(data.message || "Không thể cập nhật rạp");
+      }
+    } else {
+      // POST request - tạo mới với name và location
+      const response = await fetch("http://localhost:5000/api/theaters", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          location: formData.location.trim()
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.message || "Không thể lưu thông tin rạp");
+      if (!response.ok) {
+        throw new Error(data.message || "Không thể thêm rạp mới");
+      }
     }
 
     toast({

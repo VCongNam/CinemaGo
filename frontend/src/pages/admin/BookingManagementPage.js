@@ -92,16 +92,58 @@ const BookingManagementPage = () => {
         
         if (!isMounted) return;
         
-        const bookingsList = bookingsData.bookings || [];
         
-        // Sort by order_code descending (newest first)
+        const bookingsList = bookingsData.bookings || [];
+
+        const getBookingTimestamp = (b) => {
+          if (!b) return 0;
+          // common fields
+          const cand = b.createdAt || b.created_at || b.createdAt?.$date || b.created_at?.$date || b.createdAt?.$numberLong || b.created_at?.$numberLong;
+          if (cand) {
+            // if it's an ISO string
+            if (typeof cand === "string") {
+              const p = Date.parse(cand);
+              if (!Number.isNaN(p)) return p;
+            }
+            // if it's numeric string or number (milliseconds or seconds)
+            const num = Number(cand);
+            if (!Number.isNaN(num)) {
+              // heuristics: 13 digits -> ms, 10 digits -> s
+              const s = String(Math.abs(num));
+              if (s.length === 13) return num;
+              if (s.length === 10) return num * 1000;
+              // otherwise try Date.parse fallback
+              const p2 = Date.parse(String(cand));
+              if (!Number.isNaN(p2)) return p2;
+            }
+          }
+          // fallback: try Date.parse on top-level fields
+          if (b.createdAt) {
+            const p = Date.parse(String(b.createdAt));
+            if (!Number.isNaN(p)) return p;
+          }
+          if (b.created_at) {
+            const p = Date.parse(String(b.created_at));
+            if (!Number.isNaN(p)) return p;
+          }
+          // final fallback: extract timestamp from Mongo ObjectId
+          if (b._id) {
+            try {
+              const ts = parseInt(String(b._id).substring(0, 8), 16) * 1000;
+              return ts;
+            } catch (e) {
+              return 0;
+            }
+          }
+          return 0;
+        };
+
         const sortedBookings = bookingsList.sort((a, b) => {
-          const codeA = String(a.order_code || a._id || "");
-          const codeB = String(b.order_code || b._id || "");
-          return codeB.localeCompare(codeA);
+          return getBookingTimestamp(b) - getBookingTimestamp(a); // newest first
         });
         
         setBookings(sortedBookings);
+        
         
         // Extract unique rooms for filter (loại bỏ trùng lặp)
         const roomMap = new Map();
@@ -252,7 +294,6 @@ const BookingManagementPage = () => {
                 <Th color="orange.300">Poster</Th>
                 <Th color="orange.300">Tên phim</Th>
                 <Th color="orange.300">Phòng</Th>
-                <Th color="orange.300">Số ghế</Th>
                 <Th color="orange.300">Tổng tiền</Th>
                 <Th color="orange.300">Phương thức</Th>
                 <Th color="orange.300">Trạng thái</Th>
@@ -303,11 +344,6 @@ const BookingManagementPage = () => {
                       </Text>
                     </Td>
                     <Td fontSize="sm">{booking.showtime_id?.room_id?.name || "N/A"}</Td>
-                    <Td fontSize="sm">
-                      <Badge colorScheme="purple" fontSize="xs" px={2} py={1}>
-                        {seatCount} GHẾ
-                      </Badge>
-                    </Td>
                     <Td fontWeight="bold" color="green.400" fontSize="sm">
                       {formatPrice(totalPrice)}
                     </Td>
