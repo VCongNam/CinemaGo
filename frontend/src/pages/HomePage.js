@@ -16,6 +16,7 @@ import {
   Divider,
   Spinner,
   Flex,
+  Link,
 } from "@chakra-ui/react"
 import { StarIcon, TimeIcon, CalendarIcon } from "@chakra-ui/icons"
 import { useEffect, useState } from "react"
@@ -35,6 +36,28 @@ const Homepage = () => {
   const [selectedShowtimes, setSelectedShowtimes] = useState([])
   const [allShowtimes, setAllShowtimes] = useState([])
   const navigate = useNavigate()
+
+  // Simple promotional data (static)
+  const promoBanners = [
+    {
+      id: "combo-popcorn",
+      img: "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=1600&auto=format&fit=crop",
+      title: "Combo Bắp Nước chỉ từ 49.000đ",
+      href: "/bookings/cart"
+    },
+    {
+      id: "midweek-sale",
+      img: "https://images.unsplash.com/photo-1517602302552-471fe67acf66?q=80&w=1600&auto=format&fit=crop",
+      title: "Thứ 4 Vui Vẻ - Vé chỉ 59.000đ",
+      href: "/bookings/cart"
+    },
+    {
+      id: "premium-seat",
+      img: "https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=1600&auto=format&fit=crop",
+      title: "Ghế VIP - Trải nghiệm cao cấp",
+      href: "/bookings/cart"
+    },
+  ]
 
   // Lấy danh sách phim
   useEffect(() => {
@@ -254,6 +277,33 @@ const Homepage = () => {
           </HStack>
         </Container>
       </Box>
+
+      {/* Promo strip */}
+      <Container maxW="1400px" mb={8}>
+        <Grid templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }} gap={6}>
+          {promoBanners.map((p) => (
+            <Card key={p.id} bg="gray.800" border="1px solid" borderColor="gray.700" _hover={{ borderColor: "orange.400" }}>
+              <CardBody p={0}>
+                <Box position="relative" cursor="pointer" onClick={() => navigate(p.href)}>
+                  <Image
+                    src={p.img}
+                    alt={p.title}
+                    width="100%"
+                    height="160px"
+                    objectFit="cover"
+                    borderTopLeftRadius="md"
+                    borderTopRightRadius="md"
+                  />
+                  <Box p={4}>
+                    <Heading size="sm" color="orange.400">{p.title}</Heading>
+                    <Text fontSize="sm" color="gray.300">Ưu đãi hấp dẫn cho thành viên mới</Text>
+                  </Box>
+                </Box>
+              </CardBody>
+            </Card>
+          ))}
+        </Grid>
+      </Container>
 
       <Container maxW="1400px" pb={10}>
         <Flex gap={6}>
