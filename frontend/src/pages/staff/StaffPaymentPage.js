@@ -74,6 +74,12 @@ export default function StaffPaymentPage() {
     ticketWindow.document.close();
   };
 
+  // 🔹 Get staff page based on role
+  const getStaffPage = () => {
+    const role = (localStorage.getItem("userRole") || "").toLowerCase();
+    return role === "lv2" ? "/staff/l2" : "/staff/l1";
+  };
+
   const returnUrl = `${window.location.origin}/staff/payos-return?status=success`;
   const cancelUrl = `${window.location.origin}/staff/payos-return?status=cancel`;
 
@@ -125,7 +131,7 @@ export default function StaffPaymentPage() {
         });
         setTimeout(() => {
           handlePrintTicket();
-          navigate(-1);
+          navigate(getStaffPage());
         }, 1000);
       })
       .catch((err) => {
@@ -184,6 +190,10 @@ export default function StaffPaymentPage() {
       }
       const bookingId = createData?.booking?._id || createData?.booking?.id;
       if (!bookingId) throw new Error("Không lấy được bookingId từ server");
+
+      // Store the original staff page for redirect after payment
+      const staffPage = getStaffPage();
+      sessionStorage.setItem("staffReturnPage", staffPage);
 
       // Step 2: ask backend for payment link
       const payRes = await fetch(
