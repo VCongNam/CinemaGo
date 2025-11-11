@@ -32,7 +32,6 @@ import {
   Divider,
 } from "@chakra-ui/react";
 import { ViewIcon, EditIcon, AddIcon } from "@chakra-ui/icons";
-import { MdMeetingRoom } from "react-icons/md";
 import Sidebar from "../Navbar/SidebarAdmin";
 import { useNavigate } from "react-router-dom";
 
@@ -45,16 +44,14 @@ const TheatersManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [selectedTheater, setSelectedTheater] = useState(null);
-  const [theaterRooms, setTheaterRooms] = useState([]);
-  const [loadingRooms, setLoadingRooms] = useState(false);
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const { isOpen: isDetailOpen, onOpen: onDetailOpen, onClose: onDetailClose } = useDisclosure();
 
   const [formData, setFormData] = useState({
-    name: "",
-    location: "",
-  });
+  name: "",
+  location: "",
+  status: "active" // Add default status
+});
 
   useEffect(() => {
     fetchTheaters();
@@ -105,120 +102,92 @@ const TheatersManagement = () => {
     onOpen();
   };
 
-  const handleEditTheater = async (theater) => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:5000/api/theaters/${theater._id}`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+  const handleEditTheater = (theater) => {
+  setSelectedTheater(theater);
+  setFormData({
+    name: theater.name || "",
+    location: theater.location || "",
+  });
+  onOpen();
+};
 
-      if (!response.ok) throw new Error("Không thể tải chi tiết rạp");
+const handleSubmit = async () => {
+  try {
+    if (!formData.name.trim()) {
+      throw new Error("Tên rạp không được để trống");
+    }
+
+    if (!selectedTheater && !formData.location.trim()) {
+      throw new Error("Địa điểm không được để trống");
+    }
+
+    const token = localStorage.getItem("token");
+    
+    if (selectedTheater) {
+      // PUT request - chỉ cập nhật name
+      const theaterId = selectedTheater.id || selectedTheater._id;
+      const response = await fetch(
+        `http://localhost:5000/api/theaters/${theaterId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: formData.name.trim()
+          }),
+        }
+      );
 
       const data = await response.json();
-      setSelectedTheater(data.data);
-      setFormData({
-        name: data.data.name || "",
-        location: "",
-      });
-      onOpen();
-    } catch (err) {
-      toast({
-        title: "Lỗi",
-        description: err.message,
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    }
-  };
 
-  const handleViewTheater = async (theater) => {
-    try {
-      setLoadingRooms(true);
-      const token = localStorage.getItem("token");
-      
-      const response = await fetch(`http://localhost:5000/api/theaters/${theater._id}`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      if (!response.ok) throw new Error("Không thể tải chi tiết rạp");
-
-      const data = await response.json();
-      setSelectedTheater(data.data);
-      setTheaterRooms(data.data.rooms || []);
-      onDetailOpen();
-    } catch (err) {
-      toast({
-        title: "Lỗi",
-        description: err.message,
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setLoadingRooms(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    try {
-      const token = localStorage.getItem("token");
-
-      const payload = selectedTheater
-        ? { name: formData.name.trim() } // Chỉ gửi name khi update
-        : {
-            name: formData.name.trim(),
-            location: formData.location.trim(),
-          };
-
-      const url = selectedTheater
-        ? `http://localhost:5000/api/theaters/${selectedTheater._id}`
-        : "http://localhost:5000/api/theaters";
-
-      const method = selectedTheater ? "PUT" : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.status !== 200 && response.status !== 201) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || "Không thể lưu rạp");
+      if (!response.ok) {
+        throw new Error(data.message || "Không thể cập nhật rạp");
       }
-
-      toast({
-        title: "Thành công",
-        description: selectedTheater
-          ? "Đã cập nhật rạp thành công"
-          : "Đã thêm rạp mới thành công",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
+    } else {
+      // POST request - tạo mới với name và location
+      const response = await fetch("http://localhost:5000/api/theaters", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          location: formData.location.trim()
+        }),
       });
 
-      fetchTheaters();
-      onClose();
-    } catch (err) {
-      toast({
-        title: "Lỗi",
-        description: err.message,
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Không thể thêm rạp mới");
+      }
     }
-  };
+
+    toast({
+      title: "Thành công",
+      description: selectedTheater
+        ? "Đã cập nhật rạp thành công"
+        : "Đã thêm rạp mới thành công",
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+
+    fetchTheaters();
+    onClose();
+  } catch (err) {
+    toast({
+      title: "Lỗi",
+      description: err.message,
+      status: "error", 
+      duration: 3000,
+      isClosable: true,
+    });
+  }
+};
 
   const filterAndSortTheaters = () => {
     let filtered = [...theaters];

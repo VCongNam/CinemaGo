@@ -125,7 +125,7 @@ export default function StaffPaymentPage() {
         });
         setTimeout(() => {
           handlePrintTicket();
-          navigate("/staff/l1");
+          navigate(-1);
         }, 1000);
       })
       .catch((err) => {
