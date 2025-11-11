@@ -284,7 +284,7 @@ const Homepage = () => {
           {promoBanners.map((p) => (
             <Card key={p.id} bg="gray.800" border="1px solid" borderColor="gray.700" _hover={{ borderColor: "orange.400" }}>
               <CardBody p={0}>
-                <Box position="relative" cursor="pointer" onClick={() => navigate(p.href)}>
+                <Box position="relative">
                   <Image
                     src={p.img}
                     alt={p.title}
