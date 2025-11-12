@@ -70,10 +70,45 @@ export default function SeatSelection() {
       apiService.getPublic(`/api/public/rooms/${roomId}/seats`, {}, (seatRes, ok) => {
         if (!isMounted) return;
         if (ok) {
-          const seatsWithId = (seatRes?.list || []).map(s => ({ 
-            ...s, 
-            id: s._id || s.id 
-          }));
+          const normalizeMoney = (value) => {
+            if (value == null) return NaN;
+            if (typeof value === "number") return value;
+            if (typeof value === "string") {
+              const sanitized = value.replace(/[^0-9.-]/g, "");
+              const num = Number(sanitized);
+              return Number.isFinite(num) ? num : NaN;
+            }
+            if (typeof value === "object") {
+              if (Object.prototype.hasOwnProperty.call(value, "$numberDecimal")) {
+                const num = Number(value.$numberDecimal);
+                return Number.isFinite(num) ? num : NaN;
+              }
+              if (typeof value.toString === "function") {
+                const num = Number(value.toString());
+                return Number.isFinite(num) ? num : NaN;
+              }
+            }
+            return NaN;
+          };
+
+          const seatsWithId = (seatRes?.list || []).map((s) => {
+            const normalizedBase = normalizeMoney(s.base_price);
+            const normalizedPrice = normalizeMoney(s.price);
+            const effectivePrice =
+              Number.isFinite(normalizedBase) && normalizedBase > 0
+                ? normalizedBase
+                : Number.isFinite(normalizedPrice) && normalizedPrice > 0
+                  ? normalizedPrice
+                  : NaN;
+
+            return {
+              ...s,
+              id: s._id || s.id,
+              base_price: Number.isFinite(normalizedBase) ? normalizedBase : undefined,
+              price: Number.isFinite(effectivePrice) ? effectivePrice : undefined,
+              _effectivePrice: Number.isFinite(effectivePrice) ? effectivePrice : undefined,
+            };
+          });
           setSeats(Array.isArray(seatsWithId) ? seatsWithId : []);
         } else {
           setError(seatRes?.message || "Không thể tải danh sách ghế");
@@ -124,11 +159,35 @@ export default function SeatSelection() {
     return map;
   }, [seats]);
 
+  const deriveSeatPrice = (seat) => {
+    const direct = typeof seat?._effectivePrice === "number" ? seat._effectivePrice : undefined;
+    if (Number.isFinite(direct) && direct > 0) {
+      return direct;
+    }
+
+    const base = typeof seat?.base_price === "number" ? seat.base_price : undefined;
+    if (Number.isFinite(base) && base > 0) {
+      return base;
+    }
+
+    const explicit = typeof seat?.price === "number" ? seat.price : undefined;
+    if (Number.isFinite(explicit) && explicit > 0) {
+      return explicit;
+    }
+
+    let fallback = Number(showtime?.price) || 0;
+    if (!Number.isFinite(fallback) || fallback <= 0) {
+      fallback = 50000;
+    }
+    if (seat?.type === "vip") fallback = Math.round(fallback * 1.5);
+    if (seat?.type === "couple") fallback = Math.round(fallback * 3);
+    return fallback;
+  };
+
   const total = useMemo(() => {
-    return selectedSeats.reduce((sum, s) => {
-      let price = showtime?.price || 50000;
-      if (s.type === "vip") price *= 1.5;
-      return sum + price;
+    return selectedSeats.reduce((sum, seat) => {
+      const price = deriveSeatPrice(seat);
+      return sum + (Number.isFinite(price) ? price : 0);
     }, 0);
   }, [selectedSeats, showtime]);
 

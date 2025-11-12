@@ -68,20 +68,52 @@ export default function MovieSeatBookingPage() {
         if (!Array.isArray(seatData)) {
           throw new Error("Dữ liệu ghế không hợp lệ");
         }
-        // normalize id field
+        // normalize id field and prices
         const seatsWithId = seatData.map((s) => {
+          // Normalize base_price
           let normalizedBasePrice = s.base_price;
-          if (normalizedBasePrice && typeof normalizedBasePrice === "object") {
-            if (Object.prototype.hasOwnProperty.call(normalizedBasePrice, "$numberDecimal")) {
-              normalizedBasePrice = Number(normalizedBasePrice.$numberDecimal);
-            } else if (typeof normalizedBasePrice.toString === "function") {
-              normalizedBasePrice = Number(normalizedBasePrice.toString());
+          if (normalizedBasePrice != null) {
+            if (typeof normalizedBasePrice === "number") {
+              // Already a number
+            } else if (typeof normalizedBasePrice === "object") {
+              if (Object.prototype.hasOwnProperty.call(normalizedBasePrice, "$numberDecimal")) {
+                normalizedBasePrice = Number(normalizedBasePrice.$numberDecimal);
+              } else if (typeof normalizedBasePrice.toString === "function") {
+                normalizedBasePrice = Number(normalizedBasePrice.toString());
+              }
+            } else if (typeof normalizedBasePrice === "string") {
+              normalizedBasePrice = Number(normalizedBasePrice);
             }
           }
+          
+          // Normalize price (API might return price field instead of base_price)
+          let normalizedPrice = s.price;
+          if (normalizedPrice != null) {
+            if (typeof normalizedPrice === "number") {
+              // Already a number
+            } else if (typeof normalizedPrice === "object") {
+              if (Object.prototype.hasOwnProperty.call(normalizedPrice, "$numberDecimal")) {
+                normalizedPrice = Number(normalizedPrice.$numberDecimal);
+              } else if (typeof normalizedPrice.toString === "function") {
+                normalizedPrice = Number(normalizedPrice.toString());
+              }
+            } else if (typeof normalizedPrice === "string") {
+              normalizedPrice = Number(normalizedPrice);
+            }
+          }
+          
+          // Use price if base_price is not available or invalid
+          const finalPrice = (Number.isFinite(normalizedBasePrice) && normalizedBasePrice > 0) 
+            ? normalizedBasePrice 
+            : (Number.isFinite(normalizedPrice) && normalizedPrice > 0) 
+              ? normalizedPrice 
+              : null;
+          
           return {
             ...s,
             id: s._id || s.id,
-            base_price: normalizedBasePrice,
+            base_price: finalPrice,
+            price: finalPrice,
           };
         });
         setSeats(seatsWithId);
