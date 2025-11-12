@@ -68,7 +68,9 @@ export const getPublicRoomSeats = async (req, res, next) => {
     }
 
     const seats = await Seat.find({ room_id: roomId, status: 'active' }).sort({ seat_number: 1 });
-    const list = seats.map(s => ({ id: s._id, seat_number: s.seat_number, type: s.type }));
+    const list = seats.map(s => ({
+      id: s._id, seat_number: s.seat_number, type: s.type, price: s.base_price
+    }));
 
     return res.status(200).json({
       message: 'Lấy danh sách ghế công khai thành công',
