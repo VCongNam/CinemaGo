@@ -11,6 +11,18 @@ const bookingSchema = new mongoose.Schema({
         ref: "Showtime",
         required: true
     },
+    combos: [{
+        combo_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Combo",
+            required: true
+        },
+        quantity: {
+            type: Number,
+            required: true,
+            min: 1
+        }
+    }],
     total_price: {
         type: mongoose.Schema.Types.Decimal128,
         required: true

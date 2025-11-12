@@ -2,6 +2,7 @@ import Booking from '../models/booking.js';
 import BookingSeat from '../models/bookingSeat.js';
 import Showtime from '../models/showtime.js';
 import Seat from '../models/seat.js';
+import Combo from '../models/combo.js';
 import User from '../models/user.js';
 import mongoose from 'mongoose';
 import { formatForAPI } from '../utils/timezone.js';
@@ -9,7 +10,7 @@ import { sendBookingConfirmationEmail } from '../utils/email.js';
 
 // Create a new booking
 export const createBooking = async (req, res) => {
-    const { showtime_id, seat_ids, payment_method } = req.body;
+    const { showtime_id, seat_ids, payment_method, combos } = req.body;
     const user_id = req.user._id?.toString();
 
     const session = await mongoose.startSession();
@@ -46,13 +47,27 @@ export const createBooking = async (req, res) => {
             totalPrice += Number.isFinite(priceNumber) ? priceNumber : 0;
         });
 
+        if (combos && combos.length > 0) {
+            for (const combo of combos) {
+                const comboDoc = await Combo.findById(combo.combo_id).session(session);
+                if (!comboDoc) {
+                    throw new Error(`Combo with id ${combo.combo_id} not found`);
+                }
+                const comboPrice = typeof comboDoc.price?.toString === 'function'
+                    ? parseFloat(comboDoc.price.toString())
+                    : Number(comboDoc.price);
+                totalPrice += (Number.isFinite(comboPrice) ? comboPrice : 0) * combo.quantity;
+            }
+        }
+
         const newBooking = new Booking({
             user_id,
             showtime_id,
             total_price: totalPrice,
             payment_method,
             status: 'pending',
-            payment_status: payment_method === 'cash' ? 'success' : 'pending'
+            payment_status: payment_method === 'cash' ? 'success' : 'pending',
+            combos: combos
         });
 
         const savedBooking = await newBooking.save({ session });
@@ -128,6 +143,9 @@ export const getMyBookings = async (req, res) => {
                     }
                 ]
             })
+            .populate({
+                path: 'combos.combo_id'
+            })
             .sort({ created_at: -1 });
 
         if (!bookings) {
@@ -159,7 +177,7 @@ export const getMyBookings = async (req, res) => {
 
 // Create a new offline booking
 export const createOfflineBooking = async (req, res) => {
-    const { showtime_id, seat_ids, payment_method } = req.body;
+    const { showtime_id, seat_ids, payment_method, combos } = req.body;
     const user_id = req.user._id?.toString();
 
     const session = await mongoose.startSession();
@@ -195,6 +213,19 @@ export const createOfflineBooking = async (req, res) => {
             totalPrice += Number.isFinite(priceNumber) ? priceNumber : 0;
         });
 
+        if (combos && combos.length > 0) {
+            for (const combo of combos) {
+                const comboDoc = await Combo.findById(combo.combo_id).session(session);
+                if (!comboDoc) {
+                    throw new Error(`Combo with id ${combo.combo_id} not found`);
+                }
+                const comboPrice = typeof comboDoc.price?.toString === 'function'
+                    ? parseFloat(comboDoc.price.toString())
+                    : Number(comboDoc.price);
+                totalPrice += (Number.isFinite(comboPrice) ? comboPrice : 0) * combo.quantity;
+            }
+        }
+
         const newBooking = new Booking({
             user_id,
             showtime_id,
@@ -203,6 +234,7 @@ export const createOfflineBooking = async (req, res) => {
             status: payment_method === 'cash' ? 'confirmed' : 'pending',
             payment_status: payment_method === 'cash' ? 'success' : 'pending',
             paid_amount: payment_method === 'cash' ? totalPrice : 0,
+            combos: combos
         });
 
         const savedBooking = await newBooking.save({ session });
@@ -240,7 +272,10 @@ export const getBookingDetails = async (req, res) => {
                     }
                 ]
             })
-            .populate('user_id', 'username email');
+            .populate('user_id', 'username email')
+            .populate({
+                path: 'combos.combo_id'
+            });
 
         if (!booking) {
             return res.status(404).json({ message: "Không tìm thấy đặt vé" });
@@ -333,6 +368,9 @@ export const getAllBookings = async (req, res) => {
                 path: 'showtime_id',
                 populate: { path: 'movie_id room_id' }
             })
+            .populate({
+                path: 'combos.combo_id'
+            })
             .sort({ created_at: -1 });
 
         res.status(200).json({ bookings });
@@ -411,6 +449,9 @@ export const getBookingsByUserId = async (req, res) => {
                 ]
             })
             .populate('user_id', 'username email')
+            .populate({
+                path: 'combos.combo_id'
+            })
             .sort({ created_at: -1 });
 
         if (!bookings || bookings.length === 0) {

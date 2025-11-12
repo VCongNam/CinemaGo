@@ -15,6 +15,7 @@ import {
 import bookingRoutes from './booking.routes.js';
 import auditLogRoutes from './auditLog.routes.js';
 import reviewRoutes from './review.routes.js'; // Import review routes
+import comboRoutes from './combo.routes.js';
 
 const router = Router();
 
@@ -23,6 +24,9 @@ router.use('/bookings', bookingRoutes);
 
 // Review routes
 router.use('/reviews', reviewRoutes);
+
+// Combo routes
+router.use('/combos', comboRoutes);
 
 // Audit Log routes (Admin only)
 router.use('/audit-logs', auditLogRoutes);
