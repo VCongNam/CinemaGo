@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Heading, Text, VStack, Spinner, useToast, HStack } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Heading,
+  Text,
+  VStack,
+  Spinner,
+  useToast,
+  HStack,
+} from "@chakra-ui/react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 export default function StaffPaymentSuccessPage() {
@@ -25,6 +34,15 @@ export default function StaffPaymentSuccessPage() {
   useEffect(() => {
     const bookingId = searchParams.get("bookingId");
     const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+    if (!bookingId || !token) {
+      toast({
+        title: "Không hợp lệ",
+        description: "Không tìm thấy thông tin đặt vé. Vui lòng đăng nhập lại.",
+        status: "error",
+      });
+      navigate("/admin/login");
+      return;
+    }
     if (!bookingId || !token) {
       navigate("/admin/login");
       return;

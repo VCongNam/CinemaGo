@@ -40,19 +40,40 @@ class AuthService {
   }
 
   /**
-   * Xóa auth data
+   * Xóa auth data (bao gồm tất cả key liên quan đến user/staff/admin)
    */
   clearAuthData() {
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.userKey);
+    const keysToRemove = [
+      this.tokenKey,
+      this.userKey,
+      'token',
+      'accessToken',
+      'isStaff',
+      'userRole',
+      'role',
+      'staff',
+      'customerSearch',
+      'customerStatusFilter',
+    ];
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+    // Dọn sessionStorage cho các flow tạm thời (VD: staffReturnPage)
+    try { sessionStorage.clear(); } catch (_) {}
   }
 
   /**
-   * Logout
+   * Logout và chuyển hướng đến path được chỉ định
+   */
+  logoutTo(path = '/login') {
+    this.clearAuthData();
+    window.location.href = path;
+  }
+
+  /**
+   * Logout (mặc định về /login)
    */
   logout() {
-    this.clearAuthData();
-    window.location.href = '/login';
+    this.logoutTo('/login');
   }
 
   /**

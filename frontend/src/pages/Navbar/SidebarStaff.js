@@ -23,6 +23,7 @@ import {
   FaSignOutAlt,
 } from "react-icons/fa";
 import { useRef } from "react";
+import authService from "../../services/authService";
 
 export default function SidebarStaff() {
   const location = useLocation();
@@ -34,9 +35,7 @@ export default function SidebarStaff() {
   const hoverColor = "orange.500";
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    sessionStorage.clear();
+    authService.clearAuthData();
     onClose(); 
     setTimeout(() => {
       window.location.href = "/admin/login";

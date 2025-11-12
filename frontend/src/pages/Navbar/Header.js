@@ -67,7 +67,7 @@ const Header = ({ isAdmin = false }) => {
 
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
+    authService.clearAuthData()
     onClose()
     navigate(isAdmin ? "/admin/login" : "/login")
   }
