@@ -130,7 +130,7 @@ function App() {
             </Routes>
           </Box>
           {/* Hiển thị Footer cho tất cả các trang ngoại trừ trang staff */}
-          {!window.location.pathname.startsWith('/staff/') && <Footer />}
+          {!window.location.pathname.startsWith('/staff/' || '/admin/') && <Footer />}
         </Box>
       </Router>
     </ChakraProvider>

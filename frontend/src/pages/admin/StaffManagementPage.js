@@ -34,12 +34,13 @@ export default function StaffManagementPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
   const [form, setForm] = useState({
-    username: "",
-    password: "",
-    email: "",
-    fullName: "",
-    role: "LV1"
-  })
+  username: "",
+  password: "",
+  confirmPassword: "",
+  email: "",
+  fullName: "",
+  role: "LV1"
+})
   const [editingStaff, setEditingStaff] = useState(null)
   const [newRole, setNewRole] = useState("")
   const [creating, setCreating] = useState(false)

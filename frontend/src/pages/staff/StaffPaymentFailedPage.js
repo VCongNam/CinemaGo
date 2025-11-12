@@ -1,8 +1,6 @@
 import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
-import { useNavigate } from "react-router-dom";
 
 export default function StaffPaymentFailedPage() {
-  const navigate = useNavigate();
   return (
     <Box bg="#0f1117" minH="100vh" color="white" p={8}>
       <VStack spacing={4}>
