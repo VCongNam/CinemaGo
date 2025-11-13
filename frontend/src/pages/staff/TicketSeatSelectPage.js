@@ -194,7 +194,7 @@ export default function MovieSeatBookingPage() {
     `);
     ticketWindow.document.close();
     // Sau khi mở cửa sổ in, chuyển về trang staff để tiếp tục công việc
-    navigate('/staff/l1');
+    navigate(getStaffPage());
   };
 
   // 🔹 Format showtime date safely (avoid Invalid Date)
@@ -205,6 +205,12 @@ export default function MovieSeatBookingPage() {
   const showtimeDateText = startTimeSource
     ? new Date(startTimeSource).toLocaleDateString("vi-VN")
     : "";
+
+  // 🔹 Get staff page based on role
+  const getStaffPage = () => {
+    const role = (localStorage.getItem("userRole") || "").toLowerCase();
+    return role === "lv2" ? "/staff/l2" : "/staff/l1";
+  };
 
   // 🔹 Handle cash payment
   const handleCashPayment = () => {
@@ -247,7 +253,7 @@ export default function MovieSeatBookingPage() {
         toast({ title: "Thanh toán thành công", status: "success", duration: 1500 });
         setTimeout(() => {
           handlePrintTicket();
-          navigate("/staff/l1");
+          navigate(getStaffPage());
         }, 1000);
       })
       .catch((err) => {
@@ -296,6 +302,10 @@ export default function MovieSeatBookingPage() {
 
         const bookingId = createBookingData.booking?._id || createBookingData.booking?.id;
         if (!bookingId) throw new Error('Không lấy được bookingId từ server');
+
+        // Store the original staff page for redirect after payment
+        const staffPage = getStaffPage();
+        sessionStorage.setItem("staffReturnPage", staffPage);
 
         // Request backend to create a PayOS payment link for this booking
         const token = localStorage.getItem("token") || localStorage.getItem("accessToken");

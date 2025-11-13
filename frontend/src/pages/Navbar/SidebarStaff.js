@@ -48,6 +48,7 @@ export default function SidebarStaff() {
     { to: "/movies", label: "Quản lý phim", icon: FaFilm },
     { to: "/showtimes", label: "Quản lý xuất chiếu", icon: FaClock },
     { to: "/bookings", label: "Quản lý đặt vé", icon: FaTicketAlt },
+    { to :"/combos" , label: "Quản lý combo", icon: FaFilm},
   ];
 
   return (
@@ -108,7 +109,7 @@ export default function SidebarStaff() {
                   <Icon
                     as={link.icon}
                     boxSize={5}
-                    color={isActive ? "white" : "gray.300"}
+color={isActive ? "white" : "gray.300"}
                   />
                   <Text fontSize="sm">{link.label}</Text>
                 </Flex>

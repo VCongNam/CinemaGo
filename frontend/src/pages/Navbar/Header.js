@@ -78,13 +78,7 @@ const Header = ({ isAdmin = false }) => {
         Phim đang chiếu
       </Link>
       <Link href="#" color="white" _hover={{ color: "orange.400" }}>
-        Phim sắp chiếu
-      </Link>
-      <Link href="#" color="white" _hover={{ color: "orange.400" }}>
         Rạp chiếu
-      </Link>
-      <Link href="#" color="white" _hover={{ color: "orange.400" }}>
-        Khuyến mãi
       </Link>
     </>
   )

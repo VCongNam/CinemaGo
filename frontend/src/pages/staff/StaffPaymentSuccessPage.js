@@ -11,6 +11,17 @@ export default function StaffPaymentSuccessPage() {
   const navigate = useNavigate();
   const toast = useToast();
 
+  // 🔹 Get staff page based on role or sessionStorage
+  const getStaffPage = () => {
+    const storedPage = sessionStorage.getItem("staffReturnPage");
+    if (storedPage) {
+      sessionStorage.removeItem("staffReturnPage");
+      return storedPage;
+    }
+    const role = (localStorage.getItem("userRole") || "").toLowerCase();
+    return role === "lv2" ? "/staff/l2" : "/staff/l1";
+  };
+
   useEffect(() => {
     const bookingId = searchParams.get("bookingId");
     const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
@@ -113,7 +124,7 @@ export default function StaffPaymentSuccessPage() {
         <Heading color="green.300">Thanh toán thành công (Staff)</Heading>
         {loading ? <Spinner /> : <Text>{message}</Text>}
         <HStack spacing={4}>
-          <Button colorScheme="pink" onClick={() => window.location.replace("/staff/l1")}>
+          <Button colorScheme="pink" onClick={() => window.location.replace(getStaffPage())}>
             Quay lại trang quầy
           </Button>
           <Button onClick={handlePrintTicket} colorScheme="orange" variant="outline" isDisabled={!booking}>

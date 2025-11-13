@@ -8,6 +8,17 @@ export default function PayOSReturnHandler() {
   const navigate = useNavigate();
   const toast = useToast();
 
+  // 🔹 Get staff page based on role or sessionStorage
+  const getStaffPage = () => {
+    const storedPage = sessionStorage.getItem("staffReturnPage");
+    if (storedPage) {
+      sessionStorage.removeItem("staffReturnPage");
+      return storedPage;
+    }
+    const role = (localStorage.getItem("userRole") || "").toLowerCase();
+    return role === "lv2" ? "/staff/l2" : "/staff/l1";
+  };
+
   useEffect(() => {
     const handlePayment = async () => {
       try {
@@ -20,7 +31,7 @@ export default function PayOSReturnHandler() {
         // Kiểm tra điều kiện
         if (!bookingId) {
           toast({ title: 'Lỗi', description: 'Không tìm thấy mã đặt vé', status: 'error' });
-          navigate('/staff/l1');
+          navigate(getStaffPage());
           return;
         }
 
@@ -131,7 +142,7 @@ export default function PayOSReturnHandler() {
         }
 
         // Redirect về trang staff
-        navigate('/staff/l1');
+        navigate(getStaffPage());
 
       } catch (error) {
         console.error('Error:', error);
@@ -145,7 +156,7 @@ export default function PayOSReturnHandler() {
           status: 'error'
         });
 
-        navigate(isAuthError ? '/admin/login' : '/staff/l1');
+        navigate(isAuthError ? '/admin/login' : getStaffPage());
       }
     };
 

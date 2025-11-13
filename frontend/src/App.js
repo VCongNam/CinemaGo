@@ -13,6 +13,7 @@ import BookingDetailPage from "./pages/admin/BookingDetailPage"
 import MovieManagementPage from "./pages/admin/MovieManagementPage"
 import TheatersManagement from "./pages/admin/TheatersManagement"
 import RoomManagement from "./pages/admin/RoomManagementPage"
+import CombosManagement from "./pages/admin/CombosManagement"
 
 // Booking pages
 import CartPage from "./pages/bookings/CartCheckoutPage"
@@ -40,7 +41,6 @@ import ProfilePage from "./pages/ProfilePage"
 import ChangePasswordPage from "./pages/ChangePasswordPage"
 
 import Header from "./pages/Navbar/Header"
-import AdminHeader from "./pages/Navbar/AdminHeader"
 import Footer from "./pages/Navbar/Footer"
 import SocialAuthSuccess from './pages/SocialAuthSuccess';
 import AdminAndStaffLoginPage from "./pages/admin/AdminAndStaffLoginPage"
@@ -63,12 +63,10 @@ function App() {
     <ChakraProvider>
       <Router>
         <Box minHeight="100vh" display="flex" flexDirection="column">
-          {/* Hiển thị AdminHeader cho các route admin, Header cho các route thông thường, không hiển thị cho staff */}
-          {/^\/admin\/(dashboard|customers|reports|staffs|user)/.test(window.location.pathname) 
-            ? <AdminHeader /> 
-            : !window.location.pathname.startsWith('/staff/') 
-              ? <Header /> 
-              : null
+          {/* Chỉ hiển thị Header cho các route không phải staff và không phải admin */}
+          {(!window.location.pathname.startsWith('/staff/') && !/^\/admin\//.test(window.location.pathname))
+            ? <Header />
+            : null
           }
           <Box flex="1">
             <Routes>
@@ -113,6 +111,7 @@ function App() {
               <Route path="/bookings" element={<BookingManagementPage />} />
               <Route path="/bookings/:id" element={<BookingDetailPage />} />
               <Route path="/movies" element={<MovieManagementPage />} />
+              <Route path="/combos" element={<CombosManagement />} />
 
               {/* Movie detail */}
               <Route path="/movies/:id" element={<MovieDetail />} />
@@ -129,8 +128,8 @@ function App() {
 
             </Routes>
           </Box>
-          {/* Hiển thị Footer cho tất cả các trang ngoại trừ trang staff */}
-          {!window.location.pathname.startsWith('/staff/' || '/admin/') && <Footer />}
+          {/* Chỉ hiển thị Footer cho các route không phải staff và không phải admin */}
+          {(!window.location.pathname.startsWith('/staff/') && !/^\/admin\//.test(window.location.pathname)) && <Footer />}
         </Box>
       </Router>
     </ChakraProvider>

@@ -914,7 +914,7 @@ const RoomsManagement = () => {
             <ModalBody>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="gray.400">
-                  Click vào ghế để thay đổi loại: <Badge colorScheme="gray">Thường</Badge> → <Badge colorScheme="purple">VIP</Badge> → <Badge colorScheme="orange">Couple</Badge>
+                  Click vào ghế để thay đổi loại: <Badge colorScheme="gray">Thường</Badge> → <Badge colorScheme="purple">VIP</Badge>
                 </Text>
 
                 {/* Danh sách segments */}
@@ -966,7 +966,6 @@ const RoomsManagement = () => {
                         >
                           <option value="normal">Thường</option>
                           <option value="vip">VIP</option>
-                          <option value="couple">Couple</option>
                         </Select>
                       </FormControl>
                       <FormControl maxW="140px">
@@ -1029,26 +1028,33 @@ const RoomsManagement = () => {
                   ) : (
                     <VStack spacing={2} align="stretch">
                       {Object.keys(seatMatrix).sort().map(row => (
-                        <HStack key={row} spacing={2} justify="center">
+                        <HStack key={row} spacing={2} justify="center" align="center">
                           <Text w="30px" textAlign="center" fontWeight="bold" color="orange.400">
                             {row}
                           </Text>
                           {(seatMatrix[row] || []).map((cell, idx) => {
-                            const t = cell?.type || "normal";
-                            const colorScheme = t === "normal" ? "gray" : (t === "vip" ? "purple" : "orange");
-                            return (
-                              <Button
-                                key={`${row}-${idx}`}
-                                size="sm"
-                                onClick={() => toggleSeatType(row, idx)}
-                                colorScheme={colorScheme}
-                                _hover={{ transform: "scale(1.05)" }}
-                                minW="40px"
-                              >
-                                {idx + 1}
-                              </Button>
-                            );
-                          })}
+  const type = String(cell?.type || "normal").toLowerCase();
+  const bgColor = type === "vip" ? "purple.600" : "gray.700";
+  const borderColor = type === "vip" ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.06)";
+  return (
+    <Box
+      key={`${row}-${idx}`}
+      minW="40px"
+      minH="34px"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      bg={bgColor}
+      color="white"
+      borderRadius="6px"
+      border={`1px solid ${borderColor}`}
+      fontSize="sm"
+      userSelect="none"
+    >
+      {idx + 1}
+    </Box>
+  );
+})}
                         </HStack>
                       ))}
                     </VStack>
@@ -1064,10 +1070,6 @@ const RoomsManagement = () => {
                   <HStack>
                     <Box w="20px" h="20px" bg="purple.500" borderRadius="sm"></Box>
                     <Text fontSize="sm">VIP</Text>
-                  </HStack>
-                  <HStack>
-                    <Box w="20px" h="20px" bg="orange.500" borderRadius="sm"></Box>
-                    <Text fontSize="sm">Couple</Text>
                   </HStack>
                 </HStack>
               </VStack>
