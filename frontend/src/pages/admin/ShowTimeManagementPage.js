@@ -47,6 +47,7 @@ export default function ShowtimeManagementPage() {
   const [newShowtime, setNewShowtime] = useState({
     movie_id: "",
     room_id: "",
+    theater_id: "",
     date: "",
     time: "",
   })
@@ -59,6 +60,7 @@ export default function ShowtimeManagementPage() {
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const toast = useToast()
+  const [theaters, setTheaters] = useState([])
 
   // Lấy thông tin role từ localStorage
   let roleData = null
@@ -134,6 +136,22 @@ export default function ShowtimeManagementPage() {
       if (movieRes.ok) {
         const movieData = await movieRes.json()
         setMovies(movieData.data || [])
+      }
+
+      try {
+        const theaterRes = await fetch("http://localhost:5000/api/theaters", {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        })
+        if (theaterRes.ok) {
+          const theaterData = await theaterRes.json()
+          setTheaters(theaterData.data || theaterData.list || [])
+        }
+      } catch (err) {
+        // non-blocking: log and continue
+        console.warn("Failed to load theaters:", err)
       }
 
       // Fetch rooms
@@ -786,40 +804,66 @@ export default function ShowtimeManagementPage() {
                 )}
               </FormControl>
 
+              <FormControl>
+                <FormLabel>Rạp (dùng để lọc phòng)</FormLabel>
+                <Select
+                  placeholder="Chọn rạp để lọc phòng (không gửi lên API)"
+                  value={newShowtime.theater_id}
+                  onChange={(e) => setNewShowtime({ ...newShowtime, theater_id: e.target.value, room_id: "" })}
+                  bg="gray.800"
+                  borderColor="gray.600"
+                  _hover={{ borderColor: "orange.400" }}
+                  _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
+                >
+                  <option value="">Tất cả rạp</option>
+                  {theaters.map((t) => (
+                    <option key={t._id || t.id} value={t._id || t.id} style={{ background: "#1a202c", color: "white" }}>
+                      {t.name || t.title || (t._id || t.id)}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+
               <FormControl isRequired>
+
   <FormLabel>Phòng chiếu</FormLabel>
   <Select
-    placeholder="Chọn phòng"
-    value={newShowtime.room_id}
-    onChange={(e) => setNewShowtime({ ...newShowtime, room_id: e.target.value })}
-    bg="gray.800"
-    borderColor="gray.600"
-    _hover={{ borderColor: "orange.400" }}
-    _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
-  >
-    {rooms.length === 0 ? (
-      <option disabled style={{ background: "#1a202c", color: "gray" }}>
-        Đang tải phòng...
-      </option>
-    ) : (
-      rooms
-        .filter(r => r.status === "active") // Chỉ lọc phòng đang active
-        .map((r) => {
-          const roomId = r._id || r.id;
-          const roomName = r.name || `Phòng ${roomId}`;
-          
-          return (
-            <option 
-              key={roomId} 
-              value={roomId} 
-              style={{ background: "#1a202c", color: "white" }}
-            >
-              {roomName}
-            </option>
-          );
-        })
-    )}
-  </Select>
+                  placeholder="Chọn phòng"
+                  value={newShowtime.room_id}
+                  onChange={(e) => setNewShowtime({ ...newShowtime, room_id: e.target.value })}
+                  bg="gray.800"
+                  borderColor="gray.600"
+                  _hover={{ borderColor: "orange.400" }}
+                  _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
+                >
+                  {rooms.length === 0 ? (
+                    <option disabled style={{ background: "#1a202c", color: "gray" }}>
+                      Đang tải phòng...
+                    </option>
+                  ) : (
+                    rooms
+                      .filter(r => r.status === "active")
+                     .filter(r => {
+                       if (!newShowtime.theater_id) return true
+                      const roomTheaterId = r.theater_id || r.theater || r.cinema_id || r.theaterId || r.cinema || ""
+                       return String(roomTheaterId) === String(newShowtime.theater_id)
+                     })
+                      .map((r) => {
+                        const roomId = r._id || r.id;
+                        const roomName = r.name || `Phòng ${roomId}`;
+                        
+                        return (
+                          <option 
+                            key={roomId} 
+                            value={roomId} 
+                            style={{ background: "#1a202c", color: "white" }}
+                          >
+                            {roomName}
+                          </option>
+                        );
+                      })
+                  )}
+                </Select>
   {newShowtime.room_id && (
     <Text fontSize="xs" color="gray.400" mt={1}>
       ID đã chọn: {newShowtime.room_id}

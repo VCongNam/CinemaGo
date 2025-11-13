@@ -69,7 +69,21 @@ export default function MovieSeatBookingPage() {
           throw new Error("Dữ liệu ghế không hợp lệ");
         }
         // normalize id field
-        const seatsWithId = seatData.map((s) => ({ ...s, id: s._id || s.id }));
+        const seatsWithId = seatData.map((s) => {
+          let normalizedBasePrice = s.base_price;
+          if (normalizedBasePrice && typeof normalizedBasePrice === "object") {
+            if (Object.prototype.hasOwnProperty.call(normalizedBasePrice, "$numberDecimal")) {
+              normalizedBasePrice = Number(normalizedBasePrice.$numberDecimal);
+            } else if (typeof normalizedBasePrice.toString === "function") {
+              normalizedBasePrice = Number(normalizedBasePrice.toString());
+            }
+          }
+          return {
+            ...s,
+            id: s._id || s.id,
+            base_price: normalizedBasePrice,
+          };
+        });
         setSeats(seatsWithId);
         setRoom(showtime.room_id);
       })
@@ -137,14 +151,72 @@ export default function MovieSeatBookingPage() {
       });
     });
 
+  const parsePrice = (value) => {
+    if (value == null) return NaN;
+    if (typeof value === "number") return value;
+    const clean = (input) => {
+      const sanitized = String(input).replace(/[^0-9-]/g, "");
+      return Number(sanitized);
+    };
+
+    if (typeof value === "string") {
+      const num = clean(value);
+      return Number.isFinite(num) ? num : NaN;
+    }
+    if (typeof value === "object") {
+      if (Object.prototype.hasOwnProperty.call(value, "$numberDecimal")) {
+        const num = clean(value.$numberDecimal);
+        return Number.isFinite(num) ? num : NaN;
+      }
+      if (Object.prototype.hasOwnProperty.call(value, "toString")) {
+        const num = clean(value.toString());
+        return Number.isFinite(num) ? num : NaN;
+      }
+    }
+    return NaN;
+  };
+
+  const deriveSeatPrice = (seat) => {
+    const base = parsePrice(seat?.base_price);
+    if (Number.isFinite(base) && base > 0) {
+      return base;
+    }
+
+    const explicit = parsePrice(seat?.price);
+    if (Number.isFinite(explicit) && explicit > 0) {
+      return explicit;
+    }
+
+    let fallback = parsePrice(showtime?.price);
+    if (!Number.isFinite(fallback) || fallback <= 0) {
+      fallback = 50000;
+    }
+
+    if (seat?.type === "vip") fallback = Math.round(fallback * 1.5);
+    if (seat?.type === "couple") fallback = Math.round(fallback * 3);
+    return fallback;
+  };
+
   // 🔹 Compute totals
   const seatTotal = selectedSeats.reduce((sum, s) => {
-    // Prefer showtime price when available
-    let price = showtime?.price || 50000;
-    if (s.type === "vip") price = Math.round(price * 1.5);
-    if (s.type === "couple") price = Math.round(price * 3); // example multiplier
-    return sum + price;
+    const price = deriveSeatPrice(s);
+    return sum + (Number.isFinite(price) ? price : 0);
   }, 0);
+
+  useEffect(() => {
+    if (selectedSeats.length > 0) {
+      console.group("🔍 Seat pricing debug");
+      selectedSeats.forEach((seat) => {
+        console.log(seat.seat_number, {
+          base_price: seat?.base_price,
+          computedPrice: deriveSeatPrice(seat),
+          rawSeat: seat,
+        });
+      });
+      console.log("Seat total:", seatTotal);
+      console.groupEnd();
+    }
+  }, [selectedSeats, seatTotal]);
 
   const foodTotal = selectedFoods.reduce(
     (sum, f) => sum + f.price * f.quantity,

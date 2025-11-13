@@ -33,7 +33,8 @@ import {
   SimpleGrid,
 } from "@chakra-ui/react";
 import { ViewIcon, EditIcon, AddIcon, CheckIcon, CloseIcon } from "@chakra-ui/icons";
-import Sidebar from "../Navbar/SidebarAdmin";
+import SidebarAdmin from "../Navbar/SidebarAdmin";
+import SidebarStaff from "../Navbar/SidebarStaff";
 
 const CombosManagement = () => {
   const [combos, setCombos] = useState([]);
@@ -56,6 +57,28 @@ const CombosManagement = () => {
     price: "",
     image_url: "",
   });
+
+  // Lấy thông tin role từ localStorage
+  let roleData = null;
+  try {
+    roleData = JSON.parse(localStorage.getItem("role"));
+  } catch (e) {
+    const directRole = localStorage.getItem("role") || localStorage.getItem("userRole");
+    if (directRole) {
+      roleData = { role: directRole };
+    }
+  }
+  
+  const role = roleData?.role || "";
+  
+  // Xác định role và quyền hạn
+  let isAdmin = false;
+  
+  if (role.toLowerCase() === "admin") {
+    isAdmin = true;
+  } else if (role.toLowerCase() === "lv2") {
+    isAdmin = false;
+  }
 
   useEffect(() => {
     fetchCombos();
@@ -271,20 +294,41 @@ const CombosManagement = () => {
   }, [searchName, statusFilter, sortBy]);
 
   const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
+    if (!price) return "0đ";
+    const numericPrice = typeof price === 'object' && price.$numberDecimal 
+      ? parseFloat(price.$numberDecimal) 
+      : parseFloat(price);
+    
+    if (isNaN(numericPrice)) return "0đ";
+    return Math.round(numericPrice).toLocaleString("vi-VN") + "đ";
   };
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return "N/A";
-    return new Date(dateStr).toLocaleDateString("vi-VN");
+    if (!dateStr) return "Invalid Date";
+    
+    // Nếu dateStr là object với vietnamFormatted (format: "13:57:57 13/11/2025")
+    if (typeof dateStr === 'object' && dateStr.vietnamFormatted) {
+      // Tách lấy phần ngày (bỏ phần giờ)
+      const parts = dateStr.vietnamFormatted.split(' ');
+      return parts.length > 1 ? parts[1] : dateStr.vietnamFormatted;
+    }
+    
+    // Nếu dateStr là object với vietnam hoặc utc
+    const dateValue = (typeof dateStr === 'object' && (dateStr.vietnam || dateStr.utc)) || dateStr;
+    
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return "Invalid Date";
+    
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
   };
 
   return (
     <Flex minH="100vh" bg="#181a20" color="white">
-      <Sidebar />
+      {isAdmin ? <SidebarAdmin /> : <SidebarStaff />}
       <Box flex="1" p={6}>
         <Flex justify="space-between" align="center" mb={6}>
           <Heading color="orange.400">Quản lý Combo</Heading>
@@ -312,9 +356,9 @@ const CombosManagement = () => {
             color="#fff"
             border="1px solid #23242a"
           >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Không hoạt động</option>
+            <option value="all" style={{ background: "#181a20", color: "#fff" }}>Tất cả trạng thái</option>
+            <option value="active" style={{ background: "#181a20", color: "#fff" }}>Hoạt động</option>
+            <option value="inactive" style={{ background: "#181a20", color: "#fff" }}>Không hoạt động</option>
           </Select>
           <Select
             value={sortBy}
@@ -324,12 +368,12 @@ const CombosManagement = () => {
             color="#fff"
             border="1px solid #23242a"
           >
-            <option value="newest">Mới nhất</option>
-            <option value="oldest">Cũ nhất</option>
-            <option value="name_asc">Tên A-Z</option>
-            <option value="name_desc">Tên Z-A</option>
-            <option value="price_asc">Giá thấp đến cao</option>
-            <option value="price_desc">Giá cao đến thấp</option>
+            <option value="newest" style={{ background: "#181a20", color: "#fff" }}>Mới nhất</option>
+            <option value="oldest" style={{ background: "#181a20", color: "#fff" }}>Cũ nhất</option>
+            <option value="name_asc" style={{ background: "#181a20", color: "#fff" }}>Tên A-Z</option>
+            <option value="name_desc" style={{ background: "#181a20", color: "#fff" }}>Tên Z-A</option>
+            <option value="price_asc" style={{ background: "#181a20", color: "#fff" }}>Giá thấp đến cao</option>
+            <option value="price_desc" style={{ background: "#181a20", color: "#fff" }}>Giá cao đến thấp</option>
           </Select>
         </HStack>
 

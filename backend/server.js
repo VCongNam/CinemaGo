@@ -4,6 +4,8 @@ import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/auth.routes.js";
 import protectedRoutes from "./routes/protected.routes.js";
 import publicMovieRoutes from "./routes/publicMovie.routes.js";
+import publicComboRoutes from "./routes/public/publicCombo.routes.js";
+import comboRoutes from "./routes/combo.routes.js";
 import theaterRoutes from "./routes/theater.routes.js";
 import roomRoutes from "./routes/room.routes.js";
 import seatRoutes from "./routes/seat.routes.js";
@@ -35,6 +37,8 @@ app.use(passport.initialize());
 app.use("/", authRoutes); // Public auth routes
 app.use("/api", protectedRoutes); // Protected routes
 app.use("/api/movies", publicMovieRoutes); // Public movie routes
+app.use("/api/combos", publicComboRoutes); // Public combo routes
+app.use("/api/combos", comboRoutes); // Staff/Admin combo management routes
 app.use("/api/public", publicRoutes); // Public theaters/rooms/seats
 app.use("/api/theaters", theaterRoutes); // Theater management routes (admin only)
 app.use("/api/rooms", roomRoutes); // Room management routes (admin only)

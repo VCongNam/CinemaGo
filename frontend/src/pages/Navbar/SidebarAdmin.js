@@ -25,6 +25,7 @@ import {
   FaSignOutAlt,
 } from "react-icons/fa";
 import { useRef } from "react";
+import authService from "../../services/authService";
 
 export default function SidebarAdmin() {
   const location = useLocation();
@@ -37,9 +38,8 @@ export default function SidebarAdmin() {
   const cancelRef = useRef();
 
   const handleLogout = () => {
-    // ✅ Xóa token / session
-    localStorage.removeItem("token");
-    sessionStorage.clear();
+    // ✅ Xóa token / session và mọi khóa liên quan
+    authService.clearAuthData();
 
     // ✅ Chuyển hướng về trang login
     navigate("/admin/login");
