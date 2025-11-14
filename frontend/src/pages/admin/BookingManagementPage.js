@@ -19,13 +19,21 @@ import {
   Select,
   HStack,
   Button,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
+  Center,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import { ViewIcon, DownloadIcon } from "@chakra-ui/icons";
 import SidebarAdmin from "../Navbar/SidebarAdmin";
 import SidebarStaff from "../Navbar/SidebarStaff";
+import { useAdminOrStaffL2Auth } from "../../hooks/useAdminOrStaffL2Auth";
 
 const BookingManagementPage = () => {
+  const isAuthorized = useAdminOrStaffL2Auth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchUser, setSearchUser] = useState("");
@@ -60,18 +68,11 @@ const BookingManagementPage = () => {
     isAdmin = true;
   } else if (role.toLowerCase() === "lv2") {
     isStaff = true;
-  } else {
-    // Nếu không phải admin hoặc lv2, hiển thị thông báo
-    toast({
-      title: "Không có quyền truy cập",
-      description: "Bạn không có quyền truy cập trang này",
-      status: "error",
-      duration: 3000,
-      isClosable: true,
-    });
   }
 
   useEffect(() => {
+    if (!isAuthorized) return;
+    
     let isMounted = true;
     const token = localStorage.getItem("token");
     
@@ -174,7 +175,8 @@ const BookingManagementPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthorized]);
 
   // 🔹 Hàm tính toán báo cáo doanh thu theo phim từ dữ liệu bookings có sẵn
   const calculateRevenueReport = (bookingList) => {
@@ -538,6 +540,15 @@ const BookingManagementPage = () => {
       </>
     );
   };
+
+  // Nếu không có quyền truy cập (từ hook useAdminAuth)
+  if (!isAuthorized) {
+    return (
+      <Center minH="100vh" bg="#0f1117">
+        <Spinner size="xl" color="orange.400" />
+      </Center>
+    );
+  }
 
   // Nếu không có quyền truy cập, không render gì cả
   if (!isAdmin && !isStaff) {

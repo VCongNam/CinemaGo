@@ -1,5 +1,5 @@
-import { Box, Badge, HStack, Spinner, Text, VStack, Button, useToast, Flex, Divider, SimpleGrid, Heading } from "@chakra-ui/react";
-import { CloseIcon } from "@chakra-ui/icons";
+import { Box, Badge, HStack, Spinner, Text, VStack, Button, useToast, Flex, Divider, SimpleGrid, Heading, IconButton, Image } from "@chakra-ui/react";
+import { CloseIcon, AddIcon, MinusIcon } from "@chakra-ui/icons";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import apiService from "../../services/apiService";
@@ -21,6 +21,9 @@ export default function SeatSelection() {
   const [showtime, setShowtime] = useState(null);
   const [seats, setSeats] = useState([]);
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const [selectedCombos, setSelectedCombos] = useState([]);
+  const [combos, setCombos] = useState([]);
+  const [loadingCombos, setLoadingCombos] = useState(false);
   const [isCreatingBooking, setIsCreatingBooking] = useState(false);
   const [bookedSeatIds, setBookedSeatIds] = useState([]);
 
@@ -70,10 +73,45 @@ export default function SeatSelection() {
       apiService.getPublic(`/api/public/rooms/${roomId}/seats`, {}, (seatRes, ok) => {
         if (!isMounted) return;
         if (ok) {
-          const seatsWithId = (seatRes?.list || []).map(s => ({ 
-            ...s, 
-            id: s._id || s.id 
-          }));
+          const normalizeMoney = (value) => {
+            if (value == null) return NaN;
+            if (typeof value === "number") return value;
+            if (typeof value === "string") {
+              const sanitized = value.replace(/[^0-9.-]/g, "");
+              const num = Number(sanitized);
+              return Number.isFinite(num) ? num : NaN;
+            }
+            if (typeof value === "object") {
+              if (Object.prototype.hasOwnProperty.call(value, "$numberDecimal")) {
+                const num = Number(value.$numberDecimal);
+                return Number.isFinite(num) ? num : NaN;
+              }
+              if (typeof value.toString === "function") {
+                const num = Number(value.toString());
+                return Number.isFinite(num) ? num : NaN;
+              }
+            }
+            return NaN;
+          };
+
+          const seatsWithId = (seatRes?.list || []).map((s) => {
+            const normalizedBase = normalizeMoney(s.base_price);
+            const normalizedPrice = normalizeMoney(s.price);
+            const effectivePrice =
+              Number.isFinite(normalizedBase) && normalizedBase > 0
+                ? normalizedBase
+                : Number.isFinite(normalizedPrice) && normalizedPrice > 0
+                  ? normalizedPrice
+                  : NaN;
+
+            return {
+              ...s,
+              id: s._id || s.id,
+              base_price: Number.isFinite(normalizedBase) ? normalizedBase : undefined,
+              price: Number.isFinite(effectivePrice) ? effectivePrice : undefined,
+              _effectivePrice: Number.isFinite(effectivePrice) ? effectivePrice : undefined,
+            };
+          });
           setSeats(Array.isArray(seatsWithId) ? seatsWithId : []);
         } else {
           setError(seatRes?.message || "Không thể tải danh sách ghế");
@@ -86,6 +124,44 @@ export default function SeatSelection() {
       isMounted = false;
     };
   }, [showtimeId]);
+
+  // Fetch combos from API
+  useEffect(() => {
+    setLoadingCombos(true);
+    apiService.getPublic("/api/combos", {}, (data, success) => {
+      if (success && data?.data) {
+        // Lọc chỉ lấy combos có status "active" và normalize price
+        const activeCombos = (data.data || [])
+          .filter(combo => combo.status === "active")
+          .map(combo => {
+            // Normalize price từ MongoDB Decimal128 format
+            let price = 0;
+            if (combo.price) {
+              if (typeof combo.price === "number") {
+                price = combo.price;
+              } else if (typeof combo.price === "object" && combo.price.$numberDecimal) {
+                price = Number(combo.price.$numberDecimal);
+              } else if (typeof combo.price === "string") {
+                price = Number(combo.price) || 0;
+              }
+            }
+            
+            return {
+              id: combo._id,
+              name: combo.name,
+              description: combo.description,
+              price: price,
+              image_url: combo.image_url,
+            };
+          });
+        setCombos(activeCombos);
+      } else {
+        console.error("Failed to load combos:", data);
+        setCombos([]);
+      }
+      setLoadingCombos(false);
+    });
+  }, []);
 
   const handleSelect = (seat) => {
     // Kiểm tra ghế đã được đặt
@@ -124,13 +200,75 @@ export default function SeatSelection() {
     return map;
   }, [seats]);
 
-  const total = useMemo(() => {
-    return selectedSeats.reduce((sum, s) => {
-      let price = showtime?.price || 50000;
-      if (s.type === "vip") price *= 1.5;
-      return sum + price;
+  const deriveSeatPrice = (seat) => {
+    const direct = typeof seat?._effectivePrice === "number" ? seat._effectivePrice : undefined;
+    if (Number.isFinite(direct) && direct > 0) {
+      return direct;
+    }
+
+    const base = typeof seat?.base_price === "number" ? seat.base_price : undefined;
+    if (Number.isFinite(base) && base > 0) {
+      return base;
+    }
+
+    const explicit = typeof seat?.price === "number" ? seat.price : undefined;
+    if (Number.isFinite(explicit) && explicit > 0) {
+      return explicit;
+    }
+
+    let fallback = Number(showtime?.price) || 0;
+    if (!Number.isFinite(fallback) || fallback <= 0) {
+      fallback = 50000;
+    }
+    if (seat?.type === "vip") fallback = Math.round(fallback * 1.5);
+    if (seat?.type === "couple") fallback = Math.round(fallback * 3);
+    return fallback;
+  };
+
+  const seatTotal = useMemo(() => {
+    return selectedSeats.reduce((sum, seat) => {
+      const price = deriveSeatPrice(seat);
+      return sum + (Number.isFinite(price) ? price : 0);
     }, 0);
   }, [selectedSeats, showtime]);
+
+  const comboTotal = useMemo(() => {
+    return selectedCombos.reduce((sum, combo) => {
+      return sum + (combo.price * combo.quantity);
+    }, 0);
+  }, [selectedCombos]);
+
+  const total = seatTotal + comboTotal;
+
+  // Combo selection handlers
+  const handleComboIncrease = (combo) => {
+    const existing = selectedCombos.find(c => c.id === combo.id);
+    if (existing) {
+      setSelectedCombos(selectedCombos.map(c =>
+        c.id === combo.id ? { ...c, quantity: c.quantity + 1 } : c
+      ));
+    } else {
+      setSelectedCombos([...selectedCombos, { ...combo, quantity: 1 }]);
+    }
+  };
+
+  const handleComboDecrease = (comboId) => {
+    const existing = selectedCombos.find(c => c.id === comboId);
+    if (existing) {
+      if (existing.quantity === 1) {
+        setSelectedCombos(selectedCombos.filter(c => c.id !== comboId));
+      } else {
+        setSelectedCombos(selectedCombos.map(c =>
+          c.id === comboId ? { ...c, quantity: c.quantity - 1 } : c
+        ));
+      }
+    }
+  };
+
+  const getComboQuantity = (comboId) => {
+    const combo = selectedCombos.find(c => c.id === comboId);
+    return combo ? combo.quantity : 0;
+  };
 
   const handleNext = async () => {
     if (selectedSeats.length === 0) {
@@ -149,6 +287,10 @@ export default function SeatSelection() {
       showtime_id: showtimeId,
       seat_ids: selectedSeats.map((s) => s.id),
       payment_method: "online",
+      combos: selectedCombos.map((c) => ({
+        combo_id: c.id,
+        quantity: c.quantity,
+      })),
     };
 
     apiService.post("/api/bookings", bookingData, (response, success) => {
@@ -268,22 +410,131 @@ export default function SeatSelection() {
             <Flex justify="space-between" align="center" mb={3}>
               <Text fontSize="sm" color="gray.400">Chỗ ngồi đã chọn</Text>
               <Flex gap={2} flexWrap="wrap" justify="flex-end">
-                {selectedSeats.map((s) => (
-                  <Badge
-                    key={s.id}
-                    colorScheme="pink"
-                    display="flex" alignItems="center" gap={1}
-                    px={2} py={1} borderRadius="md"
-                  >
-                    {s.seat_number}
-                    <CloseIcon boxSize={2} cursor="pointer" onClick={() => removeSeat(s.id)} _hover={{ color: "white" }} />
-                  </Badge>
-                ))}
+                {selectedSeats.length === 0 ? (
+                  <Text fontSize="sm" color="gray.500">Chưa chọn</Text>
+                ) : (
+                  selectedSeats.map((s) => (
+                    <Badge
+                      key={s.id}
+                      colorScheme="pink"
+                      display="flex" alignItems="center" gap={1}
+                      px={2} py={1} borderRadius="md"
+                    >
+                      {s.seat_number}
+                      <CloseIcon boxSize={2} cursor="pointer" onClick={() => removeSeat(s.id)} _hover={{ color: "white" }} />
+                    </Badge>
+                  ))
+                )}
               </Flex>
             </Flex>
+
+            {/* Combo Selection */}
+            {selectedSeats.length > 0 && (
+              <>
+                <Divider my={4} borderColor="#23242a" />
+                <Box mb={4}>
+                  <Flex align="center" gap={2} mb={3}>
+                    <Text fontSize="lg" fontWeight="bold" color="orange.400">
+                      🍿 Chọn combo
+                    </Text>
+                    <Text fontSize="xs" color="gray.500">(Tùy chọn)</Text>
+                  </Flex>
+
+                  {loadingCombos ? (
+                    <Flex justify="center" align="center" py={4}>
+                      <Spinner color="orange.400" size="sm" />
+                    </Flex>
+                  ) : combos.length === 0 ? (
+                    <Text fontSize="sm" color="gray.500" py={4} textAlign="center">
+                      Không có combo nào khả dụng
+                    </Text>
+                  ) : (
+                    <Box maxH="200px" overflowY="auto" css={{
+                      '&::-webkit-scrollbar': { width: '4px' },
+                      '&::-webkit-scrollbar-track': { background: '#1a1b23' },
+                      '&::-webkit-scrollbar-thumb': { background: '#4a4b53', borderRadius: '4px' },
+                    }}>
+                      {combos.map((combo) => {
+                        const quantity = getComboQuantity(combo.id);
+                        return (
+                          <Box
+                            key={combo.id}
+                            p={2}
+                            mb={2}
+                            bg="#23242a"
+                            borderRadius="md"
+                            _hover={{ bg: "#2d2e35" }}
+                            transition="0.2s"
+                          >
+                            <Flex justify="space-between" align="center" gap={2}>
+                              <Flex flex="1" align="center" gap={2}>
+                                {combo.image_url && (
+                                  <Image
+                                    src={combo.image_url}
+                                    alt={combo.name}
+                                    boxSize="40px"
+                                    objectFit="cover"
+                                    borderRadius="md"
+                                    fallbackSrc="https://via.placeholder.com/40"
+                                  />
+                                )}
+                                <Box flex="1">
+                                  <Text fontWeight="semibold" fontSize="xs">
+                                    {combo.name}
+                                  </Text>
+                                  <Text fontSize="xs" color="orange.300">
+                                    {combo.price.toLocaleString("vi-VN")} đ
+                                  </Text>
+                                </Box>
+                              </Flex>
+
+                              <HStack spacing={1}>
+                                <IconButton
+                                  icon={<MinusIcon />}
+                                  size="xs"
+                                  colorScheme="red"
+                                  variant="outline"
+                                  onClick={() => handleComboDecrease(combo.id)}
+                                  isDisabled={quantity === 0}
+                                  borderRadius="full"
+                                />
+                                <Text fontWeight="bold" minW="20px" textAlign="center" fontSize="xs">
+                                  {quantity}
+                                </Text>
+                                <IconButton
+                                  icon={<AddIcon />}
+                                  size="xs"
+                                  colorScheme="green"
+                                  variant="outline"
+                                  onClick={() => handleComboIncrease(combo)}
+                                  borderRadius="full"
+                                />
+                              </HStack>
+                            </Flex>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  )}
+                </Box>
+              </>
+            )}
+
+            <Divider my={4} borderColor="#23242a" />
             
+            {/* Price breakdown */}
+            <Flex justify="space-between" mb={1}>
+              <Text fontSize="sm" color="gray.400">Tiền vé</Text>
+              <Text fontWeight="bold">{seatTotal.toLocaleString("vi-VN")}đ</Text>
+            </Flex>
+            {selectedCombos.length > 0 && (
+              <Flex justify="space-between" mb={1}>
+                <Text fontSize="sm" color="gray.400">Combo</Text>
+                <Text fontWeight="bold">{comboTotal.toLocaleString("vi-VN")}đ</Text>
+              </Flex>
+            )}
             <Flex justify="space-between" mb={4}>
-              <Text fontSize="sm" color="gray.400">Tạm tính</Text>
+              <Text fontSize="md" color="orange.300" fontWeight="bold">Tổng cộng</Text>
               <Text fontWeight="bold" color="orange.300" fontSize="xl">
                 {total.toLocaleString("vi-VN")}đ
               </Text>

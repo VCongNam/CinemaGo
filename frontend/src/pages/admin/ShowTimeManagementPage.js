@@ -31,13 +31,16 @@ import {
   InputLeftElement,
   Badge,
   VStack,
+  Center,
 } from "@chakra-ui/react"
 import { FaBan, FaCheckCircle, FaSearch } from "react-icons/fa"
 import { AddIcon } from "@chakra-ui/icons"
 import SidebarAdmin from "../Navbar/SidebarAdmin"
 import SidebarStaff from "../Navbar/SidebarStaff"
+import { useAdminOrStaffL2Auth } from "../../hooks/useAdminOrStaffL2Auth"
 
 export default function ShowtimeManagementPage() {
+  const isAuthorized = useAdminOrStaffL2Auth();
   const [showtimes, setShowtimes] = useState([])
   const [movies, setMovies] = useState([])
   const [rooms, setRooms] = useState([])
@@ -177,9 +180,10 @@ export default function ShowtimeManagementPage() {
   }
 
   useEffect(() => {
+    if (!isAuthorized) return;
     fetchShowtimes()
     fetchMoviesAndRooms()
-  }, [])
+  }, [isAuthorized])
 
   // Reset trang khi thay đổi bộ lọc
   useEffect(() => {
@@ -451,6 +455,15 @@ export default function ShowtimeManagementPage() {
 
   const handlePageChange = (page) => {
     setCurrentPage(page)
+  }
+
+  // Nếu không có quyền truy cập (từ hook useAdminAuth)
+  if (!isAuthorized) {
+    return (
+      <Center minH="100vh" bg="#0f1117">
+        <Spinner size="xl" color="orange.400" />
+      </Center>
+    );
   }
 
   // Nếu không có quyền truy cập, không render gì cả

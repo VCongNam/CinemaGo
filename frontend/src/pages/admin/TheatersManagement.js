@@ -30,12 +30,15 @@ import {
   VStack,
   SimpleGrid,
   Divider,
+  Center,
 } from "@chakra-ui/react";
 import { ViewIcon, EditIcon, AddIcon } from "@chakra-ui/icons";
 import Sidebar from "../Navbar/SidebarAdmin";
 import { useNavigate } from "react-router-dom";
+import { useAdminAuth } from "../../hooks/useAdminAuth";
 
 const TheatersManagement = () => {
+  const isAuthorized = useAdminAuth();
   const [theaters, setTheaters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchName, setSearchName] = useState("");
@@ -54,8 +57,9 @@ const TheatersManagement = () => {
 });
 
   useEffect(() => {
+    if (!isAuthorized) return;
     fetchTheaters();
-  }, []);
+  }, [isAuthorized]);
 
   const fetchTheaters = async () => {
     setLoading(true);
@@ -230,6 +234,14 @@ const handleSubmit = async () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchName, statusFilter, sortBy]);
+
+  if (!isAuthorized) {
+    return (
+      <Center minH="100vh" bg="#0f1117">
+        <Spinner size="xl" color="orange.400" />
+      </Center>
+    );
+  }
 
   return (
     <Flex minH="100vh" bg="#181a20" color="white">

@@ -77,7 +77,7 @@ const Header = ({ isAdmin = false }) => {
       <Link as={RouterLink} to="/" color="white" _hover={{ color: "orange.400" }}>
         Phim đang chiếu
       </Link>
-      <Link href="#" color="white" _hover={{ color: "orange.400" }}>
+      <Link as={RouterLink} to="/theaters" color="white" _hover={{ color: "orange.400" }}>
         Rạp chiếu
       </Link>
     </>

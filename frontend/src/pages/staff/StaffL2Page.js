@@ -23,6 +23,7 @@ import {
   MenuList,
   MenuItem,
   useToast,
+  Center,
 } from "@chakra-ui/react";
 import {
   FaFilm,
@@ -43,25 +44,128 @@ const StaffL2Page = () => {
   const [search, setSearch] = useState("");
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [openMovieId, setOpenMovieId] = useState(null);
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   const navigate = useNavigate();
   const toast = useToast();
+
+  // Kiểm tra authentication và authorization
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      
+      if (!token) {
+        toast({
+          title: "Yêu cầu đăng nhập",
+          description: "Vui lòng đăng nhập để truy cập trang này",
+          status: "warning",
+          duration: 3000,
+          isClosable: true,
+        });
+        navigate("/admin/login");
+        return false;
+      }
+
+      // Lấy role từ nhiều nguồn
+      let role = "";
+      
+      // Thử lấy từ userRole
+      role = (localStorage.getItem("userRole") || "").toLowerCase();
+      
+      // Nếu không có, thử lấy từ role object
+      if (!role) {
+        try {
+          const roleData = JSON.parse(localStorage.getItem("role"));
+          role = (roleData?.role || "").toLowerCase();
+        } catch (e) {
+          // Ignore
+        }
+      }
+      
+      // Nếu vẫn không có, thử lấy từ staff object
+      if (!role) {
+        try {
+          const staffData = JSON.parse(localStorage.getItem("staff"));
+          role = (staffData?.role || "").toLowerCase();
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // Kiểm tra role có phải staff không
+      if (role !== "lv1" && role !== "lv2" && role !== "admin") {
+        toast({
+          title: "Không có quyền truy cập",
+          description: "Bạn không có quyền truy cập trang này",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+        navigate("/admin/login");
+        return false;
+      }
+
+      // Nếu là lv1, redirect về trang l1
+      if (role === "lv1") {
+        toast({
+          title: "Chuyển hướng",
+          description: "Bạn đang được chuyển về trang quầy của bạn",
+          status: "info",
+          duration: 2000,
+          isClosable: true,
+        });
+        navigate("/staff/l1", { replace: true });
+        return false;
+      }
+
+      // Nếu là admin, cho phép truy cập
+      if (role === "admin") {
+        setIsAuthorized(true);
+        return true;
+      }
+
+      // Nếu là lv2, cho phép truy cập
+      if (role === "lv2") {
+        setIsAuthorized(true);
+        return true;
+      }
+
+      return false;
+    };
+
+    if (!checkAuth()) {
+      return;
+    }
+
+    // Lưu staffReturnPage ngay khi vào trang staff l2
+    sessionStorage.setItem("staffReturnPage", "/staff/l2");
+    localStorage.setItem("staffReturnPage", "/staff/l2");
+
+    if (isAuthorized) {
+      fetch("http://localhost:5000/api/movies")
+        .then((res) => res.json())
+        .then((data) => setMovies(data.data || []))
+        .finally(() => setLoading(false));
+
+      fetch("http://localhost:5000/api/showtimes")
+        .then((res) => res.json())
+        .then((data) => setShowtimes(data.data || []))
+        .finally(() => setLoadingShowtime(false));
+    }
+  }, [isAuthorized, navigate, toast]);
 
   const staff = JSON.parse(localStorage.getItem("staff")) || {
     name: "Nhân viên",
   };
 
-  useEffect(() => {
-    fetch("http://localhost:5000/api/movies")
-      .then((res) => res.json())
-      .then((data) => setMovies(data.data || []))
-      .finally(() => setLoading(false));
-
-    fetch("http://localhost:5000/api/showtimes")
-      .then((res) => res.json())
-      .then((data) => setShowtimes(data.data || []))
-      .finally(() => setLoadingShowtime(false));
-  }, []);
+  // Nếu chưa authorized, hiển thị loading
+  if (!isAuthorized) {
+    return (
+      <Center minH="100vh" bg="#181a20">
+        <Spinner size="xl" color="orange.400" />
+      </Center>
+    );
+  }
 
   // Lấy tất cả thể loại duy nhất
   const allGenres = Array.from(new Set(movies.flatMap((m) => m.genre || [])));
@@ -85,52 +189,96 @@ const StaffL2Page = () => {
 
   const handleClearGenres = () => setSelectedGenres([]);
 
-  // Kiểm tra xem ngày có phải hôm nay không
-  const isToday = (startTimeObj) => {
+  // Kiểm tra xem showtime có phải hôm nay và chưa qua không
+  const isTodayAndNotPassed = (startTimeObj) => {
     if (!startTimeObj) return false;
 
     let dateString;
 
     // Xử lý nếu start_time là object có vietnam/utc
     if (typeof startTimeObj === "object" && startTimeObj !== null) {
-      dateString = startTimeObj.vietnam || startTimeObj.utc;
+      dateString = startTimeObj.vietnam || startTimeObj.utc || startTimeObj.vietnamFormatted;
     } else if (typeof startTimeObj === "string") {
       dateString = startTimeObj;
     }
 
     if (!dateString) return false;
 
-    const showtimeDate = new Date(dateString);
-    const today = new Date();
+    // Parse date từ vietnamFormatted nếu có (format: "09:30:00 14/10/2025")
+    let showtimeDate;
+    if (typeof dateString === "string" && dateString.includes("/")) {
+      // Format: "09:30:00 14/10/2025"
+      const dateMatch = dateString.match(/(\d{2}\/\d{2}\/\d{4})/);
+      if (dateMatch) {
+        const [day, month, year] = dateMatch[1].split('/');
+        const timeMatch = dateString.match(/(\d{2}:\d{2}):\d{2}/);
+        if (timeMatch) {
+          const [hours, minutes] = timeMatch[1].split(':');
+          showtimeDate = new Date(year, month - 1, day, parseInt(hours), parseInt(minutes));
+        } else {
+          showtimeDate = new Date(year, month - 1, day);
+        }
+      } else {
+        showtimeDate = new Date(dateString);
+      }
+    } else {
+      showtimeDate = new Date(dateString);
+    }
 
-    return (
+    if (isNaN(showtimeDate.getTime())) return false;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Kiểm tra xem có phải hôm nay không
+    const isToday = (
       showtimeDate.getDate() === today.getDate() &&
       showtimeDate.getMonth() === today.getMonth() &&
       showtimeDate.getFullYear() === today.getFullYear()
     );
+
+    if (!isToday) return false;
+
+    // Kiểm tra xem showtime đã qua chưa (so sánh với thời gian hiện tại)
+    return showtimeDate > now;
   };
 
-  // Lấy showtime cho từng movie (CHỈ HÔM NAY)
+  // Lấy showtime cho từng movie (CHỈ HÔM NAY VÀ CHƯA QUA)
   const getShowtimesForMovie = (movieId) => {
     return showtimes
       .filter((st) => {
+        // Chỉ lấy showtime active
+        if (st.status !== 'active') return false;
+        
         const matchMovie = st.movie_id?._id === movieId;
-        const isTodayShowtime = isToday(st.start_time);
-        return matchMovie && isTodayShowtime;
+        const isTodayAndNotPassedShowtime = isTodayAndNotPassed(st.start_time);
+        return matchMovie && isTodayAndNotPassedShowtime;
       })
       .map((st) => {
         let timeStr = "";
 
         if (typeof st.start_time === "object" && st.start_time !== null) {
-          const dateStr = st.start_time.vietnam || st.start_time.utc || "";
-          if (typeof dateStr === "string" && dateStr.length >= 16) {
-            timeStr = dateStr.slice(11, 16);
+          const dateStr = st.start_time.vietnamFormatted || st.start_time.vietnam || st.start_time.utc || "";
+          if (typeof dateStr === "string") {
+            // Parse từ format "09:30:00 14/10/2025"
+            const timeMatch = dateStr.match(/(\d{2}:\d{2})/);
+            if (timeMatch) {
+              timeStr = timeMatch[1];
+            } else if (dateStr.length >= 16) {
+              timeStr = dateStr.slice(11, 16);
+            }
           }
         } else if (
           typeof st.start_time === "string" &&
           st.start_time.length >= 16
         ) {
-          timeStr = st.start_time.slice(11, 16);
+          // Parse từ format "09:30:00 14/10/2025"
+          const timeMatch = st.start_time.match(/(\d{2}:\d{2})/);
+          if (timeMatch) {
+            timeStr = timeMatch[1];
+          } else {
+            timeStr = st.start_time.slice(11, 16);
+          }
         }
 
         return { ...st, time: timeStr };

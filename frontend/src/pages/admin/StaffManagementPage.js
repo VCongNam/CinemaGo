@@ -20,12 +20,15 @@ import {
   Select,
   HStack,
   useToast,
+  Center,
 } from "@chakra-ui/react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../Navbar/SidebarAdmin"
 import StaffTable from "../Navbar/StaffTable"
+import { useAdminAuth } from "../../hooks/useAdminAuth"
 
 export default function StaffManagementPage() {
+  const isAuthorized = useAdminAuth();
   const [staffs, setStaffs] = useState([])
   const [loading, setLoading] = useState(true)
   const [setError] = useState(null)
@@ -91,8 +94,9 @@ export default function StaffManagementPage() {
   }
 
   useEffect(() => {
+    if (!isAuthorized) return;
     fetchAllStaffs()
-  }, [])
+  }, [isAuthorized])
 
   // ✅ Mở modal cập nhật role
   const handleOpenEditRole = (staff) => {
@@ -361,6 +365,13 @@ export default function StaffManagementPage() {
     setCurrentPage(1)
   }, [search, statusFilter])
 
+  if (!isAuthorized) {
+    return (
+      <Center minH="100vh" bg="#0f1117">
+        <Spinner size="xl" color="orange.400" />
+      </Center>
+    );
+  }
 
   return (
     <Flex flex="1" bg="#0f1117" color="white">

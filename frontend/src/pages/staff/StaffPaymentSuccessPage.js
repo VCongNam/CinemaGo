@@ -20,15 +20,61 @@ export default function StaffPaymentSuccessPage() {
   const navigate = useNavigate();
   const toast = useToast();
 
-  // 🔹 Get staff page based on role or sessionStorage
+  // 🔹 Get staff page based on role or sessionStorage/localStorage
   const getStaffPage = () => {
-    const storedPage = sessionStorage.getItem("staffReturnPage");
+    // Ưu tiên lấy từ sessionStorage (được set khi tạo booking)
+    let storedPage = sessionStorage.getItem("staffReturnPage");
+    console.log("🔍 StaffPaymentSuccess - sessionStorage staffReturnPage:", storedPage);
+    
+    // Nếu không có trong sessionStorage, thử lấy từ localStorage (backup)
+    if (!storedPage) {
+      storedPage = localStorage.getItem("staffReturnPage");
+      console.log("🔍 StaffPaymentSuccess - localStorage staffReturnPage:", storedPage);
+    }
+    
     if (storedPage) {
-      sessionStorage.removeItem("staffReturnPage");
+      // Không xóa ngay, chỉ xóa khi người dùng click button quay lại
+      console.log("✅ StaffPaymentSuccess - Using stored page:", storedPage);
       return storedPage;
     }
-    const role = (localStorage.getItem("userRole") || "").toLowerCase();
-    return role === "lv2" ? "/staff/l2" : "/staff/l1";
+    
+    // Fallback: check role từ nhiều nguồn
+    let role = "";
+    
+    // Thử lấy từ userRole
+    role = (localStorage.getItem("userRole") || "").toLowerCase();
+    
+    // Nếu không có, thử lấy từ role object
+    if (!role) {
+      try {
+        const roleData = JSON.parse(localStorage.getItem("role"));
+        role = (roleData?.role || "").toLowerCase();
+      } catch (e) {
+        // Ignore
+      }
+    }
+    
+    // Nếu vẫn không có, thử lấy từ staff object
+    if (!role) {
+      try {
+        const staffData = JSON.parse(localStorage.getItem("staff"));
+        role = (staffData?.role || "").toLowerCase();
+      } catch (e) {
+        // Ignore
+      }
+    }
+    
+    const fallbackPage = role === "lv2" ? "/staff/l2" : "/staff/l1";
+    console.log("⚠️ StaffPaymentSuccess - Using fallback page based on role:", role, "->", fallbackPage);
+    return fallbackPage;
+  };
+
+  const handleReturnToStaff = () => {
+    const page = getStaffPage();
+    // Xóa cả sessionStorage và localStorage khi người dùng quyết định quay lại
+    sessionStorage.removeItem("staffReturnPage");
+    localStorage.removeItem("staffReturnPage");
+    navigate(page);
   };
 
   useEffect(() => {
@@ -85,10 +131,38 @@ export default function StaffPaymentSuccessPage() {
       return;
     }
     const movieTitle = booking?.showtime_id?.movie_id?.title || "Phim";
-    const startTime =
-      booking?.showtime_id?.start_time?.vietnam ||
-      booking?.showtime_id?.start_time ||
-      new Date().toISOString();
+    
+    // Format showtime date safely (avoid Invalid Date)
+    let showtimeFormatted = "N/A";
+    const startTimeObj = booking?.showtime_id?.start_time;
+    if (startTimeObj) {
+      if (typeof startTimeObj === "object" && startTimeObj !== null) {
+        // Nếu là object, ưu tiên vietnamFormatted, sau đó vietnam, cuối cùng utc
+        showtimeFormatted = startTimeObj.vietnamFormatted || startTimeObj.vietnam || startTimeObj.utc || "";
+      } else if (typeof startTimeObj === "string") {
+        // Nếu là string, thử parse hoặc dùng trực tiếp
+        try {
+          const parsedDate = new Date(startTimeObj);
+          if (!isNaN(parsedDate.getTime())) {
+            showtimeFormatted = parsedDate.toLocaleString("vi-VN");
+          } else {
+            showtimeFormatted = startTimeObj;
+          }
+        } catch (e) {
+          showtimeFormatted = startTimeObj;
+        }
+      }
+    }
+    
+    // Fallback nếu vẫn không có giá trị hợp lệ
+    if (!showtimeFormatted || showtimeFormatted === "N/A") {
+      try {
+        showtimeFormatted = new Date().toLocaleString("vi-VN");
+      } catch (e) {
+        showtimeFormatted = "Chưa cập nhật";
+      }
+    }
+    
     const seatList = seats
       .map((s) => s?.seat_id?.seat_number || s?.seat_number)
       .filter(Boolean)
@@ -120,7 +194,7 @@ export default function StaffPaymentSuccessPage() {
           <div class="ticket">
             <h2>🎬 Vé Xem Phim</h2>
             <p><strong>Phim:</strong> ${movieTitle}</p>
-            <p><strong>Suất chiếu:</strong> ${new Date(startTime).toLocaleString("vi-VN")}</p>
+            <p><strong>Suất chiếu:</strong> ${showtimeFormatted}</p>
             <p><strong>Ghế:</strong> ${seatList || "?"}</p>
             <p><strong>Tổng tiền:</strong> ${Number(total).toLocaleString("vi-VN")}đ</p>
             <div class="divider"></div>
@@ -138,15 +212,71 @@ export default function StaffPaymentSuccessPage() {
 
   return (
     <Box bg="#0f1117" minH="100vh" color="white" p={8}>
-      <VStack spacing={4}>
-        <Heading color="green.300">Thanh toán thành công (Staff)</Heading>
-        {loading ? <Spinner /> : <Text>{message}</Text>}
-        <HStack spacing={4}>
-          <Button colorScheme="pink" onClick={() => window.location.replace(getStaffPage())}>
-            Quay lại trang quầy
+      <VStack spacing={6} maxW="600px" mx="auto">
+        <Heading color="green.300" size="xl" textAlign="center">
+          Thanh toán thành công!
+        </Heading>
+        {loading ? (
+          <Spinner size="xl" color="green.300" />
+        ) : (
+          <Text fontSize="lg" textAlign="center" color="gray.300">
+            {message}
+          </Text>
+        )}
+        
+        {booking && (
+          <Box bg="#1a1e29" p={6} borderRadius="lg" w="full">
+            <VStack spacing={3} align="stretch">
+              <Text fontWeight="bold" color="orange.400" fontSize="md">
+                Thông tin đặt vé
+              </Text>
+              <Text><strong>Phim:</strong> {booking?.showtime_id?.movie_id?.title || "N/A"}</Text>
+              <Text><strong>Rạp:</strong> {booking?.showtime_id?.room_id?.theater_id?.name || "N/A"}</Text>
+              <Text><strong>Phòng:</strong> {booking?.showtime_id?.room_id?.name || "N/A"}</Text>
+              <Text><strong>Suất chiếu:</strong> {
+                booking?.showtime_id?.start_time?.vietnamFormatted || 
+                booking?.showtime_id?.start_time?.vietnam ||
+                new Date(booking?.showtime_id?.start_time || new Date()).toLocaleString("vi-VN")
+              }</Text>
+              <Text><strong>Ghế:</strong> {
+                seats.map((s) => s?.seat_id?.seat_number || s?.seat_number).filter(Boolean).join(", ") || "N/A"
+              }</Text>
+              <Text><strong>Tổng tiền:</strong> {
+                new Intl.NumberFormat("vi-VN", {
+                  style: "currency",
+                  currency: "VND",
+                }).format(
+                  parseFloat(
+                    booking?.paid_amount?.$numberDecimal || 
+                    booking?.paid_amount || 
+                    booking?.total_price?.$numberDecimal || 
+                    booking?.total_price || 
+                    0
+                  )
+                )
+              }</Text>
+            </VStack>
+          </Box>
+        )}
+
+        <HStack spacing={4} w="full" justify="center">
+          <Button 
+            onClick={handlePrintTicket} 
+            colorScheme="orange" 
+            size="lg"
+            isDisabled={!booking}
+            flex="1"
+          >
+            🖨️ In vé
           </Button>
-          <Button onClick={handlePrintTicket} colorScheme="orange" variant="outline" isDisabled={!booking}>
-            In vé
+          <Button 
+            colorScheme="gray" 
+            variant="outline" 
+            onClick={handleReturnToStaff}
+            size="lg"
+            flex="1"
+          >
+            Quay lại trang quầy
           </Button>
         </HStack>
       </VStack>

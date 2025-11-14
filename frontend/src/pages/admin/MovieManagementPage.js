@@ -38,12 +38,15 @@ import {
   Tag,
   TagLabel,
   TagCloseButton,
+  Center,
 } from "@chakra-ui/react";
 import { EditIcon, UnlockIcon, LockIcon, AddIcon } from "@chakra-ui/icons";
 import SidebarAdmin from "../Navbar/SidebarAdmin";
 import SidebarStaff from "../Navbar/SidebarStaff";
+import { useAdminOrStaffL2Auth } from "../../hooks/useAdminOrStaffL2Auth";
 
 const MovieManagementPage = () => {
+  const isAuthorized = useAdminOrStaffL2Auth();
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTitle, setSearchTitle] = useState("");
@@ -93,8 +96,9 @@ const MovieManagementPage = () => {
   }
 
   useEffect(() => {
+    if (!isAuthorized) return;
     fetchMovies();
-  }, []);
+  }, [isAuthorized]);
 
   const fetchMovies = async () => {
     setLoading(true);
@@ -258,6 +262,29 @@ const MovieManagementPage = () => {
     try {
       const token = localStorage.getItem("token");
 
+      // Validate required fields
+      if (!formData.title.trim()) {
+        toast({
+          title: "Lỗi",
+          description: "Vui lòng nhập tên phim",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+        return;
+      }
+
+      if (!formData.duration || Number(formData.duration) <= 0) {
+        toast({
+          title: "Lỗi",
+          description: "Vui lòng nhập thời lượng phim hợp lệ",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+        return;
+      }
+
       // Chuẩn hóa dữ liệu gửi đi
       const payload = {
         title: formData.title.trim(),
@@ -277,6 +304,8 @@ const MovieManagementPage = () => {
 
       const method = selectedMovie ? "PUT" : "POST";
 
+      console.log("🚀 Submitting movie:", { url, method, payload });
+
       const response = await fetch(url, {
         method,
         headers: {
@@ -286,9 +315,13 @@ const MovieManagementPage = () => {
         body: JSON.stringify(payload),
       });
 
+      const responseData = await response.json().catch(() => ({}));
+      console.log("📥 Response:", { status: response.status, data: responseData });
+
       if (response.status !== 200 && response.status !== 201) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || "Không thể lưu phim");
+        const errorMessage = responseData.message || responseData.error || `Lỗi ${response.status}: ${response.statusText}`;
+        console.error("❌ Error response:", errorMessage);
+        throw new Error(errorMessage);
       }
 
       toast({
@@ -304,11 +337,12 @@ const MovieManagementPage = () => {
       fetchMovies();
       onClose();
     } catch (err) {
+      console.error("❌ Error in handleSubmit:", err);
       toast({
         title: "Lỗi",
-        description: err.message,
+        description: err.message || "Không thể lưu phim. Vui lòng thử lại.",
         status: "error",
-        duration: 3000,
+        duration: 5000,
         isClosable: true,
       });
     }
@@ -366,6 +400,14 @@ const MovieManagementPage = () => {
     if (dateObj.utc) return new Date(dateObj.utc).toLocaleDateString("vi-VN");
     return "N/A";
   };
+
+  if (!isAuthorized) {
+    return (
+      <Center minH="100vh" bg="#0f1117">
+        <Spinner size="xl" color="orange.400" />
+      </Center>
+    );
+  }
 
   return (
     <Flex minH="100vh" bg="#181a20" color="white">
