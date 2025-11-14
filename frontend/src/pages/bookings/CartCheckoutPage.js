@@ -187,6 +187,7 @@ const CartCheckoutPage = () => {
                   <Text fontSize="sm" color="gray.400" noOfLines={3}>{booking.showtime_id.movie_id.description}</Text>
                 )}
                 <Divider borderColor="#2a2b33" my={2} />
+                <Text><strong>Mã đặt vé (BookingID):</strong> {booking.order_code || booking._id || "N/A"}</Text>
                 <Text><strong>Rạp:</strong> {booking.showtime_id.room_id?.theater_id?.name}</Text>
                 <Text><strong>Phòng chiếu:</strong> {booking.showtime_id.room_id?.name}</Text>
                 <Text>
@@ -197,6 +198,32 @@ const CartCheckoutPage = () => {
                     <strong>Ghế:</strong> {seats.map(s => s.seat_id?.seat_number || s.seat_number).join(', ')}
                   </Text>
                 )}
+                {(() => {
+                  // Extract combos from booking
+                  const combos = [];
+                  const rawCombos = booking.combos || [];
+                  if (Array.isArray(rawCombos) && rawCombos.length > 0) {
+                    rawCombos.forEach((c) => {
+                      const comboData = c.combo_id || c.combo || c;
+                      const name = comboData?.name || comboData?.title || c?.name || c?.title || "Combo";
+                      const quantity = c.quantity || c.qty || c.count || 1;
+                      combos.push({ name, quantity });
+                    });
+                  }
+                  
+                  return combos.length > 0 ? (
+                    <Box w="full">
+                      <Text><strong>Combo đã chọn:</strong></Text>
+                      <VStack align="start" spacing={1} ml={4} mt={1}>
+                        {combos.map((combo, idx) => (
+                          <Text key={idx} fontSize="sm" color="gray.300">
+                            • {combo.name} x{combo.quantity}
+                          </Text>
+                        ))}
+                      </VStack>
+                    </Box>
+                  ) : null;
+                })()}
               </VStack>
             </HStack>
           </VStack>

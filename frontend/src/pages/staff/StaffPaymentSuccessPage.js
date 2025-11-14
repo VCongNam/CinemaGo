@@ -131,6 +131,23 @@ export default function StaffPaymentSuccessPage() {
       return;
     }
     const movieTitle = booking?.showtime_id?.movie_id?.title || "Phim";
+    const theaterName = booking?.showtime_id?.room_id?.theater_id?.name || "N/A";
+    const bookingId = booking?.order_code || booking?._id || "";
+    
+    // Extract combos from booking
+    const combos = [];
+    const rawCombos = booking.combos || [];
+    if (Array.isArray(rawCombos) && rawCombos.length > 0) {
+      rawCombos.forEach((c) => {
+        const comboData = c.combo_id || c.combo || c;
+        const name = comboData?.name || comboData?.title || c?.name || c?.title || "Combo";
+        const quantity = c.quantity || c.qty || c.count || 1;
+        combos.push({ name, quantity });
+      });
+    }
+    const combosHtml = combos.length > 0 
+      ? combos.map(c => `<p style="margin-left: 20px; margin: 2px 0; font-size: 13px;">• ${c.name} x${c.quantity}</p>`).join("")
+      : "";
     
     // Format showtime date safely (avoid Invalid Date)
     let showtimeFormatted = "N/A";
@@ -193,9 +210,12 @@ export default function StaffPaymentSuccessPage() {
         <body>
           <div class="ticket">
             <h2>🎬 Vé Xem Phim</h2>
+            ${bookingId ? `<p><strong>Mã đặt vé (BookingID):</strong> ${bookingId}</p>` : ""}
             <p><strong>Phim:</strong> ${movieTitle}</p>
+            <p><strong>Rạp:</strong> ${theaterName}</p>
             <p><strong>Suất chiếu:</strong> ${showtimeFormatted}</p>
             <p><strong>Ghế:</strong> ${seatList || "?"}</p>
+            ${combos.length > 0 ? `<p><strong>Combo đã chọn:</strong></p>${combosHtml}` : ""}
             <p><strong>Tổng tiền:</strong> ${Number(total).toLocaleString("vi-VN")}đ</p>
             <div class="divider"></div>
             <p>Cảm ơn quý khách đã mua vé!</p>
@@ -224,40 +244,70 @@ export default function StaffPaymentSuccessPage() {
           </Text>
         )}
         
-        {booking && (
-          <Box bg="#1a1e29" p={6} borderRadius="lg" w="full">
-            <VStack spacing={3} align="stretch">
-              <Text fontWeight="bold" color="orange.400" fontSize="md">
-                Thông tin đặt vé
-              </Text>
-              <Text><strong>Phim:</strong> {booking?.showtime_id?.movie_id?.title || "N/A"}</Text>
-              <Text><strong>Rạp:</strong> {booking?.showtime_id?.room_id?.theater_id?.name || "N/A"}</Text>
-              <Text><strong>Phòng:</strong> {booking?.showtime_id?.room_id?.name || "N/A"}</Text>
-              <Text><strong>Suất chiếu:</strong> {
-                booking?.showtime_id?.start_time?.vietnamFormatted || 
-                booking?.showtime_id?.start_time?.vietnam ||
-                new Date(booking?.showtime_id?.start_time || new Date()).toLocaleString("vi-VN")
-              }</Text>
-              <Text><strong>Ghế:</strong> {
-                seats.map((s) => s?.seat_id?.seat_number || s?.seat_number).filter(Boolean).join(", ") || "N/A"
-              }</Text>
-              <Text><strong>Tổng tiền:</strong> {
-                new Intl.NumberFormat("vi-VN", {
-                  style: "currency",
-                  currency: "VND",
-                }).format(
-                  parseFloat(
-                    booking?.paid_amount?.$numberDecimal || 
-                    booking?.paid_amount || 
-                    booking?.total_price?.$numberDecimal || 
-                    booking?.total_price || 
-                    0
+        {booking && (() => {
+          // Extract combos from booking
+          const combos = [];
+          const rawCombos = booking.combos || [];
+          if (Array.isArray(rawCombos) && rawCombos.length > 0) {
+            rawCombos.forEach((c) => {
+              const comboData = c.combo_id || c.combo || c;
+              const name = comboData?.name || comboData?.title || c?.name || c?.title || "Combo";
+              const quantity = c.quantity || c.qty || c.count || 1;
+              combos.push({ name, quantity });
+            });
+          }
+
+          // Get booking ID
+          const bookingId = booking.order_code || booking._id || '';
+
+          return (
+            <Box bg="#1a1e29" p={6} borderRadius="lg" w="full">
+              <VStack spacing={3} align="stretch">
+                <Text fontWeight="bold" color="orange.400" fontSize="md">
+                  Thông tin đặt vé
+                </Text>
+                <Text><strong>Mã đặt vé (BookingID):</strong> {bookingId}</Text>
+                <Text><strong>Phim:</strong> {booking?.showtime_id?.movie_id?.title || "N/A"}</Text>
+                <Text><strong>Rạp:</strong> {booking?.showtime_id?.room_id?.theater_id?.name || "N/A"}</Text>
+                <Text><strong>Phòng:</strong> {booking?.showtime_id?.room_id?.name || "N/A"}</Text>
+                <Text><strong>Suất chiếu:</strong> {
+                  booking?.showtime_id?.start_time?.vietnamFormatted || 
+                  booking?.showtime_id?.start_time?.vietnam ||
+                  new Date(booking?.showtime_id?.start_time || new Date()).toLocaleString("vi-VN")
+                }</Text>
+                <Text><strong>Ghế:</strong> {
+                  seats.map((s) => s?.seat_id?.seat_number || s?.seat_number).filter(Boolean).join(", ") || "N/A"
+                }</Text>
+                {combos.length > 0 && (
+                  <Box>
+                    <Text><strong>Combo đã chọn:</strong></Text>
+                    <VStack align="start" spacing={1} ml={4} mt={1}>
+                      {combos.map((combo, idx) => (
+                        <Text key={idx} fontSize="sm">
+                          • {combo.name} x{combo.quantity}
+                        </Text>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+                <Text><strong>Tổng tiền:</strong> {
+                  new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                  }).format(
+                    parseFloat(
+                      booking?.paid_amount?.$numberDecimal || 
+                      booking?.paid_amount || 
+                      booking?.total_price?.$numberDecimal || 
+                      booking?.total_price || 
+                      0
+                    )
                   )
-                )
-              }</Text>
-            </VStack>
-          </Box>
-        )}
+                }</Text>
+              </VStack>
+            </Box>
+          );
+        })()}
 
         <HStack spacing={4} w="full" justify="center">
           <Button 

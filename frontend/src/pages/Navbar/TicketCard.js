@@ -26,9 +26,29 @@ export default function TicketCard({ ticket, bookingId }) {
         <Text fontWeight="bold" fontSize="lg" color="orange.400">
           🎬 {ticket.movie}
         </Text>
+        {ticket.bookingId && (
+          <Text fontSize="xs" color="gray.500">
+            Mã vé: {ticket.bookingId}
+          </Text>
+        )}
+        {ticket.theater && (
+          <Text fontSize="sm" color="blue.300">
+            🏢 Rạp: {ticket.theater}
+          </Text>
+        )}
         <Text fontSize="sm" color="gray.300">
           Phòng: {ticket.room} 
         </Text>
+        {ticket.combos && ticket.combos.length > 0 && (
+          <Box fontSize="sm" color="purple.300">
+            <Text fontWeight="semibold" mb={1}>🍿 Combo:</Text>
+            {ticket.combos.map((combo, idx) => (
+              <Text key={idx} fontSize="xs" ml={2}>
+                • {combo.name} x{combo.quantity}
+              </Text>
+            ))}
+          </Box>
+        )}
         <HStack>
           <Badge
             px={2}

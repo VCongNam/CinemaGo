@@ -39,22 +39,46 @@ const TicketHistoryPage = () => {
     return bookings.filter((booking) => booking.status === status);
   };
 
-  const renderTicketCard = (booking) => (
-    <TicketCard
-      key={booking._id}
-      bookingId={booking._id}
-      ticket={{
-        movie: booking.showtime_id?.movie_id?.title || '',
-        room: booking.showtime_id?.room_id?.name || '',
-        seat: Array.isArray(booking.seats)
-          ? booking.seats.map(s => s.seat_id?.seat_number || s.seat_number).join(', ')
-          : '',
-        status: booking.status,
-        date: booking.showtime_id?.start_time?.vietnamFormatted || '',
-        total: booking.total_price?.$numberDecimal ? parseFloat(booking.total_price.$numberDecimal) : undefined,
-      }}
-    />
-  );
+  const renderTicketCard = (booking) => {
+    // Extract combos from booking
+    const combos = [];
+    const rawCombos = booking.combos || [];
+    if (Array.isArray(rawCombos) && rawCombos.length > 0) {
+      rawCombos.forEach((c) => {
+        const comboData = c.combo_id || c.combo || c;
+        const name = comboData?.name || comboData?.title || c?.name || c?.title || "Combo";
+        const quantity = c.quantity || c.qty || c.count || 1;
+        combos.push({ name, quantity });
+      });
+    }
+
+    // Get booking ID (order_code or _id)
+    const bookingId = booking.order_code || booking._id || '';
+
+    // Get theater name
+    const theater = booking.showtime_id?.room_id?.theater_id?.name || '';
+
+    return (
+      <TicketCard
+        key={booking._id}
+        bookingId={booking._id}
+        ticket={{
+          movie: booking.showtime_id?.movie_id?.title || '',
+          room: booking.showtime_id?.room_id?.name || '',
+          theater: theater,
+          bookingId: bookingId,
+          combos: combos,
+          seat: Array.isArray(booking.seats)
+            ? booking.seats.map(s => s.seat_id?.seat_number || s.seat_number).join(', ')
+            : '',
+          status: booking.status,
+          payment_status: booking.payment_status,
+          date: booking.showtime_id?.start_time?.vietnamFormatted || '',
+          total: booking.total_price?.$numberDecimal ? parseFloat(booking.total_price.$numberDecimal) : undefined,
+        }}
+      />
+    );
+  };
 
   if (loading) {
     return (
