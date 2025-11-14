@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Box,
   Heading,
@@ -155,18 +155,22 @@ const RoomsManagement = () => {
   useEffect(() => {
     if (!isAuthorized) return;
     fetchTheaters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthorized]);
+
+  // Lấy theaterId từ URL một lần
+  const theaterIdFromUrl = useMemo(() => searchParams.get("theater"), [searchParams]);
 
   useEffect(() => {
     if (!isAuthorized) return;
-    const theaterIdFromUrl = searchParams.get("theater");
     if (theaterIdFromUrl) {
       setTheaterFilter(theaterIdFromUrl);
       fetchRooms(theaterIdFromUrl);
     } else {
       fetchRooms();
     }
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theaterIdFromUrl, isAuthorized]);
 
   const fetchTheaters = async () => {
     try {

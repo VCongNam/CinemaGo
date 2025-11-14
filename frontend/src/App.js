@@ -85,6 +85,7 @@ function AppContent() {
       location.pathname === '/movies' || 
       location.pathname === '/showtimes' || 
       location.pathname === '/bookings' ||
+      location.pathname === '/combos' ||
       (location.pathname.startsWith('/bookings/') && !location.pathname.startsWith('/bookings/cart') && 
        !location.pathname.startsWith('/bookings/showtimes') && 
        !location.pathname.startsWith('/bookings/seats') && 

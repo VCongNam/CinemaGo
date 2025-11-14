@@ -18,6 +18,7 @@ export default function MovieDetail() {
   const [submitting, setSubmitting] = useState(false)
   const [userReview, setUserReview] = useState(null)
   const [showtimeSeatsInfo, setShowtimeSeatsInfo] = useState({}) // { showtimeId: { booked: 0, total: 0 } }
+  const [theatersMap, setTheatersMap] = useState({}) // { theaterId: { name, location } }
   const toast = useToast()
 
   useEffect(() => {
@@ -43,6 +44,20 @@ export default function MovieDetail() {
         
         // Load thông tin ghế cho mỗi showtime
         loadShowtimeSeatsInfo(showtimesList)
+        
+        // Extract unique theater IDs và fetch theater names
+        const theaterIds = new Set()
+        showtimesList.forEach(st => {
+          const theaterId = st.room_id?.theater_id?._id || st.room_id?.theater_id || st.room_id?.theater_id?.id
+          if (theaterId) {
+            theaterIds.add(typeof theaterId === 'string' ? theaterId : (theaterId._id || theaterId.id))
+          }
+        })
+        
+        // Fetch theaters nếu có theater IDs và chưa có name trong showtime
+        if (theaterIds.size > 0) {
+          loadTheatersInfo(Array.from(theaterIds))
+        }
       } else {
         setShowtimes([])
       }
@@ -64,6 +79,29 @@ export default function MovieDetail() {
       }
       setReviewsLoading(false)
     })
+  }
+
+  const loadTheatersInfo = (theaterIds) => {
+    // Fetch theaters từ API public
+    apiService.post(
+      '/api/public/theaters/list',
+      { page: 1, pageSize: 1000, status: 'active' },
+      (data, success) => {
+        if (success && data?.list) {
+          const theaters = {}
+          data.list.forEach(theater => {
+            const theaterId = theater.id || theater._id
+            if (theaterId) {
+              theaters[theaterId] = {
+                name: theater.name || 'Rạp không xác định',
+                location: theater.location || ''
+              }
+            }
+          })
+          setTheatersMap(theaters)
+        }
+      }
+    )
   }
 
   const loadShowtimeSeatsInfo = (showtimesList) => {
@@ -256,9 +294,28 @@ export default function MovieDetail() {
                   return <Text color="gray.400">Chưa có suất chiếu cho phim này</Text>;
                 }
 
-                // Nhóm showtimes theo ngày, sau đó theo phòng
-                const showtimesByDateAndRoom = activeShowtimes.reduce((acc, showtime) => {
+                // Nhóm showtimes theo ngày, sau đó theo rạp, rồi theo phòng
+                const showtimesByDateTheaterAndRoom = activeShowtimes.reduce((acc, showtime) => {
                   const dateKey = showtime.start_time.vietnamFormatted.split(' ')[1] // Lấy phần ngày
+                  
+                  // Lấy theater_id (có thể là string hoặc object)
+                  let theaterId = null
+                  if (showtime.room_id?.theater_id) {
+                    if (typeof showtime.room_id.theater_id === 'string') {
+                      theaterId = showtime.room_id.theater_id
+                    } else {
+                      theaterId = showtime.room_id.theater_id._id || showtime.room_id.theater_id.id || showtime.room_id.theater_id
+                    }
+                  }
+                  
+                  // Lấy theater name từ object hoặc từ map
+                  let theaterName = 'Rạp không xác định'
+                  if (showtime.room_id?.theater_id?.name) {
+                    theaterName = showtime.room_id.theater_id.name
+                  } else if (theaterId && theatersMap[theaterId]) {
+                    theaterName = theatersMap[theaterId].name
+                  }
+                  
                   const roomId = showtime.room_id?._id || showtime.room_id
                   const roomName = showtime.room_id?.name || 'Phòng không xác định'
                   
@@ -266,19 +323,26 @@ export default function MovieDetail() {
                     acc[dateKey] = {}
                   }
                   
-                  if (!acc[dateKey][roomId]) {
-                    acc[dateKey][roomId] = {
+                  if (!acc[dateKey][theaterId]) {
+                    acc[dateKey][theaterId] = {
+                      theaterName,
+                      rooms: {}
+                    }
+                  }
+                  
+                  if (!acc[dateKey][theaterId].rooms[roomId]) {
+                    acc[dateKey][theaterId].rooms[roomId] = {
                       roomName,
                       showtimes: []
                     }
                   }
                   
-                  acc[dateKey][roomId].showtimes.push(showtime)
+                  acc[dateKey][theaterId].rooms[roomId].showtimes.push(showtime)
                   return acc
                 }, {})
 
                 // Sắp xếp các ngày
-                const sortedDates = Object.keys(showtimesByDateAndRoom).sort((a, b) => {
+                const sortedDates = Object.keys(showtimesByDateTheaterAndRoom).sort((a, b) => {
                   const [dayA, monthA, yearA] = a.split('/')
                   const [dayB, monthB, yearB] = b.split('/')
                   return new Date(yearA, monthA - 1, dayA) - new Date(yearB, monthB - 1, dayB)
@@ -287,53 +351,65 @@ export default function MovieDetail() {
                 return sortedDates.map(date => (
                   <Box key={date} mb={8}>
                     <Heading size="md" mb={4} color="orange.400">{date}</Heading>
-                    {Object.keys(showtimesByDateAndRoom[date]).map(roomId => {
-                      const roomData = showtimesByDateAndRoom[date][roomId]
+                    {Object.keys(showtimesByDateTheaterAndRoom[date]).map(theaterId => {
+                      const theaterData = showtimesByDateTheaterAndRoom[date][theaterId]
                       return (
-                        <Box key={roomId} mb={6}>
-                          <Heading size="sm" mb={4} color="gray.300">{roomData.roomName}</Heading>
-                          <HStack wrap="wrap" spacing={4}>
-                            {roomData.showtimes
-                              .sort((a, b) => a.start_time.vietnamFormatted.localeCompare(b.start_time.vietnamFormatted))
-                              .map((showtime) => {
-                                // Lấy thời gian từ vietnamFormatted (e.g., "09:30:00 14/10/2025" -> "09:30")
-                                const timeMatch = showtime.start_time.vietnamFormatted.match(/^(\d{2}:\d{2})/)
-                                const time = timeMatch ? timeMatch[1] : showtime.start_time.vietnamFormatted.split(' ')[0]
-                                
-                                // Lấy thông tin ghế
-                                const seatsInfo = showtimeSeatsInfo[showtime._id] || { booked: 0, total: 0 }
-                                const availableSeats = seatsInfo.total - seatsInfo.booked
-                                
-                                return (
-                                  <Button
-                                    key={showtime._id}
-                                    size="md"
-                                    minW="100px"
-                                    h="70px"
-                                    bg="gray.700"
-                                    color="white"
-                                    border="1px solid"
-                                    borderColor="gray.600"
-                                    _hover={{ 
-                                      bg: "orange.400", 
-                                      borderColor: "orange.400",
-                                      color: "white"
-                                    }}
-                                    onClick={() => navigate(`/bookings/seats/${showtime._id}`)}
-                                  >
-                                    <VStack spacing={1} align="center">
-                                      <Text fontSize="md" fontWeight="bold">{time}</Text>
-                                      {seatsInfo.total > 0 && (
-                                        <Text fontSize="sm" color="gray.400">
-                                          {availableSeats}/{seatsInfo.total} ghế
-                                        </Text>
-                                      )}
-                                    </VStack>
-                                  </Button>
-                                )
-                              })
-                            }
-                          </HStack>
+                        <Box key={theaterId} mb={6} pl={4} borderLeft="3px solid" borderColor="orange.400">
+                          <Heading size="sm" mb={3} color="orange.300" fontWeight="bold">
+                          {theaterData.theaterName}
+                          </Heading>
+                          {Object.keys(theaterData.rooms).map(roomId => {
+                            const roomData = theaterData.rooms[roomId]
+                            return (
+                              <Box key={roomId} mb={4} pl={4}>
+                                <Text fontSize="md" mb={3} color="gray.300" fontWeight="semibold">
+                                {roomData.roomName}
+                                </Text>
+                                <HStack wrap="wrap" spacing={4}>
+                                  {roomData.showtimes
+                                    .sort((a, b) => a.start_time.vietnamFormatted.localeCompare(b.start_time.vietnamFormatted))
+                                    .map((showtime) => {
+                                      // Lấy thời gian từ vietnamFormatted (e.g., "09:30:00 14/10/2025" -> "09:30")
+                                      const timeMatch = showtime.start_time.vietnamFormatted.match(/^(\d{2}:\d{2})/)
+                                      const time = timeMatch ? timeMatch[1] : showtime.start_time.vietnamFormatted.split(' ')[0]
+                                      
+                                      // Lấy thông tin ghế
+                                      const seatsInfo = showtimeSeatsInfo[showtime._id] || { booked: 0, total: 0 }
+                                      const availableSeats = seatsInfo.total - seatsInfo.booked
+                                      
+                                      return (
+                                        <Button
+                                          key={showtime._id}
+                                          size="md"
+                                          minW="100px"
+                                          h="70px"
+                                          bg="gray.700"
+                                          color="white"
+                                          border="1px solid"
+                                          borderColor="gray.600"
+                                          _hover={{ 
+                                            bg: "orange.400", 
+                                            borderColor: "orange.400",
+                                            color: "white"
+                                          }}
+                                          onClick={() => navigate(`/bookings/seats/${showtime._id}`)}
+                                        >
+                                          <VStack spacing={1} align="center">
+                                            <Text fontSize="md" fontWeight="bold">{time}</Text>
+                                            {seatsInfo.total > 0 && (
+                                              <Text fontSize="sm" color="gray.400">
+                                                {availableSeats}/{seatsInfo.total} ghế
+                                              </Text>
+                                            )}
+                                          </VStack>
+                                        </Button>
+                                      )
+                                    })
+                                  }
+                                </HStack>
+                              </Box>
+                            )
+                          })}
                         </Box>
                       )
                     })}
