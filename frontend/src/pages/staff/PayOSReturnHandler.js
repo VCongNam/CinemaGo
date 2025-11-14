@@ -8,15 +8,52 @@ export default function PayOSReturnHandler() {
   const navigate = useNavigate();
   const toast = useToast();
 
-  // 🔹 Get staff page based on role or sessionStorage
+  // 🔹 Get staff page based on role or sessionStorage/localStorage
   const getStaffPage = () => {
-    const storedPage = sessionStorage.getItem("staffReturnPage");
+    // Ưu tiên lấy từ sessionStorage (được set khi tạo booking)
+    let storedPage = sessionStorage.getItem("staffReturnPage");
+    console.log("🔍 PayOSReturnHandler - sessionStorage staffReturnPage:", storedPage);
+    
+    // Nếu không có trong sessionStorage, thử lấy từ localStorage (backup)
+    if (!storedPage) {
+      storedPage = localStorage.getItem("staffReturnPage");
+      console.log("🔍 PayOSReturnHandler - localStorage staffReturnPage:", storedPage);
+    }
+    
     if (storedPage) {
-      sessionStorage.removeItem("staffReturnPage");
+      console.log("✅ PayOSReturnHandler - Using stored page:", storedPage);
       return storedPage;
     }
-    const role = (localStorage.getItem("userRole") || "").toLowerCase();
-    return role === "lv2" ? "/staff/l2" : "/staff/l1";
+    
+    // Fallback: check role từ nhiều nguồn
+    let role = "";
+    
+    // Thử lấy từ userRole
+    role = (localStorage.getItem("userRole") || "").toLowerCase();
+    
+    // Nếu không có, thử lấy từ role object
+    if (!role) {
+      try {
+        const roleData = JSON.parse(localStorage.getItem("role"));
+        role = (roleData?.role || "").toLowerCase();
+      } catch (e) {
+        // Ignore
+      }
+    }
+    
+    // Nếu vẫn không có, thử lấy từ staff object
+    if (!role) {
+      try {
+        const staffData = JSON.parse(localStorage.getItem("staff"));
+        role = (staffData?.role || "").toLowerCase();
+      } catch (e) {
+        // Ignore
+      }
+    }
+    
+    const fallbackPage = role === "lv2" ? "/staff/l2" : "/staff/l1";
+    console.log("⚠️ PayOSReturnHandler - Using fallback page based on role:", role, "->", fallbackPage);
+    return fallbackPage;
   };
 
   useEffect(() => {
@@ -142,7 +179,11 @@ export default function PayOSReturnHandler() {
         }
 
         // Redirect về trang staff
-        navigate(getStaffPage());
+        const staffPage = getStaffPage();
+        // Xóa cả sessionStorage và localStorage khi redirect
+        sessionStorage.removeItem("staffReturnPage");
+        localStorage.removeItem("staffReturnPage");
+        navigate(staffPage);
 
       } catch (error) {
         console.error('Error:', error);
@@ -156,7 +197,11 @@ export default function PayOSReturnHandler() {
           status: 'error'
         });
 
-        navigate(isAuthError ? '/admin/login' : getStaffPage());
+        const staffPage = getStaffPage();
+        // Xóa cả sessionStorage và localStorage khi redirect
+        sessionStorage.removeItem("staffReturnPage");
+        localStorage.removeItem("staffReturnPage");
+        navigate(isAuthError ? '/admin/login' : staffPage);
       }
     };
 

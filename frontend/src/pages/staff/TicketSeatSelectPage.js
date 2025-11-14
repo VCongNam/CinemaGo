@@ -39,6 +39,24 @@ export default function MovieSeatBookingPage() {
   const [bookedSeatIds, setBookedSeatIds] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState(null);
 
+  // 🔹 Lưu staffReturnPage ngay khi component mount
+  useEffect(() => {
+    const getStaffPage = () => {
+      const role = (localStorage.getItem("userRole") || "").toLowerCase();
+      return role === "lv2" ? "/staff/l2" : "/staff/l1";
+    };
+    
+    // Lưu trang staff hiện tại vào sessionStorage và localStorage
+    // Chỉ lưu nếu chưa có (để không ghi đè nếu đã được set từ trước)
+    const currentStaffPage = getStaffPage();
+    if (!sessionStorage.getItem("staffReturnPage")) {
+      sessionStorage.setItem("staffReturnPage", currentStaffPage);
+    }
+    if (!localStorage.getItem("staffReturnPage")) {
+      localStorage.setItem("staffReturnPage", currentStaffPage);
+    }
+  }, []);
+
   // 🔹 Fetch seats from API
   useEffect(() => {
     // room_id may be populated as an object or may be just the id string depending on what StaffL1Page passed.
@@ -68,20 +86,52 @@ export default function MovieSeatBookingPage() {
         if (!Array.isArray(seatData)) {
           throw new Error("Dữ liệu ghế không hợp lệ");
         }
-        // normalize id field
+        // normalize id field and prices
         const seatsWithId = seatData.map((s) => {
+          // Normalize base_price
           let normalizedBasePrice = s.base_price;
-          if (normalizedBasePrice && typeof normalizedBasePrice === "object") {
-            if (Object.prototype.hasOwnProperty.call(normalizedBasePrice, "$numberDecimal")) {
-              normalizedBasePrice = Number(normalizedBasePrice.$numberDecimal);
-            } else if (typeof normalizedBasePrice.toString === "function") {
-              normalizedBasePrice = Number(normalizedBasePrice.toString());
+          if (normalizedBasePrice != null) {
+            if (typeof normalizedBasePrice === "number") {
+              // Already a number
+            } else if (typeof normalizedBasePrice === "object") {
+              if (Object.prototype.hasOwnProperty.call(normalizedBasePrice, "$numberDecimal")) {
+                normalizedBasePrice = Number(normalizedBasePrice.$numberDecimal);
+              } else if (typeof normalizedBasePrice.toString === "function") {
+                normalizedBasePrice = Number(normalizedBasePrice.toString());
+              }
+            } else if (typeof normalizedBasePrice === "string") {
+              normalizedBasePrice = Number(normalizedBasePrice);
             }
           }
+          
+          // Normalize price (API might return price field instead of base_price)
+          let normalizedPrice = s.price;
+          if (normalizedPrice != null) {
+            if (typeof normalizedPrice === "number") {
+              // Already a number
+            } else if (typeof normalizedPrice === "object") {
+              if (Object.prototype.hasOwnProperty.call(normalizedPrice, "$numberDecimal")) {
+                normalizedPrice = Number(normalizedPrice.$numberDecimal);
+              } else if (typeof normalizedPrice.toString === "function") {
+                normalizedPrice = Number(normalizedPrice.toString());
+              }
+            } else if (typeof normalizedPrice === "string") {
+              normalizedPrice = Number(normalizedPrice);
+            }
+          }
+          
+          // Use price if base_price is not available or invalid
+          const finalPrice = (Number.isFinite(normalizedBasePrice) && normalizedBasePrice > 0) 
+            ? normalizedBasePrice 
+            : (Number.isFinite(normalizedPrice) && normalizedPrice > 0) 
+              ? normalizedPrice 
+              : null;
+          
           return {
             ...s,
             id: s._id || s.id,
-            base_price: normalizedBasePrice,
+            base_price: finalPrice,
+            price: finalPrice,
           };
         });
         setSeats(seatsWithId);
@@ -227,6 +277,37 @@ export default function MovieSeatBookingPage() {
 
   // 🔹 Print ticket helper
   const handlePrintTicket = () => {
+    // Format showtime date safely (avoid Invalid Date)
+    let showtimeFormatted = "N/A";
+    const startTimeObj = showtime?.start_time;
+    if (startTimeObj) {
+      if (typeof startTimeObj === "object" && startTimeObj !== null) {
+        // Nếu là object, ưu tiên vietnamFormatted, sau đó vietnam, cuối cùng utc
+        showtimeFormatted = startTimeObj.vietnamFormatted || startTimeObj.vietnam || startTimeObj.utc || "";
+      } else if (typeof startTimeObj === "string") {
+        // Nếu là string, thử parse hoặc dùng trực tiếp
+        try {
+          const parsedDate = new Date(startTimeObj);
+          if (!isNaN(parsedDate.getTime())) {
+            showtimeFormatted = parsedDate.toLocaleString("vi-VN");
+          } else {
+            showtimeFormatted = startTimeObj;
+          }
+        } catch (e) {
+          showtimeFormatted = startTimeObj;
+        }
+      }
+    }
+    
+    // Fallback nếu vẫn không có giá trị hợp lệ
+    if (!showtimeFormatted || showtimeFormatted === "N/A") {
+      try {
+        showtimeFormatted = new Date().toLocaleString("vi-VN");
+      } catch (e) {
+        showtimeFormatted = "Chưa cập nhật";
+      }
+    }
+    
     const ticketWindow = window.open("", "_blank");
     ticketWindow.document.write(`
       <html>
@@ -251,7 +332,7 @@ export default function MovieSeatBookingPage() {
           <div class="ticket">
             <h2>🎬 Vé Xem Phim</h2>
             <p><strong>Phim:</strong> ${movie?.title}</p>
-            <p><strong>Suất chiếu:</strong> ${new Date(showtime?.start_time).toLocaleString("vi-VN")}</p>
+            <p><strong>Suất chiếu:</strong> ${showtimeFormatted}</p>
             <p><strong>Ghế:</strong> ${selectedSeats.map((s) => s.seat_number).join(", ")}</p>
             <p><strong>Tổng tiền:</strong> ${total.toLocaleString("vi-VN")}đ</p>
             <div class="divider"></div>
@@ -316,6 +397,10 @@ export default function MovieSeatBookingPage() {
         showtime_id: showtime._id || showtime.id,
         seat_ids: selectedSeats.map((s) => s.id || s._id),
         payment_method: "cash",
+        combos: selectedFoods.map((f) => ({
+          combo_id: f.id,
+          quantity: f.quantity,
+        })),
       }),
     })
       .then(async (res) => {
@@ -366,6 +451,10 @@ export default function MovieSeatBookingPage() {
         showtime_id: showtime._id || showtime.id,
         seat_ids: selectedSeats.map((s) => s.id || s._id),
         payment_method: "online",
+        combos: selectedFoods.map((f) => ({
+          combo_id: f.id,
+          quantity: f.quantity,
+        })),
       }),
     })
       .then(async (res) => {
@@ -376,8 +465,12 @@ export default function MovieSeatBookingPage() {
         if (!bookingId) throw new Error('Không lấy được bookingId từ server');
 
         // Store the original staff page for redirect after payment
+        // Lưu vào cả sessionStorage và localStorage để đảm bảo không bị mất khi redirect
+        // Luôn cập nhật lại để đảm bảo đúng trang hiện tại
         const staffPage = getStaffPage();
         sessionStorage.setItem("staffReturnPage", staffPage);
+        localStorage.setItem("staffReturnPage", staffPage);
+        console.log("💾 Saved staffReturnPage:", staffPage);
 
         // Request backend to create a PayOS payment link for this booking
         const token = localStorage.getItem("token") || localStorage.getItem("accessToken");

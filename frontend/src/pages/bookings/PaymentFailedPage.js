@@ -125,16 +125,56 @@ const PaymentFailedPage = () => {
             color="white"
             colorScheme="gray"
             onClick={() => {
+              // Kiểm tra xem có phải staff không
               const isStaff = localStorage.getItem("isStaff") === "true";
-              const role = (localStorage.getItem("userRole") || "").toLowerCase();
+              let role = (localStorage.getItem("userRole") || "").toLowerCase();
+              
+              // Nếu không có từ userRole, thử lấy từ role object
+              if (!role) {
+                try {
+                  const roleData = JSON.parse(localStorage.getItem("role"));
+                  role = (roleData?.role || "").toLowerCase();
+                } catch (e) {
+                  // Ignore
+                }
+              }
+              
               const isStaffRole = role === "lv1" || role === "lv2" || role === "admin";
-              navigate(isStaff || isStaffRole ? "/staff/l1" : "/");
+              
+              if (isStaff || isStaffRole) {
+                // Ưu tiên lấy từ sessionStorage/localStorage
+                let staffPage = sessionStorage.getItem("staffReturnPage");
+                if (!staffPage) {
+                  staffPage = localStorage.getItem("staffReturnPage");
+                }
+                
+                // Nếu có staffReturnPage, dùng nó
+                if (staffPage) {
+                  sessionStorage.removeItem("staffReturnPage");
+                  localStorage.removeItem("staffReturnPage");
+                  navigate(staffPage);
+                } else {
+                  // Fallback về trang staff dựa trên role
+                  const fallbackPage = role === "lv2" ? "/staff/l2" : "/staff/l1";
+                  navigate(fallbackPage);
+                }
+              } else {
+                navigate("/");
+              }
             }}
             size="lg"
           >
             {(() => {
               const isStaff = localStorage.getItem("isStaff") === "true";
-              const role = (localStorage.getItem("userRole") || "").toLowerCase();
+              let role = (localStorage.getItem("userRole") || "").toLowerCase();
+              if (!role) {
+                try {
+                  const roleData = JSON.parse(localStorage.getItem("role"));
+                  role = (roleData?.role || "").toLowerCase();
+                } catch (e) {
+                  // Ignore
+                }
+              }
               const isStaffRole = role === "lv1" || role === "lv2" || role === "admin";
               return isStaff || isStaffRole ? "Quay về trang staff" : "Quay về trang chủ";
             })()}
