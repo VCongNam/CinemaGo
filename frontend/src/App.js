@@ -40,6 +40,7 @@ import LoginPage from "./pages/Login"
 import RegisterPage from "./pages/Register"
 import ProfilePage from "./pages/ProfilePage"
 import ChangePasswordPage from "./pages/ChangePasswordPage"
+import ResetPasswordPage from "./pages/ResetPasswordPage"
 
 // Theater pages
 import TheaterListPage from "./pages/theaters/TheaterListPage"
@@ -75,10 +76,12 @@ function AppContent() {
     
     // Ẩn Header/Footer nếu:
     // 1. Path bắt đầu với /staff/ hoặc /admin/
-    // 2. Hoặc user là admin/staff VÀ đang ở trang quản lý (/movies, /showtimes, /bookings - nhưng không phải /movies/:id)
+    // 2. Hoặc là trang reset-password
+    // 3. Hoặc user là admin/staff VÀ đang ở trang quản lý (/movies, /showtimes, /bookings - nhưng không phải /movies/:id)
     const pathStartsWithStaff = location.pathname.startsWith('/staff/');
     const pathStartsWithAdmin = /^\/admin\//.test(location.pathname);
-    const isStaffOrAdminRoute = pathStartsWithStaff || pathStartsWithAdmin;
+    const isResetPasswordPage = location.pathname === '/reset-password';
+    const isStaffOrAdminRoute = pathStartsWithStaff || pathStartsWithAdmin || isResetPasswordPage;
     
     // Kiểm tra nếu đang ở trang quản lý (không phải detail page)
     const isManagementPage = 
@@ -109,6 +112,7 @@ function AppContent() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/admin/login" element={<AdminAndStaffLoginPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/logintest" element={<LoginPagetest />} />
           <Route path="/social-auth-success" element={<SocialAuthSuccess />} />
 
