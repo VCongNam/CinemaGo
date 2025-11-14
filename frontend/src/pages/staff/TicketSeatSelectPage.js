@@ -268,10 +268,20 @@ export default function MovieSeatBookingPage() {
     }
   }, [selectedSeats, seatTotal]);
 
-  const foodTotal = selectedFoods.reduce(
-    (sum, f) => sum + f.price * f.quantity,
-    0
-  );
+  const foodTotal = selectedFoods.reduce((sum, f) => {
+    // Normalize price để tránh lỗi [object Object]
+    let price = 0;
+    if (f.price) {
+      if (typeof f.price === "number") {
+        price = f.price;
+      } else if (typeof f.price === "object" && f.price.$numberDecimal) {
+        price = Number(f.price.$numberDecimal);
+      } else if (typeof f.price === "string") {
+        price = Number(f.price) || 0;
+      }
+    }
+    return sum + price * (f.quantity || 0);
+  }, 0);
 
   const total = seatTotal + foodTotal;
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Container, Box, Heading, Text, VStack, HStack, Button, Input, FormControl, FormLabel, Spinner, Avatar, useToast } from "@chakra-ui/react"
+import { format, parseISO } from "date-fns"
 import apiService from "../services/apiService"
 import { useNavigate } from "react-router-dom"
 import authService from "../services/authService"
@@ -20,18 +21,47 @@ export default function ProfilePage() {
   useEffect(() => {
     let isMounted = true
     setLoading(true)
-    // Prefer protected endpoint to get full profile
-    apiService.get('/auth/profile-detail', {}, (data, success) => {
+    
+    // Lấy userId từ localStorage
+    const localUser = authService.getUser()
+    const userId = localUser?.id || localUser?._id || localUser?.userId
+    
+    if (!userId) {
+      // Nếu không có userId, fallback về profile-detail
+      apiService.get('/auth/profile-detail', {}, (data, success) => {
+        if (!isMounted) return
+        setLoading(false)
+        if (success) {
+          setProfile(data?.data || null)
+          setForm(data?.data || {})
+        } else {
+          setProfile(localUser)
+          setForm(localUser || {})
+        }
+      })
+      return () => { isMounted = false }
+    }
+    
+    // Sử dụng endpoint /users/{userId} để lấy đầy đủ thông tin
+    apiService.getById('/users/', userId, (data, success) => {
       if (!isMounted) return
       setLoading(false)
       if (success) {
-        setProfile(data?.data || null)
-        setForm(data?.data || {})
+        const userData = data?.data || data
+        setProfile(userData)
+        setForm(userData)
       } else {
-        // fallback to local storage user
-        const localUser = authService.getUser()
-        setProfile(localUser)
-        setForm(localUser || {})
+        // Fallback nếu API lỗi
+        apiService.get('/auth/profile-detail', {}, (fallbackData, fallbackSuccess) => {
+          if (!isMounted) return
+          if (fallbackSuccess) {
+            setProfile(fallbackData?.data || null)
+            setForm(fallbackData?.data || {})
+          } else {
+            setProfile(localUser)
+            setForm(localUser || {})
+          }
+        })
       }
     })
 
@@ -42,13 +72,23 @@ export default function ProfilePage() {
     const updatePayload = {
       fullName: form.fullName,
       phone: form.phone,
-      address: form.address,
+      dateOfBirth: form.dateOfBirth,
     }
-    apiService.put('/auth/update-profile', updatePayload, (res, success) => {
+    apiService.put('/update-profile', updatePayload, (res, success) => {
       if (success) {
         toast({ title: res?.message || 'Cập nhật thành công', status: 'success' })
-        // update local copy
-        authService.updateUser(updatePayload)
+        // Reload profile để cập nhật dữ liệu
+        const localUser = authService.getUser()
+        const userId = localUser?.id || localUser?._id || localUser?.userId
+        if (userId) {
+          apiService.getById('/users/', userId, (data, success) => {
+            if (success) {
+              const userData = data?.data || data
+              setProfile(userData)
+              setForm(userData)
+            }
+          })
+        }
         setEditing(false)
       } else {
         toast({ title: res?.message || 'Lỗi', status: 'error' })
@@ -77,10 +117,12 @@ export default function ProfilePage() {
             <Heading size="md" mb={4} color="orange.400">Chi tiết cá nhân</Heading>
             {!editing ? (
               <VStack align="start" spacing={2} color="white">
-                <Text><strong>Họ và tên:</strong> {profile.fullName || profile.full_name || profile.username || '-'}</Text>
+                <Text><strong>Username:</strong> {profile.username || '-'}</Text>
+                <Text><strong>Email:</strong> {profile.email || '-'}</Text>
+                <Text><strong>Họ và tên:</strong> {profile.fullName || profile.full_name || '-'}</Text>
                 <Text><strong>Số điện thoại:</strong> {profile.phone || profile.phone_number || '-'}</Text>
-                <Text><strong>Địa chỉ:</strong> {profile.address || profile.addr || '-'}</Text>
-                <Text><strong>Ngày tạo:</strong> {(profile.createdAt || profile.created_at) ? new Date(profile.createdAt || profile.created_at).toLocaleString() : '-'}</Text>
+                <Text><strong>Ngày sinh:</strong> {profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString('vi-VN') : '-'}</Text>
+                <Text><strong>Ngày tạo:</strong> {(profile.createdAt || profile.created_at) ? new Date(profile.createdAt || profile.created_at).toLocaleString('vi-VN') : '-'}</Text>
                 <HStack>
                   <Button mt={4} bgColor="#d97a2c" color="white" _hover={{ bg: '#c45f13' }} onClick={() => setEditing(true)}>Chỉnh sửa</Button>
                   <Button mt={4} variant="outline" borderColor="#d97a2c" color="#d97a2c" onClick={() => navigate('/change-password')}>Đổi mật khẩu</Button>
@@ -97,8 +139,14 @@ export default function ProfilePage() {
                   <Input bg="#0f1720" color="#ffffff" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </FormControl>
                 <FormControl>
-                  <FormLabel color="white">Địa chỉ</FormLabel>
-                  <Input bg="#0f1720" color="#ffffff" value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                  <FormLabel color="white">Ngày sinh</FormLabel>
+                  <Input 
+                    type="date"
+                    bg="#0f1720" 
+                    color="#ffffff" 
+                    value={form.dateOfBirth ? (typeof form.dateOfBirth === 'string' ? form.dateOfBirth.split('T')[0] : format(parseISO(form.dateOfBirth), 'yyyy-MM-dd')) : ''} 
+                    onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value ? new Date(e.target.value).toISOString() : '' })} 
+                  />
                 </FormControl>
                 <HStack>
                   <Button bgColor="#d97a2c" color="white" _hover={{ bg: '#c45f13' }} onClick={handleUpdate}>Lưu</Button>

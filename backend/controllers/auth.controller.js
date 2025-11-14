@@ -102,7 +102,7 @@ export const loginStaff = async (req, res, next) => {
 
 export const registerCustomer = async (req, res, next) => {
   try {
-    const { username, password, email, fullName } = req.body;
+    const { username, password, email } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
@@ -115,7 +115,9 @@ export const registerCustomer = async (req, res, next) => {
       username, 
       password: hashedPassword, 
       email,
-      full_name: fullName,
+      full_name: null, // Có thể cập nhật sau
+      phone: null, // Có thể cập nhật sau
+      date_of_birth: null, // Có thể cập nhật sau
       role: "customer"
     });
 

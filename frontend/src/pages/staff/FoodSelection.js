@@ -40,7 +40,8 @@ export const FoodSelection = ({ selectedFoods, onFoodChange }) => {
             }
             
             return {
-              id: combo._id,
+              id: combo._id || combo.id,
+              _id: combo._id || combo.id,
               name: combo.name,
               description: combo.description,
               price: price,
@@ -56,72 +57,42 @@ export const FoodSelection = ({ selectedFoods, onFoodChange }) => {
     });
   }, []);
 
-  useEffect(() => {
-    fetchCombos();
-  }, []);
-
-  const fetchCombos = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("token");
-      
-      const response = await fetch("http://localhost:5000/api/combos", {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Không thể tải danh sách combo");
-      }
-
-      const data = await response.json();
-      
-      // Lọc chỉ lấy combo đang active
-      const activeCombos = (data.data || []).filter(combo => combo.status === "active");
-      setCombos(activeCombos);
-    } catch (err) {
-      console.error("Fetch combos error:", err);
-      toast({
-        title: "Lỗi tải combo",
-        description: err.message,
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleIncrease = (combo) => {
-    const existing = selectedFoods.find(f => f._id === combo._id);
+    const comboId = combo._id || combo.id;
+    const existing = selectedFoods.find(f => (f._id || f.id) === comboId);
     if (existing) {
       onFoodChange(selectedFoods.map(f =>
-        f._id === combo._id ? { ...f, quantity: f.quantity + 1 } : f
+        (f._id || f.id) === comboId ? { ...f, quantity: (f.quantity || 0) + 1 } : f
       ));
     } else {
-      onFoodChange([...selectedFoods, { ...combo, quantity: 1 }]);
+      // Đảm bảo price là number, không phải object
+      const normalizedCombo = {
+        ...combo,
+        _id: comboId,
+        id: comboId,
+        price: typeof combo.price === 'number' ? combo.price : (typeof combo.price === 'object' && combo.price.$numberDecimal ? Number(combo.price.$numberDecimal) : 0),
+        quantity: 1
+      };
+      onFoodChange([...selectedFoods, normalizedCombo]);
     }
   };
 
   const handleDecrease = (comboId) => {
-    const existing = selectedFoods.find(f => f._id === comboId);
+    const existing = selectedFoods.find(f => (f._id || f.id) === comboId);
     if (existing) {
       if (existing.quantity === 1) {
-        onFoodChange(selectedFoods.filter(f => f._id !== comboId));
+        onFoodChange(selectedFoods.filter(f => (f._id || f.id) !== comboId));
       } else {
         onFoodChange(selectedFoods.map(f =>
-          f._id === comboId ? { ...f, quantity: f.quantity - 1 } : f
+          (f._id || f.id) === comboId ? { ...f, quantity: (f.quantity || 0) - 1 } : f
         ));
       }
     }
   };
 
   const getQuantity = (comboId) => {
-    const combo = selectedFoods.find(f => f._id === comboId);
-    return combo ? combo.quantity : 0;
+    const combo = selectedFoods.find(f => (f._id || f.id) === comboId);
+    return combo ? (combo.quantity || 0) : 0;
   };
 
   const formatPrice = (price) => {
@@ -219,7 +190,7 @@ export const FoodSelection = ({ selectedFoods, onFoodChange }) => {
                         </Text>
                       )}
                       <Text fontSize="xs" color="orange.300" mt={1}>
-                        {combo.price.toLocaleString("vi-VN")} đ
+                        {formatPrice(combo.price)}
                       </Text>
                     </Box>
                   </Flex>
