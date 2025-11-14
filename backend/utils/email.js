@@ -31,7 +31,6 @@ export const sendOTPEmail = async (email, otp) => {
       html: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; background: #f4f6fb; border-radius: 14px; box-shadow: 0 4px 24px rgba(0,0,0,0.07); padding: 0 0 32px 0;">
           <div style="background: linear-gradient(90deg, #007bff 0%, #00c6ff 100%); border-radius: 14px 14px 0 0; padding: 32px 0 24px 0; text-align: center;">
-            <img src="https://placehold.co/600x400?text=CinemaGo" alt="CinemaGo Logo" style="width: 64px; height: 64px; margin-bottom: 12px;" />
             <h1 style="color: #fff; font-size: 2.1rem; margin: 0;">CinemaGo</h1>
             <p style="color: #e3f2fd; font-size: 1.1rem; margin: 8px 0 0 0;">Nền tảng đặt vé xem phim hiện đại</p>
           </div>
@@ -165,7 +164,6 @@ export const sendBookingConfirmationEmail = async (bookingData) => {
     const html = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; background: #f4f6fb; border-radius: 14px; box-shadow: 0 4px 24px rgba(0,0,0,0.07); padding: 0 0 32px 0;">
         <div style="background: linear-gradient(90deg, #007bff 0%, #00c6ff 100%); border-radius: 14px 14px 0 0; padding: 32px 0 24px 0; text-align: center;">
-          <img src="https://placehold.co/600x400?text=CinemaGo" alt="CinemaGo Logo" style="width: 64px; height: 64px; margin-bottom: 12px;" />
           <h1 style="color: #fff; font-size: 2.1rem; margin: 0;">CinemaGo</h1>
           <p style="color: #e3f2fd; font-size: 1.1rem; margin: 8px 0 0 0;">Xác nhận đặt vé thành công</p>
         </div>
@@ -220,7 +218,7 @@ export const sendBookingConfirmationEmail = async (bookingData) => {
           </div>
 
           <div style="text-align: center; margin-top: 30px;">
-            <a href="${process.env.FRONTEND_URL || 'https://cinemago.vn'}/bookings/${bookingId}" style="display: inline-block; background: linear-gradient(90deg, #007bff 0%, #00c6ff 100%); color: #fff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 12px 32px; border-radius: 6px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,123,255,0.10);">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/ticket-detail/${bookingId}" style="display: inline-block; background: linear-gradient(90deg, #007bff 0%, #00c6ff 100%); color: #fff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 12px 32px; border-radius: 6px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,123,255,0.10);">
               Xem chi tiết vé
             </a>
           </div>
