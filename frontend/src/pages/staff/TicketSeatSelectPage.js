@@ -318,6 +318,14 @@ export default function MovieSeatBookingPage() {
       }
     }
     
+    // Get theater name
+    const theaterName = showtime?.room_id?.theater_id?.name || room?.theater_id?.name || "N/A";
+    
+    // Format combos
+    const combosHtml = selectedFoods.length > 0 
+      ? selectedFoods.map(f => `<p style="margin-left: 20px; margin: 2px 0; font-size: 13px;">• ${f.name || f.title || "Combo"} x${f.quantity || 1}</p>`).join("")
+      : "";
+    
     const ticketWindow = window.open("", "_blank");
     ticketWindow.document.write(`
       <html>
@@ -342,8 +350,10 @@ export default function MovieSeatBookingPage() {
           <div class="ticket">
             <h2>🎬 Vé Xem Phim</h2>
             <p><strong>Phim:</strong> ${movie?.title}</p>
+            <p><strong>Rạp:</strong> ${theaterName}</p>
             <p><strong>Suất chiếu:</strong> ${showtimeFormatted}</p>
             <p><strong>Ghế:</strong> ${selectedSeats.map((s) => s.seat_number).join(", ")}</p>
+            ${selectedFoods.length > 0 ? `<p><strong>Combo đã chọn:</strong></p>${combosHtml}` : ""}
             <p><strong>Tổng tiền:</strong> ${total.toLocaleString("vi-VN")}đ</p>
             <div class="divider"></div>
             <p>Cảm ơn quý khách đã mua vé!</p>

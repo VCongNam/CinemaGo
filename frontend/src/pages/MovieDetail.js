@@ -1,4 +1,4 @@
-import { Box, Container, Image, Heading, Text, HStack, VStack, Button, Badge, Spinner, Card, CardBody, Tabs, TabList, Tab, TabPanels, TabPanel, Textarea, Flex, Divider, Icon, FormControl, FormLabel, useToast } from "@chakra-ui/react"
+import { Box, Container, Image, Heading, Text, HStack, VStack, Button, Badge, Spinner, Card, CardBody, Tabs, TabList, Tab, TabPanels, TabPanel, Textarea, Flex, Divider, Icon, FormControl, FormLabel, useToast, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton, useDisclosure } from "@chakra-ui/react"
 import { StarIcon } from "@chakra-ui/icons"
 import { useParams, useNavigate } from "react-router-dom"
 import { useEffect, useState } from "react"
@@ -20,6 +20,35 @@ export default function MovieDetail() {
   const [showtimeSeatsInfo, setShowtimeSeatsInfo] = useState({}) // { showtimeId: { booked: 0, total: 0 } }
   const [theatersMap, setTheatersMap] = useState({}) // { theaterId: { name, location } }
   const toast = useToast()
+  const { isOpen: isTrailerOpen, onOpen: onTrailerOpen, onClose: onTrailerClose } = useDisclosure()
+
+  // Hàm chuyển đổi YouTube URL thành embed URL
+  const getEmbedUrl = (url) => {
+    if (!url) return ''
+    
+    // Nếu đã là embed URL, trả về nguyên
+    if (url.includes('youtube.com/embed')) {
+      return url
+    }
+    
+    // Xử lý youtu.be URL
+    const youtuBeRegex = /youtu\.be\/([^"&?\/\s]{11})/
+    const youtuBeMatch = url.match(youtuBeRegex)
+    if (youtuBeMatch && youtuBeMatch[1]) {
+      return `https://www.youtube.com/embed/${youtuBeMatch[1]}`
+    }
+    
+    // Xử lý YouTube URL thông thường (youtube.com/watch?v=...)
+    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=))([^"&?\/\s]{11})/
+    const match = url.match(youtubeRegex)
+    
+    if (match && match[1]) {
+      return `https://www.youtube.com/embed/${match[1]}`
+    }
+    
+    // Nếu không phải YouTube URL, trả về nguyên (có thể là Vimeo hoặc nguồn khác)
+    return url
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -270,6 +299,16 @@ export default function MovieDetail() {
                 </HStack>
                 <Text color="gray.300">{movie.duration ? `${movie.duration} phút` : ''}</Text>
                 <Text color="gray.200" maxW="650px">{movie.description || movie.overview || ''}</Text>
+                {movie.trailer_url && (
+                  <Button
+                    colorScheme="orange"
+                    onClick={onTrailerOpen}
+                    mt={2}
+                    size="md"
+                  >
+                    Xem Trailer
+                  </Button>
+                )}
 
               </VStack>
             </HStack>
@@ -534,6 +573,42 @@ export default function MovieDetail() {
             </Tabs>
           </CardBody>
         </Card>
+
+        {/* Trailer Modal */}
+        {movie.trailer_url && (
+          <Modal isOpen={isTrailerOpen} onClose={onTrailerClose} size="4xl" isCentered>
+            <ModalOverlay bg="blackAlpha.800" />
+            <ModalContent bg="gray.900" maxW="70vw" maxH="75vh">
+              <ModalHeader color="orange.400">Trailer: {movie.title}</ModalHeader>
+              <ModalCloseButton color="white" />
+              <ModalBody pb={6}>
+                <Box
+                  position="relative"
+                  width="100%"
+                  paddingBottom="56.25%" // 16:9 aspect ratio
+                  height="0"
+                  overflow="hidden"
+                  borderRadius="md"
+                >
+                  <iframe
+                    src={getEmbedUrl(movie.trailer_url)}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      border: "none"
+                    }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title={`Trailer của ${movie.title}`}
+                  />
+                </Box>
+              </ModalBody>
+            </ModalContent>
+          </Modal>
+        )}
       </Container>
     </Box>
   )
