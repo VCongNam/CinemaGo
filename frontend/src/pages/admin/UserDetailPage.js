@@ -11,9 +11,12 @@ import {
   Badge,
   Button,
   Divider,
+  Center,
 } from "@chakra-ui/react";
+import { useAdminAuth } from "../../hooks/useAdminAuth";
 
 const UserDetailPage = () => {
+  const isAuthorized = useAdminAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -21,6 +24,7 @@ const UserDetailPage = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!isAuthorized) return;
     const token = localStorage.getItem("token");
     fetch(`http://localhost:5000/users/${id}`, {
       method: "GET",
@@ -36,7 +40,7 @@ const UserDetailPage = () => {
       .then((data) => setUser(data.data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, isAuthorized]);
 
   // Hàm hiển thị badge theo trạng thái
   const getStatusBadge = (status) => {
@@ -74,6 +78,14 @@ const UserDetailPage = () => {
         );
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <Center minH="100vh" bg="#0f1117">
+        <Spinner size="xl" color="orange.400" />
+      </Center>
+    );
+  }
 
   return (
     <Flex

@@ -229,19 +229,9 @@ export const handlePayosWebhook = async (req, res, next) => {
         
         // Chỉ cập nhật nếu booking đang ở trạng thái pending
         if (booking.status === 'pending') {
-          booking.payment_status = 'failed';
-          booking.status = 'cancelled';
-          await booking.save();
-
-          // Giải phóng ghế đã đặt
-          const bookingSeats = await BookingSeat.find({ booking_id: booking._id });
-          const seatIdsToRelease = bookingSeats.map(bs => bs.seat_id);
-
-          if (seatIdsToRelease.length > 0) {
-            // Logic giải phóng ghế ở đây (ví dụ: cập nhật trạng thái ghế)
-            console.log(`Releasing seats for cancelled booking ${booking._id}:`, seatIdsToRelease);
-            // await Seat.updateMany({ _id: { $in: seatIdsToRelease } }, { $set: { status: 'available' } });
-          }
+          // Sử dụng helper function để cập nhật status và giải phóng ghế
+          await updateBookingStatusAndSeats(booking, 'cancelled', 'failed', 0, null);
+          console.log(`Booking ${booking._id} has been cancelled and seats released.`);
         }
         // TODO: Gửi email thông báo thất bại
         break;
@@ -298,8 +288,11 @@ export const checkBookingPaymentStatus = async (req, res, next) => {
       return res.status(404).json({ message: "Không tìm thấy booking." });
     }
 
-    // Kiểm tra quyền truy cập
-    if (booking.user_id.toString() !== req.user._id.toString()) {
+    // Kiểm tra quyền truy cập: cho phép user xem booking của mình, hoặc staff/admin xem bất kỳ booking nào
+    const isOwner = booking.user_id.toString() === req.user._id.toString();
+    const isStaffOrAdmin = req.user.role === 'lv1' || req.user.role === 'lv2' || req.user.role === 'admin';
+    
+    if (!isOwner && !isStaffOrAdmin) {
       return res.status(403).json({ message: "Bạn không có quyền xem booking này." });
     }
 

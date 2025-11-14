@@ -15,10 +15,13 @@ import {
   Divider,
   Card,
   CardBody,
+  Center,
 } from "@chakra-ui/react";
 import { ArrowBackIcon } from "@chakra-ui/icons";
+import { useAdminOrStaffL2Auth } from "../../hooks/useAdminOrStaffL2Auth";
 
 const BookingDetailPage = () => {
+  const isAuthorized = useAdminOrStaffL2Auth();
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -28,6 +31,8 @@ const BookingDetailPage = () => {
   const toast = useToast();
 
   useEffect(() => {
+    if (!isAuthorized) return;
+    
     const fetchBookingDetails = async () => {
       const token = localStorage.getItem("token");
       
@@ -70,7 +75,8 @@ const BookingDetailPage = () => {
     };
 
     fetchBookingDetails();
-  }, [id, location.state, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isAuthorized]);
 
   const formatPrice = (price) => {
     if (!price) return "0 VNĐ";
@@ -130,6 +136,14 @@ const BookingDetailPage = () => {
   const totalPaidAmount = bookings.reduce((sum, b) => {
     return sum + parseFloat(b.paid_amount?.$numberDecimal || b.paid_amount || 0);
   }, 0);
+
+  if (!isAuthorized) {
+    return (
+      <Center minH="100vh" bg="#0f1117">
+        <Spinner size="xl" color="orange.400" />
+      </Center>
+    );
+  }
 
   return (
     <Box bg="#0f1117" minH="100vh" color="white">

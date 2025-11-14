@@ -29,12 +29,15 @@ import {
   FormLabel,
   VStack,
   SimpleGrid,
+  Center,
 } from "@chakra-ui/react";
 import { ViewIcon, EditIcon, AddIcon, ArrowBackIcon, CheckIcon, CloseIcon } from "@chakra-ui/icons";
 import Sidebar from "../Navbar/SidebarAdmin";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAdminAuth } from "../../hooks/useAdminAuth";
 
 const RoomsManagement = () => {
+  const isAuthorized = useAdminAuth();
   const [rooms, setRooms] = useState([]);
   const [theaters, setTheaters] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,10 +66,12 @@ const RoomsManagement = () => {
   const getId = (obj) => obj?.id || obj?._id || "";
 
   useEffect(() => {
+    if (!isAuthorized) return;
     fetchTheaters();
-  }, []);
+  }, [isAuthorized]);
 
   useEffect(() => {
+    if (!isAuthorized) return;
     const theaterIdFromUrl = searchParams.get("theater");
     if (theaterIdFromUrl) {
       setTheaterFilter(theaterIdFromUrl);
@@ -376,6 +381,14 @@ const RoomsManagement = () => {
   }, [searchName, theaterFilter, statusFilter, sortBy]);
 
   const selectedTheaterInfo = theaters.find(t => getId(t) === theaterFilter);
+
+  if (!isAuthorized) {
+    return (
+      <Center minH="100vh" bg="#0f1117">
+        <Spinner size="xl" color="orange.400" />
+      </Center>
+    );
+  }
 
   return (
     <Flex minH="100vh" bg="#181a20" color="white">

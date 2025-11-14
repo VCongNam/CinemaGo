@@ -14,9 +14,15 @@ import {
   IconButton,
 } from "@chakra-ui/react";
 import { Box, Heading, Flex, Button, Icon, Badge } from "@chakra-ui/react";
-import { FaUsers, FaEye, FaChevronDown, FaUserEdit } from "react-icons/fa";
+import { FaUsers, FaEye, FaChevronDown, FaUserEdit, FaUndo } from "react-icons/fa";
 
-const StaffTable = ({ users, onViewInfo, onToggleStatus, onEditRole }) => {
+const StaffTable = ({
+   users,
+    onViewInfo,
+    onToggleStatus,
+    onEditRole,
+    onSendResetPassEmail,
+     }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case "active":
@@ -164,6 +170,15 @@ const StaffTable = ({ users, onViewInfo, onToggleStatus, onEditRole }) => {
                         variant="ghost"
                         _hover={{ bg: "blue.600" }}
                         onClick={() => onEditRole(user)}
+                      />
+                    </Tooltip>
+                    <Tooltip label="Gửi Mail Khôi phục MK" hasArrow>
+                      <IconButton
+                        icon={<FaUndo />}
+                        size="sm"
+                        colorScheme="red"
+                        variant="solid"
+                        onClick={() => onSendResetPassEmail(user)}
                       />
                     </Tooltip>
                   </Flex>

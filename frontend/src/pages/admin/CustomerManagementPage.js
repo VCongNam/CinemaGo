@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Input, Select, Box, Flex, useToast, Button, Text, HStack } from "@chakra-ui/react"
+import { Input, Select, Box, Flex, useToast, Button, Text, HStack, Spinner, Center } from "@chakra-ui/react"
 import Sidebar from "../Navbar/SidebarAdmin";
 import UserTable from "../Navbar/UserTable"
+import { useAdminAuth } from "../../hooks/useAdminAuth"
 
 export default function CustomerManagementPage() {
+  const isAuthorized = useAdminAuth();
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -28,6 +30,8 @@ export default function CustomerManagementPage() {
   }
 
   useEffect(() => {
+    if (!isAuthorized) return;
+
     const token = localStorage.getItem("token")
     
     const fetchAllUsers = async () => {
@@ -63,10 +67,33 @@ export default function CustomerManagementPage() {
     }
     
     fetchAllUsers()
-  }, [])
+  }, [isAuthorized])
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    setCurrentPage(1)
+  }, [search, statusFilter, isAuthorized])
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    localStorage.setItem("customerSearch", search)
+  }, [search, isAuthorized])
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    localStorage.setItem("customerStatusFilter", statusFilter)
+  }, [statusFilter, isAuthorized])
 
   const handleViewInfo = (user) => {
     navigate(`/admin/user/${user.id}`)
+  }
+
+  if (!isAuthorized) {
+    return (
+      <Center minH="100vh" bg="#0f1117">
+        <Spinner size="xl" color="orange.400" />
+      </Center>
+    );
   }
 
   const handleToggleStatus = async (user, newStatus) => {
@@ -144,21 +171,9 @@ export default function CustomerManagementPage() {
   const endIndex = startIndex + itemsPerPage
   const paginatedUsers = customerUsers.slice(startIndex, endIndex)
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search, statusFilter])
-
   const handlePageChange = (page) => {
     setCurrentPage(page)
   }
-
-  useEffect(() => {
-    localStorage.setItem("customerSearch", search)
-  }, [search])
-
-  useEffect(() => {
-    localStorage.setItem("customerStatusFilter", statusFilter)
-  }, [statusFilter])
 
   if (loading) return <p>Đang tải...</p>
   if (error) return <p>Lỗi: {error}</p>

@@ -32,6 +32,37 @@ export default function StaffPaymentPage() {
 
   // ✅ Hàm in vé
   const handlePrintTicket = () => {
+    // Format showtime date safely (avoid Invalid Date)
+    let showtimeFormatted = "N/A";
+    const startTimeObj = showtime?.start_time;
+    if (startTimeObj) {
+      if (typeof startTimeObj === "object" && startTimeObj !== null) {
+        // Nếu là object, ưu tiên vietnamFormatted, sau đó vietnam, cuối cùng utc
+        showtimeFormatted = startTimeObj.vietnamFormatted || startTimeObj.vietnam || startTimeObj.utc || "";
+      } else if (typeof startTimeObj === "string") {
+        // Nếu là string, thử parse hoặc dùng trực tiếp
+        try {
+          const parsedDate = new Date(startTimeObj);
+          if (!isNaN(parsedDate.getTime())) {
+            showtimeFormatted = parsedDate.toLocaleString("vi-VN");
+          } else {
+            showtimeFormatted = startTimeObj;
+          }
+        } catch (e) {
+          showtimeFormatted = startTimeObj;
+        }
+      }
+    }
+    
+    // Fallback nếu vẫn không có giá trị hợp lệ
+    if (!showtimeFormatted || showtimeFormatted === "N/A") {
+      try {
+        showtimeFormatted = new Date().toLocaleString("vi-VN");
+      } catch (e) {
+        showtimeFormatted = "Chưa cập nhật";
+      }
+    }
+    
     const ticketWindow = window.open("", "_blank");
     ticketWindow.document.write(`
       <html>
@@ -56,7 +87,7 @@ export default function StaffPaymentPage() {
           <div class="ticket">
             <h2>🎬 Vé Xem Phim</h2>
             <p><strong>Phim:</strong> ${movie.title}</p>
-            <p><strong>Suất chiếu:</strong> ${showtime.start_time}</p>
+            <p><strong>Suất chiếu:</strong> ${showtimeFormatted}</p>
             <p><strong>Ghế:</strong> ${selectedSeats
               .map((s) => s.seat_number)
               .join(", ")}</p>
