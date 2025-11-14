@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import {
   Box,
   Heading,
@@ -61,6 +61,31 @@ export default function ShowtimeManagementPage() {
   const [endDate, setEndDate] = useState("")
   const toast = useToast()
   const [theaters, setTheaters] = useState([])
+
+  const filteredRooms = useMemo(() => {
+    const tid = String(newShowtime.theater_id || "").trim()
+    const activeRooms = Array.isArray(rooms) ? rooms.filter(r => r && (r.status === "active" || r.status === undefined)) : []
+    if (!tid) return activeRooms
+
+
+    const getRoomTheaterId = (r) => {
+      if (!r) return ""
+      return String(
+        r.theater_id ||
+        (r.theater && (r.theater._id || r.theater.id)) ||
+        r.theater ||
+        r.cinema_id ||
+        (r.cinema && (r.cinema._id || r.cinema.id)) ||
+        r.theaterId ||
+        ""
+      )
+    }
+
+
+    return activeRooms.filter(r => getRoomTheaterId(r) === tid)
+  }, [rooms, newShowtime.theater_id])
+
+
 
   // Lấy thông tin role từ localStorage
   let roleData = null
@@ -139,17 +164,19 @@ export default function ShowtimeManagementPage() {
       }
 
       try {
-        const theaterRes = await fetch("http://localhost:5000/api/theaters", {
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        })
-        if (theaterRes.ok) {
-          const theaterData = await theaterRes.json()
-          setTheaters(theaterData.data || theaterData.list || [])
-        }
-      } catch (err) {
+        const theaterRes = await fetch("http://localhost:5000/api/theaters/list", {
+          method: "POST",
+           headers: {
+             "Content-Type": "application/json",
+             ...(token && { Authorization: `Bearer ${token}` }),
+           },
+          body: JSON.stringify({ page: 1, pageSize: 200 })
+         })
+         if (theaterRes.ok) {
+           const theaterData = await theaterRes.json()
+           setTheaters(theaterData.data || theaterData.list || [])
+         }
+       }catch (err) {
         // non-blocking: log and continue
         console.warn("Failed to load theaters:", err)
       }
@@ -217,6 +244,7 @@ export default function ShowtimeManagementPage() {
     setNewShowtime({
       movie_id: "",
       room_id: "",
+      theater_id: "",
       date: "",
       time: "",
     })
@@ -836,33 +864,25 @@ export default function ShowtimeManagementPage() {
                   _hover={{ borderColor: "orange.400" }}
                   _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
                 >
-                  {rooms.length === 0 ? (
-                    <option disabled style={{ background: "#1a202c", color: "gray" }}>
-                      Đang tải phòng...
-                    </option>
-                  ) : (
-                    rooms
-                      .filter(r => r.status === "active")
-                     .filter(r => {
-                       if (!newShowtime.theater_id) return true
-                      const roomTheaterId = r.theater_id || r.theater || r.cinema_id || r.theaterId || r.cinema || ""
-                       return String(roomTheaterId) === String(newShowtime.theater_id)
-                     })
-                      .map((r) => {
-                        const roomId = r._id || r.id;
-                        const roomName = r.name || `Phòng ${roomId}`;
-                        
-                        return (
-                          <option 
-                            key={roomId} 
-                            value={roomId} 
-                            style={{ background: "#1a202c", color: "white" }}
-                          >
-                            {roomName}
-                          </option>
-                        );
-                      })
-                  )}
+                  {filteredRooms.length === 0 ? (
+        <option disabled style={{ background: "#1a202c", color: "gray" }}>
+          Không có phòng phù hợp
+        </option>
+      ) : (
+        filteredRooms.map((r) => {
+          const roomId = r._id || r.id;
+          const roomName = r.name || `Phòng ${roomId}`;
+          return (
+            <option
+              key={roomId}
+              value={roomId}
+              style={{ background: "#1a202c", color: "white" }}
+            >
+              {roomName}
+            </option>
+          );
+        })
+      )}
                 </Select>
   {newShowtime.room_id && (
     <Text fontSize="xs" color="gray.400" mt={1}>
@@ -876,7 +896,7 @@ export default function ShowtimeManagementPage() {
   )}
   {rooms.length > 0 && (
     <Text fontSize="xs" color="blue.300" mt={1}>
-      ℹ️ Có {rooms.filter(r => r.status === "active").length} phòng khả dụng
+      ℹ️ Có {filteredRooms.length} phòng khả dụng (đã lọc theo rạp nếu chọn)
     </Text>
   )}
 </FormControl>

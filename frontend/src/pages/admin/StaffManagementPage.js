@@ -94,44 +94,6 @@ export default function StaffManagementPage() {
     fetchAllStaffs()
   }, [])
 
-  // ✅ Tạo tài khoản mới
-  const handleCreateStaff = async () => {
-    setCreating(true)
-    const token = localStorage.getItem("token")
-    try {
-      const res = await fetch("http://localhost:5000/register-staff", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` })
-        },
-        body: JSON.stringify(form)
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message || "Tạo tài khoản thất bại")
-      toast({
-        title: "Thành công",
-        description: "Đã tạo tài khoản nhân viên mới.",
-        status: "success",
-        duration: 3000,
-        isClosable: true
-      })
-      setForm({ username: "", password: "", email: "", fullName: "", role: "LV1" })
-      onClose()
-      fetchAllStaffs()
-    } catch (err) {
-      toast({
-        title: "Lỗi",
-        description: err.message,
-        status: "error",
-        duration: 4000,
-        isClosable: true
-      })
-    } finally {
-      setCreating(false)
-    }
-  }
-
   // ✅ Mở modal cập nhật role
   const handleOpenEditRole = (staff) => {
     setEditingStaff(staff)
@@ -277,6 +239,106 @@ export default function StaffManagementPage() {
     }
   }
 
+  const handleCreateStaff = async () => {
+     try {
+      // Validation: required fields
+      if (!form.username?.trim() || !form.email?.trim() || !form.password || !form.confirmPassword) {
+        throw new Error("Vui lòng điền đầy đủ thông tin");
+      }
+
+      // Validation: password match
+     if (form.password !== form.confirmPassword) {
+        throw new Error("Mật khẩu nhập lại không khớp");
+      }
+
+       setCreating(true)
+       const token = localStorage.getItem("token")
+       const response = await fetch("http://localhost:5000/register-staff", {
+         method: "POST",
+         headers: {
+           "Content-Type": "application/json",
+           ...(token && { Authorization: `Bearer ${token}` }),
+         },
+         body: JSON.stringify({
+           username: form.username,
+           password: form.password,
+           email: form.email,
+           fullName: form.fullName,
+           role: form.role,
+         }),
+       })
+       const data = await response.json()
+       if (!response.ok) {
+         let errorMessage = data.message || "Tạo tài khoản thất bại"
+         // Xử lý lỗi Username hoặc Email đã tồn tại
+         if (errorMessage.includes("E11000 duplicate key error") || errorMessage.includes("Username hoặc Email đã tồn tại")) { 
+           errorMessage = "Tên đăng nhập hoặc Email đã tồn tại. Vui lòng chọn cái khác."
+         }
+         throw new Error(errorMessage)
+       }
+       
+       // Tạo thành công: reset form, đóng modal, và tải lại danh sách
+       toast({
+         title: "Thành công",
+         description: "Đã tạo tài khoản nhân viên mới.",
+         status: "success",
+         duration: 3000,
+         isClosable: true,
+       })
+       setForm({ username: "", password: "", confirmPassword: "", email: "", fullName: "", role: "LV1" })
+       onClose()
+       fetchAllStaffs() 
+     } catch (err) {
+       toast({
+         title: "Lỗi",
+         description: err.message || "Tạo tài khoản thất bại",
+         status: "error",
+         duration: 4000,
+         isClosable: true,
+       })
+     } finally {
+       setCreating(false)
+     }
+   }
+
+  // ✅ Gửi email khôi phục mật khẩu cho staff
+  const handleSendResetPassEmail = async (user) => {
+    const token = localStorage.getItem("token")
+    try {
+      const res = await fetch("http://localhost:5000/forgot-password-link", { 
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }) 
+        },
+        // Body yêu cầu email của staff
+        body: JSON.stringify({ email: user.email })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.message || "Gửi email thất bại")
+      }
+
+      toast({
+        title: "Thành công",
+        description: `Đã gửi email khôi phục mật khẩu đến ${user.email}. Vui lòng thông báo cho nhân viên kiểm tra hộp thư.`,
+        status: "success",
+        duration: 5000,
+        isClosable: true
+      })
+    } catch (err) {
+      toast({
+        title: "Lỗi",
+        description: err.message,
+        status: "error",
+        duration: 6000,
+        isClosable: true
+      })
+    }
+  }
+
   // ✅ Bộ lọc tìm kiếm và phân trang
   let filteredStaffs = staffs
   if (statusFilter !== "all") {
@@ -347,6 +409,7 @@ export default function StaffManagementPage() {
             onViewInfo={u => navigate(`/admin/user/${u.id}`)} 
             onToggleStatus={handleToggleStatus}
             onEditRole={handleOpenEditRole}
+            onSendResetPassEmail={handleSendResetPassEmail}
           />
         )}
 
@@ -437,6 +500,21 @@ export default function StaffManagementPage() {
                   bg="gray.800"
                 />
               </FormControl>
+              {/* Confirm password */}
+               <FormControl mb={3}>
+                 <FormLabel>Nhập lại mật khẩu</FormLabel>
+                 <Input
+                   type="password"
+                   value={form.confirmPassword}
+                   onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                   bg="gray.800"
+                 />
+                {form.password && form.confirmPassword && form.password !== form.confirmPassword && (
+                  <Text fontSize="xs" color="red.400" mt={1}>
+                    ⚠️ Mật khẩu không khớp
+                  </Text>
+                )}
+               </FormControl>
               <FormControl>
                 <FormLabel>Vai trò</FormLabel>
                 <Select
