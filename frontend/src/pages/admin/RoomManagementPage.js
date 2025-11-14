@@ -166,11 +166,10 @@ const RoomsManagement = () => {
   const fetchTheaters = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/theaters/list", {
+      const response = await fetch("http://localhost:5000/api/public/theaters/list", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
         },
         body: JSON.stringify({ page: 1, pageSize: 100 })
       });
@@ -913,10 +912,6 @@ const RoomsManagement = () => {
             <ModalCloseButton />
             <ModalBody>
               <VStack spacing={4} align="stretch">
-                <Text fontSize="sm" color="gray.400">
-                  Click vào ghế để thay đổi loại: <Badge colorScheme="gray">Thường</Badge> → <Badge colorScheme="purple">VIP</Badge>
-                </Text>
-
                 {/* Danh sách segments */}
                 {seatSegments.map((seg, idx) => (
                   <Box key={idx} bg="gray.800" p={3} borderRadius="md">

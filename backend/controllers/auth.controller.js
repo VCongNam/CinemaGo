@@ -52,7 +52,7 @@ export const registerStaff = async (req, res, next) => {
     });
 
     // Ghi log hành động tạo staff (người thực hiện là admin/staff đang đăng nhập)
-    await logAction(req.user.id, 'User', newUser._id, 'document', null, newUser);
+    await logAction( 'User', newUser._id, 'document', null, newUser);
     
     res.status(201).json({ 
       message: "Tạo tài khoản nhân viên thành công" 

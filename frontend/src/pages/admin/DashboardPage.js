@@ -3,6 +3,7 @@ import Sidebar from "../Navbar/SidebarAdmin";
 import RevenueChart from "../Navbar/RevenueChart";
 import RevenuePieChart from "../Navbar/RevenuePieChart";
 import TopMoviesChart from "../Navbar/TopMoviesChart";
+import CustomerStatusPieChart from "../Navbar/CustomerStatusPieChart";
 
 
 export default function DashboardPage() {
@@ -14,6 +15,7 @@ export default function DashboardPage() {
           <RevenueChart />
           <RevenuePieChart />
           <TopMoviesChart />
+          <CustomerStatusPieChart />
         </SimpleGrid>
       </Box>
     </Flex>
