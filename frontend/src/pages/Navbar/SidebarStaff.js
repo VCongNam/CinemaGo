@@ -47,6 +47,7 @@ export default function SidebarStaff() {
     { to: "/movies", label: "Quản lý phim", icon: FaFilm },
     { to: "/showtimes", label: "Quản lý xuất chiếu", icon: FaClock },
     { to: "/bookings", label: "Quản lý đặt vé", icon: FaTicketAlt },
+    { to :"/combos" , label: "Quản lý combo", icon: FaFilm},
   ];
 
   return (

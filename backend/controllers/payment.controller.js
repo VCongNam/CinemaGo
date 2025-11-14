@@ -84,7 +84,7 @@ export const createPaymentLink = async (req, res, next) => {
 
     // PayOS limits description length to 25 characters. Ensure we respect that
     // to avoid API error code 20 (description too long).
-    const rawDescription = `Thanh toán vé xem phim - Booking #${bookingId}`;
+    const rawDescription = `${bookingId}`;
     const MAX_DESC_LENGTH = 25;
     const description = rawDescription.length > MAX_DESC_LENGTH
       ? rawDescription.slice(0, MAX_DESC_LENGTH - 1) + '…'
