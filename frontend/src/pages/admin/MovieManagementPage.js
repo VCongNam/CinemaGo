@@ -31,6 +31,13 @@ import {
   Textarea,
   VStack,
   Tooltip,
+  Checkbox,
+  CheckboxGroup,
+  Wrap,
+  WrapItem,
+  Tag,
+  TagLabel,
+  TagCloseButton,
   Center,
 } from "@chakra-ui/react";
 import { EditIcon, UnlockIcon, LockIcon, AddIcon } from "@chakra-ui/icons";
@@ -46,6 +53,7 @@ const MovieManagementPage = () => {
   const [genreFilter, setGenreFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [genres, setGenres] = useState([]);
+  const [newGenre, setNewGenre] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [selectedMovie, setSelectedMovie] = useState(null);
@@ -112,7 +120,10 @@ const MovieManagementPage = () => {
       const allGenres = new Set();
       (data.data || []).forEach(movie => {
         if (movie.genre && Array.isArray(movie.genre)) {
-          movie.genre.forEach(g => allGenres.add(g));
+          movie.genre.forEach(g => {
+            const v = String(g || "").trim();
+            if (v) allGenres.add(v);
+          });
         }
       });
       setGenres(Array.from(allGenres));
@@ -165,6 +176,30 @@ const MovieManagementPage = () => {
       m.status === "active" && 
       m._id !== currentMovieId
     );
+  };
+
+  const handleAddGenre = () => {
+    const value = (newGenre || "").trim();
+    if (!value) return;
+    // avoid case-insensitive duplicates in master list
+    setGenres((prev) => {
+      if (prev.some(p => p.toLowerCase() === value.toLowerCase())) return prev;
+      return [...prev, value];
+    });
+    setFormData((prev) => {
+      const g = Array.isArray(prev.genre) ? prev.genre.map(x => String(x).trim()) : [];
+      if (g.some(x => x.toLowerCase() === value.toLowerCase())) return prev;
+      return { ...prev, genre: [...g, value] };
+    });
+    setNewGenre("");
+  };
+
+  const handleRemoveSelectedGenre = (gRemove) => {
+    const normalized = String(gRemove || "").trim();
+    setFormData((prev) => ({
+      ...prev,
+      genre: (prev.genre || []).filter((g) => String(g).trim().toLowerCase() !== normalized.toLowerCase()),
+    }));
   };
 
   const toggleMovieStatus = async (movie) => {
@@ -256,7 +291,7 @@ const MovieManagementPage = () => {
         description: formData.description.trim(),
         duration: Number(formData.duration),
         genre: Array.isArray(formData.genre)
-          ? formData.genre
+          ? Array.from(new Set(formData.genre.map(g => String(g).trim()).filter(Boolean)))
           : formData.genre.split(",").map((g) => g.trim()).filter(Boolean),
         poster_url: formData.poster_url.trim(),
         trailer_url: formData.trailer_url.trim(),
@@ -706,17 +741,65 @@ const MovieManagementPage = () => {
                 </FormControl>
 
                 <FormControl isRequired>
-                  <FormLabel>Thể loại (phân cách bằng dấu phẩy)</FormLabel>
-                  <Input
-                    value={Array.isArray(formData.genre) ? formData.genre.join(", ") : ""}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      genre: e.target.value.split(",").map(g => g.trim()).filter(g => g)
-                    })}
-                    placeholder="Action, Drama, Sci-Fi"
-                    bg="gray.800"
-                    border="none"
-                  />
+                  <FormLabel>Thể loại</FormLabel>
+                  <VStack align="start" spacing={3} w="100%">
+                    <Wrap spacing={2}>
+                      {genres.map((g) => {
+                        const norm = String(g || "").trim();
+                        const selected = (Array.isArray(formData.genre) ? formData.genre : [])
+                          .some(x => String(x || "").trim().toLowerCase() === norm.toLowerCase());
+                        return (
+                          <WrapItem key={norm}>
+                            <Button
+                              size="sm"
+                              colorScheme={selected ? "orange" : "gray"}
+                              variant={selected ? "solid" : "outline"}
+                              color="white"
+                              onClick={() => {
+                                setFormData(prev => {
+                                  const cur = Array.isArray(prev.genre) ? prev.genre.map(x => String(x).trim()) : [];
+                                  if (selected) {
+                                    return { ...prev, genre: cur.filter(x => x.toLowerCase() !== norm.toLowerCase()) };
+                                  }
+                                  return { ...prev, genre: [...cur, norm] };
+                                });
+                              }}
+                            >
+                              {norm}
+                            </Button>
+                          </WrapItem>
+                        );
+                      })}
+                    </Wrap>
+
+                    {/* Selected tags with remove */}
+                    <Wrap>
+                      {(Array.isArray(formData.genre) ? formData.genre.map(g => String(g).trim()).filter(Boolean) : [])
+                        .map((g) => (
+                          <WrapItem key={`tag-${g}`}>
+                            <Tag size="md" borderRadius="full" variant="solid" colorScheme="purple">
+                              <TagLabel>{g}</TagLabel>
+                              <TagCloseButton onClick={() => handleRemoveSelectedGenre(g)} />
+                            </Tag>
+                          </WrapItem>
+                        ))
+                      }
+                    </Wrap>
+
+                    {/* Add new genre */}
+                    <HStack w="100%">
+                      <Input
+                        placeholder="Thêm thể loại mới"
+                        value={newGenre}
+                        onChange={(e) => setNewGenre(e.target.value)}
+                        bg="gray.800"
+                        border="none"
+                      />
+                      <Button colorScheme="orange" onClick={handleAddGenre}>
+                        +
+                      </Button>
+                    </HStack>
+                  </VStack>
                 </FormControl>
 
                 <FormControl isRequired>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import {
   Box,
   Heading,
@@ -63,6 +63,11 @@ export default function ShowtimeManagementPage() {
   const [endDate, setEndDate] = useState("")
   const toast = useToast()
 
+  // Logic lọc phòng hoạt động
+  const activeRooms = useMemo(() => {
+    return Array.isArray(rooms) ? rooms.filter(r => r && (r.status === "active" || r.status === undefined)) : []
+  }, [rooms])
+
   // Lấy thông tin role từ localStorage
   let roleData = null
   try {
@@ -73,13 +78,13 @@ export default function ShowtimeManagementPage() {
       roleData = { role: directRole }
     }
   }
-  
+
   const role = roleData?.role || ""
-  
+
   // Xác định role và quyền hạn - chỉ cho phép admin và lv2
   let isAdmin = false
   let isStaff = false
-  
+
   if (role.toLowerCase() === "admin") {
     isAdmin = true
   } else if (role.toLowerCase() === "lv2") {
@@ -109,11 +114,11 @@ export default function ShowtimeManagementPage() {
       })
       if (!res.ok) throw new Error("Không thể tải danh sách suất chiếu.")
       const data = await res.json()
-      
+
       const sortedData = (data.data || []).sort((a, b) => {
         return new Date(b.start_time.utc) - new Date(a.start_time.utc)
       })
-      
+
       setShowtimes(sortedData)
     } catch (err) {
       setError(err.message)
@@ -133,7 +138,7 @@ export default function ShowtimeManagementPage() {
           ...(token && { Authorization: `Bearer ${token}` }),
         },
       })
-      
+
       if (movieRes.ok) {
         const movieData = await movieRes.json()
         setMovies(movieData.data || [])
@@ -151,7 +156,7 @@ export default function ShowtimeManagementPage() {
           pageSize: 100
         })
       })
-      
+
       if (roomRes.ok) {
         const roomData = await roomRes.json()
         const roomList = roomData.list || roomData.data || []
@@ -188,11 +193,11 @@ export default function ShowtimeManagementPage() {
   // 🔹 Kiểm tra xem có thể chỉnh sửa không (15 phút trước khi chiếu)
   const canEdit = (showtime) => {
     if (!showtime?.start_time?.utc) return false
-    
+
     const now = new Date()
     const startTime = new Date(showtime.start_time.utc)
     const diffMinutes = (startTime - now) / (1000 * 60)
-    
+
     return diffMinutes > 15
   }
 
@@ -211,46 +216,46 @@ export default function ShowtimeManagementPage() {
   // 🔹 Thêm suất chiếu mới
   const addShowtime = async () => {
     if (!newShowtime.movie_id || !newShowtime.room_id || !newShowtime.date || !newShowtime.time) {
-      toast({ 
-        title: "Lỗi", 
-        description: "Vui lòng điền đầy đủ thông tin", 
-        status: "error" 
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng điền đầy đủ thông tin",
+        status: "error"
       })
       return
     }
 
     setAdding(true)
     const token = localStorage.getItem("token")
-    
+
     const payload = {
       movie_id: String(newShowtime.movie_id).trim(),
       room_id: String(newShowtime.room_id).trim(),
       date: newShowtime.date,
       time: newShowtime.time,
     }
-    
+
     const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id)
-    
+
     if (!isValidObjectId(payload.movie_id)) {
-      toast({ 
-        title: "Lỗi", 
-        description: "ID phim không hợp lệ", 
-        status: "error" 
+      toast({
+        title: "Lỗi",
+        description: "ID phim không hợp lệ",
+        status: "error"
       })
       setAdding(false)
       return
     }
-    
+
     if (!isValidObjectId(payload.room_id)) {
-      toast({ 
-        title: "Lỗi", 
-        description: "ID phòng không hợp lệ", 
-        status: "error" 
+      toast({
+        title: "Lỗi",
+        description: "ID phòng không hợp lệ",
+        status: "error"
       })
       setAdding(false)
       return
     }
-    
+
     try {
       const res = await fetch("http://localhost:5000/api/showtimes", {
         method: "POST",
@@ -260,9 +265,9 @@ export default function ShowtimeManagementPage() {
         },
         body: JSON.stringify(payload),
       })
-      
+
       const responseText = await res.text()
-      
+
       if (!res.ok) {
         let err
         try {
@@ -272,21 +277,21 @@ export default function ShowtimeManagementPage() {
         }
         throw new Error(err.message || "Không thể thêm suất chiếu.")
       }
-      
-      toast({ 
-        title: "Thêm suất chiếu thành công!", 
+
+      toast({
+        title: "Thêm suất chiếu thành công!",
         status: "success",
-        duration: 3000 
+        duration: 3000
       })
-      
+
       fetchShowtimes()
       closeAdd()
     } catch (err) {
-      toast({ 
-        title: "Lỗi", 
-        description: err.message, 
+      toast({
+        title: "Lỗi",
+        description: err.message,
         status: "error",
-        duration: 5000 
+        duration: 5000
       })
     } finally {
       setAdding(false)
@@ -307,9 +312,9 @@ export default function ShowtimeManagementPage() {
 
     setCanceling(true)
     const token = localStorage.getItem("token")
-    
+
     const newStatus = showtime.status === "inactive" ? "active" : "inactive"
-    
+
     try {
       const res = await fetch(`http://localhost:5000/api/showtimes/${showtime._id}/status`, {
         method: "PATCH",
@@ -319,9 +324,9 @@ export default function ShowtimeManagementPage() {
         },
         body: JSON.stringify({ status: newStatus })
       })
-      
+
       const responseText = await res.text()
-      
+
       if (!res.ok) {
         let err
         try {
@@ -331,20 +336,20 @@ export default function ShowtimeManagementPage() {
         }
         throw new Error(err.message || "Không thể thay đổi trạng thái suất chiếu.")
       }
-      
-      toast({ 
+
+      toast({
         title: newStatus === "inactive" ? "Đã hủy suất chiếu!" : "Đã kích hoạt lại suất chiếu!",
         status: "success",
-        duration: 3000 
+        duration: 3000
       })
-      
+
       fetchShowtimes()
     } catch (err) {
-      toast({ 
-        title: "Lỗi", 
-        description: err.message, 
+      toast({
+        title: "Lỗi",
+        description: err.message,
         status: "error",
-        duration: 5000 
+        duration: 5000
       })
     } finally {
       setCanceling(false)
@@ -389,12 +394,12 @@ export default function ShowtimeManagementPage() {
     if (!showtime?.start_time?.vietnamFormatted) {
       return "Không xác định"
     }
-    
+
     const parts = showtime.start_time.vietnamFormatted.split(" ")
     const time = parts[0]
     const date = parts[1]
     const shortTime = time.split(":").slice(0, 2).join(":")
-    
+
     return `${date} - ${shortTime}`
   }
 
@@ -411,13 +416,13 @@ export default function ShowtimeManagementPage() {
     // Lọc theo khoảng ngày
     if (startDate || endDate) {
       const showtimeDate = new Date(showtime.start_time.utc)
-      
+
       if (startDate) {
         const start = new Date(startDate)
         start.setHours(0, 0, 0, 0)
         if (showtimeDate < start) return false
       }
-      
+
       if (endDate) {
         const end = new Date(endDate)
         end.setHours(23, 59, 59, 999)
@@ -434,7 +439,7 @@ export default function ShowtimeManagementPage() {
         ongoing: "Đang chiếu",
         ended: "Kết thúc"
       }
-      
+
       if (status !== statusMap[filterStatus]) {
         return false
       }
@@ -633,7 +638,7 @@ export default function ShowtimeManagementPage() {
                   {paginated.map((s) => {
                     const { label, color } = getStatus(s)
                     const editable = canEdit(s)
-                    
+
                     return (
                       <Tr key={s._id} _hover={{ bg: "#252a38" }} transition="0.2s">
                         <Td>
@@ -657,33 +662,33 @@ export default function ShowtimeManagementPage() {
                         <Td>
                           <Badge colorScheme={
                             label === "Đã hủy" ? "red" :
-                            label === "Sắp chiếu" ? "blue" :
-                            label === "Đang chiếu" ? "green" : "gray"
+                              label === "Sắp chiếu" ? "blue" :
+                                label === "Đang chiếu" ? "green" : "gray"
                           } fontSize="xs">
                             {label}
                           </Badge>
                         </Td>
                         <Td>
-                          <Tooltip 
+                          <Tooltip
                             label={
-                              s.status === "inactive" 
-                                ? editable 
+                              s.status === "inactive"
+                                ? editable
                                   ? "Kích hoạt lại suất chiếu"
                                   : "Không thể kích hoạt (dưới 15 phút)"
-                                : editable 
-                                  ? "Hủy suất chiếu" 
+                                : editable
+                                  ? "Hủy suất chiếu"
                                   : "Không thể hủy (dưới 15 phút)"
-                            } 
+                            }
                             hasArrow
                           >
                             <IconButton
                               icon={s.status === "inactive" ? <FaCheckCircle /> : <FaBan />}
                               size="sm"
                               colorScheme={
-                                !editable 
-                                  ? "gray" 
-                                  : s.status === "inactive" 
-                                    ? "green" 
+                                !editable
+                                  ? "gray"
+                                  : s.status === "inactive"
+                                    ? "green"
                                     : "red"
                               }
                               onClick={() => toggleShowtimeStatus(s)}
@@ -800,55 +805,42 @@ export default function ShowtimeManagementPage() {
               </FormControl>
 
               <FormControl isRequired>
-  <FormLabel>Phòng chiếu</FormLabel>
-  <Select
-    placeholder="Chọn phòng"
-    value={newShowtime.room_id}
-    onChange={(e) => setNewShowtime({ ...newShowtime, room_id: e.target.value })}
-    bg="gray.800"
-    borderColor="gray.600"
-    _hover={{ borderColor: "orange.400" }}
-    _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
-  >
-    {rooms.length === 0 ? (
-      <option disabled style={{ background: "#1a202c", color: "gray" }}>
-        Đang tải phòng...
-      </option>
-    ) : (
-      rooms
-        .filter(r => r.status === "active") // Chỉ lọc phòng đang active
-        .map((r) => {
-          const roomId = r._id || r.id;
-          const roomName = r.name || `Phòng ${roomId}`;
-          
-          return (
-            <option 
-              key={roomId} 
-              value={roomId} 
-              style={{ background: "#1a202c", color: "white" }}
-            >
-              {roomName}
-            </option>
-          );
-        })
-    )}
-  </Select>
-  {newShowtime.room_id && (
-    <Text fontSize="xs" color="gray.400" mt={1}>
-      ID đã chọn: {newShowtime.room_id}
-    </Text>
-  )}
-  {rooms.length === 0 && (
-    <Text fontSize="xs" color="red.400" mt={1}>
-      ⚠️ Không có phòng nào. Vui lòng thêm phòng trước.
-    </Text>
-  )}
-  {rooms.length > 0 && (
-    <Text fontSize="xs" color="blue.300" mt={1}>
-      ℹ️ Có {rooms.filter(r => r.status === "active").length} phòng khả dụng
-    </Text>
-  )}
-</FormControl>
+                <FormLabel>Phòng chiếu</FormLabel>
+                <Select
+                  placeholder="Chọn phòng"
+                  value={newShowtime.room_id}
+                  onChange={(e) => setNewShowtime({ ...newShowtime, room_id: e.target.value })}
+                  bg="gray.800"
+                  borderColor="gray.600"
+                  _hover={{ borderColor: "orange.400" }}
+                  _focus={{ borderColor: "orange.400", boxShadow: "0 0 0 1px" }}
+                >
+                  {activeRooms.length === 0 ? (
+                    <option disabled style={{ background: "#1a202c", color: "gray" }}>
+                      Không có phòng hoạt động
+                    </option>
+                  ) : (
+                    activeRooms.map((r) => {
+                      const roomId = r._id || r.id;
+                      const roomName = r.name || `Phòng ${roomId}`;
+                      return (
+                        <option
+                          key={roomId}
+                          value={roomId}
+                          style={{ background: "#1a202c", color: "white" }}
+                        >
+                          {roomName}
+                        </option>
+                      );
+                    })
+                  )}
+                </Select>
+                {newShowtime.room_id && (
+                  <Text fontSize="xs" color="gray.400" mt={1}>
+                    ID đã chọn: {newShowtime.room_id}
+                  </Text>
+                )}
+              </FormControl>
 
               <FormControl isRequired>
                 <FormLabel>Ngày chiếu</FormLabel>

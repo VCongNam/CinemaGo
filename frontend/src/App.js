@@ -14,6 +14,7 @@ import BookingDetailPage from "./pages/admin/BookingDetailPage"
 import MovieManagementPage from "./pages/admin/MovieManagementPage"
 import TheatersManagement from "./pages/admin/TheatersManagement"
 import RoomManagement from "./pages/admin/RoomManagementPage"
+import CombosManagement from "./pages/admin/CombosManagement"
 
 // Booking pages
 import CartPage from "./pages/bookings/CartCheckoutPage"
@@ -143,6 +144,7 @@ function AppContent() {
           <Route path="/bookings" element={<BookingManagementPage />} />
           <Route path="/bookings/:id" element={<BookingDetailPage />} />
           <Route path="/movies" element={<MovieManagementPage />} />
+          <Route path="/combos" element={<CombosManagement />} />
 
           {/* Movie detail */}
           <Route path="/movies/:id" element={<MovieDetail />} />

@@ -27,7 +27,7 @@ import {
   Center,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
-import { ViewIcon } from "@chakra-ui/icons";
+import { ViewIcon, DownloadIcon } from "@chakra-ui/icons";
 import SidebarAdmin from "../Navbar/SidebarAdmin";
 import SidebarStaff from "../Navbar/SidebarStaff";
 import { useAdminOrStaffL2Auth } from "../../hooks/useAdminOrStaffL2Auth";
@@ -44,6 +44,8 @@ const BookingManagementPage = () => {
   const [itemsPerPage] = useState(10);
   const toast = useToast();
   const navigate = useNavigate();
+  const [exporting, setExporting] = useState(false);
+  
 
   // Lấy thông tin role từ localStorage
   let roleData = null;
@@ -176,6 +178,110 @@ const BookingManagementPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthorized]);
 
+  // 🔹 Hàm tính toán báo cáo doanh thu theo phim từ dữ liệu bookings có sẵn
+  const calculateRevenueReport = (bookingList) => {
+    const revenueMap = new Map();
+
+    bookingList.forEach(booking => {
+      // Chỉ tính các đơn đã xác nhận và thanh toán thành công
+      const totalPrice = parseFloat(booking.total_price?.$numberDecimal || booking.total_price || 0);
+
+      const bookingStatus = booking.status?.toLowerCase();
+      const paymentStatus = booking.payment_status?.toLowerCase();
+
+      // Chỉ tính các đơn có booking.status là "confirmed" và payment_status là "success"
+      const isRevenueBooking = 
+          bookingStatus === "confirmed" && 
+          paymentStatus === "success";
+
+      const movieTitle = booking.showtime_id?.movie_id?.title;
+      const movieId = booking.showtime_id?.movie_id?._id;
+
+      if (movieTitle && movieId && totalPrice > 0 && isRevenueBooking) {
+        const currentData = revenueMap.get(movieId) || {
+          movieTitle: movieTitle,
+          totalRevenue: 0,
+          totalTickets: 0,
+        };
+        
+        currentData.totalRevenue += totalPrice;
+        
+        revenueMap.set(movieId, currentData);
+      }
+    });
+
+    return Array.from(revenueMap.values());
+  };
+
+  // 🔹 Hàm chuyển dữ liệu báo cáo sang CSV và tải về
+  const handleExportToCSV = (data) => {
+    if (!data || data.length === 0) {
+      toast({
+        title: "Không có dữ liệu",
+        description: "Không có dữ liệu đặt vé hợp lệ để xuất báo cáo.",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    // Tiêu đề file CSV
+    const headers = [
+      "Tên Phim", 
+      "Doanh Thu (VND)", 
+    ].join(",");
+    
+    // Chuyển dữ liệu JSON thành các dòng CSV
+    const csvContent = data.map(item => {
+      const movieTitle = `"${String(item.movieTitle).replace(/"/g, '""')}"`; // Xử lý dấu ngoặc kép và đảm bảo là chuỗi
+      const revenue = item.totalRevenue.toFixed(0); // Chỉ lấy số, không định dạng tiền tệ
+      return [movieTitle, revenue].join(",");
+    }).join("\n");
+
+    // Thêm BOM (Byte Order Mark) để hiển thị tiếng Việt có dấu trong Excel
+    const fullCsv = "\uFEFF" + headers + "\n" + csvContent; 
+
+    const blob = new Blob([fullCsv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `BaoCaoDoanhThuPhim_${new Date().toLocaleDateString('en-CA')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Xuất file thành công!",
+      description: "File CSV báo cáo doanh thu đã được tải về.",
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+  };
+
+  // 🔹 Hàm xử lý chính: Tính toán và xuất file
+  const handleGenerateAndExportReport = () => {
+    setExporting(true);
+    try {
+      const reportData = calculateRevenueReport(bookings); 
+      handleExportToCSV(reportData);
+    } catch(e) {
+      toast({
+        title: "Lỗi tạo báo cáo",
+        description: "Đã xảy ra lỗi trong quá trình xử lý dữ liệu: " + (e.message || "Lỗi không xác định"),
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+// ... (phần còn lại của component)
+
   const paymentMethodConfig = {
     "online": { label: "ONLINE", color: "blue" },
     "cash": { label: "CASH", color: "green" },
@@ -300,13 +406,6 @@ const BookingManagementPage = () => {
             <Tbody>
               {paginatedData.map((booking) => {
                 const totalPrice = parseFloat(booking.total_price?.$numberDecimal || booking.total_price || 0);
-                // Đếm số ghế từ seat_id array
-                let seatCount = 0;
-                if (Array.isArray(booking.seat_id)) {
-                  seatCount = booking.seat_id.length;
-                } else if (booking.seat_id) {
-                  seatCount = 1;
-                }
                 
                 return (
                   <Tr key={booking._id} _hover={{ bg: "#252a38" }} transition="0.2s">
@@ -530,6 +629,18 @@ const BookingManagementPage = () => {
                 </option>
               ))}
           </Select>
+          <Button
+            leftIcon={<DownloadIcon />}
+            colorScheme="teal" // Dùng màu khác biệt để dễ nhận biết
+            onClick={handleGenerateAndExportReport}
+            isLoading={exporting}
+            loadingText="Đang tính toán..."
+            _hover={{ transform: "scale(1.05)" }}
+            transition="0.2s"
+            isDisabled={loading || bookings.length === 0}
+          >
+            Xuất báo cáo doanh thu phim
+          </Button>
         </HStack>
 
         {loading ? (
