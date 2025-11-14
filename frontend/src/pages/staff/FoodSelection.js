@@ -6,15 +6,17 @@ import {
   HStack,
   IconButton,
   Spinner,
+  useToast,
   Image,
 } from "@chakra-ui/react";
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
 import apiService from "../../services/apiService";
 
-// Component nhỏ để chọn đồ ăn
+// Component để chọn combo
 export const FoodSelection = ({ selectedFoods, onFoodChange }) => {
   const [combos, setCombos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const toast = useToast();
 
   // Fetch combos from API
   useEffect(() => {
@@ -54,34 +56,111 @@ export const FoodSelection = ({ selectedFoods, onFoodChange }) => {
     });
   }, []);
 
-  const handleIncrease = (food) => {
-    const existing = selectedFoods.find(f => f.id === food.id);
-    if (existing) {
-      onFoodChange(selectedFoods.map(f =>
-        f.id === food.id ? { ...f, quantity: f.quantity + 1 } : f
-      ));
-    } else {
-      onFoodChange([...selectedFoods, { ...food, quantity: 1 }]);
+  useEffect(() => {
+    fetchCombos();
+  }, []);
+
+  const fetchCombos = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      
+      const response = await fetch("http://localhost:5000/api/combos", {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Không thể tải danh sách combo");
+      }
+
+      const data = await response.json();
+      
+      // Lọc chỉ lấy combo đang active
+      const activeCombos = (data.data || []).filter(combo => combo.status === "active");
+      setCombos(activeCombos);
+    } catch (err) {
+      console.error("Fetch combos error:", err);
+      toast({
+        title: "Lỗi tải combo",
+        description: err.message,
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDecrease = (foodId) => {
-    const existing = selectedFoods.find(f => f.id === foodId);
+  const handleIncrease = (combo) => {
+    const existing = selectedFoods.find(f => f._id === combo._id);
+    if (existing) {
+      onFoodChange(selectedFoods.map(f =>
+        f._id === combo._id ? { ...f, quantity: f.quantity + 1 } : f
+      ));
+    } else {
+      onFoodChange([...selectedFoods, { ...combo, quantity: 1 }]);
+    }
+  };
+
+  const handleDecrease = (comboId) => {
+    const existing = selectedFoods.find(f => f._id === comboId);
     if (existing) {
       if (existing.quantity === 1) {
-        onFoodChange(selectedFoods.filter(f => f.id !== foodId));
+        onFoodChange(selectedFoods.filter(f => f._id !== comboId));
       } else {
         onFoodChange(selectedFoods.map(f =>
-          f.id === foodId ? { ...f, quantity: f.quantity - 1 } : f
+          f._id === comboId ? { ...f, quantity: f.quantity - 1 } : f
         ));
       }
     }
   };
 
-  const getQuantity = (foodId) => {
-    const food = selectedFoods.find(f => f.id === foodId);
-    return food ? food.quantity : 0;
+  const getQuantity = (comboId) => {
+    const combo = selectedFoods.find(f => f._id === comboId);
+    return combo ? combo.quantity : 0;
   };
+
+  const formatPrice = (price) => {
+    if (!price) return "0đ";
+    const numericPrice = typeof price === 'object' && price.$numberDecimal 
+      ? parseFloat(price.$numberDecimal) 
+      : parseFloat(price);
+    
+    if (isNaN(numericPrice)) return "0đ";
+    return Math.round(numericPrice).toLocaleString("vi-VN") + "đ";
+  };
+
+  if (loading) {
+    return (
+      <Box>
+        <Text fontSize="lg" fontWeight="bold" color="orange.400" mb={3}>
+          🍿 Thêm bắp nước
+        </Text>
+        <Flex justify="center" align="center" h="100px">
+          <Spinner size="md" color="orange.400" />
+        </Flex>
+      </Box>
+    );
+  }
+
+  if (combos.length === 0) {
+    return (
+      <Box>
+        <Text fontSize="lg" fontWeight="bold" color="orange.400" mb={3}>
+          🍿 Thêm bắp nước
+        </Text>
+        <Box p={4} bg="#23242a" borderRadius="md" textAlign="center">
+          <Text color="gray.400" fontSize="sm">
+            Không có combo nào khả dụng
+          </Text>
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box>
