@@ -144,6 +144,7 @@ function AppContent() {
           <Route path="/bookings" element={<BookingManagementPage />} />
           <Route path="/bookings/:id" element={<BookingDetailPage />} />
           <Route path="/movies" element={<MovieManagementPage />} />
+          <Route path="/combos" element={<CombosManagement />} />
 
           {/* Movie detail */}
           <Route path="/movies/:id" element={<MovieDetail />} />
