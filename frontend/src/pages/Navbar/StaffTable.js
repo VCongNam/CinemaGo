@@ -135,14 +135,6 @@ const StaffTable = ({
                       <MenuItem
                         bg="gray.800"
                         _hover={{ bg: "gray.700" }}
-                        onClick={() => onToggleStatus(user, "suspended")}
-                        isDisabled={user.status === "suspended"}
-                      >
-                        Tạm ngưng
-                      </MenuItem>
-                      <MenuItem
-                        bg="gray.800"
-                        _hover={{ bg: "gray.700" }}
                         onClick={() => onToggleStatus(user, "locked")}
                         isDisabled={user.status === "locked"}
                       >

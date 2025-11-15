@@ -158,6 +158,11 @@ const RoomsManagement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthorized]);
 
+  // Debug: Log theaters khi state thay đổi
+  useEffect(() => {
+    console.log("Theaters state updated:", theaters);
+  }, [theaters]);
+
   // Lấy theaterId từ URL một lần
   const theaterIdFromUrl = useMemo(() => searchParams.get("theater"), [searchParams]);
 
@@ -189,11 +194,38 @@ const RoomsManagement = () => {
       }
 
       const data = await response.json();
+      console.log("Theaters API response:", data);
+      
       const list = data?.list || data?.data?.list || (Array.isArray(data) ? data : []);
+      console.log("Parsed theaters list:", list);
+      
+      if (!Array.isArray(list)) {
+        console.error("Invalid theaters list format:", list);
+        throw new Error("Định dạng dữ liệu không hợp lệ");
+      }
+      
+      if (list.length === 0) {
+        console.warn("No theaters found");
+        toast({
+          title: "Cảnh báo",
+          description: "Không tìm thấy rạp nào. Vui lòng tạo rạp trước khi tạo phòng.",
+          status: "warning",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+      
       setTheaters(list);
     } catch (err) {
       console.error("Fetch theaters error:", err);
       setTheaters([]);
+      toast({
+        title: "Lỗi",
+        description: err.message || "Không thể tải danh sách rạp. Vui lòng thử lại.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
     }
   };
 
@@ -793,21 +825,32 @@ const RoomsManagement = () => {
                       bg="gray.800"
                       isRequired
                     >
-                      {theaters
-                        .filter(t => t.status === "active")
-                        .map((theater) => {
-                          const theaterId = getId(theater);
-                          return (
-                            <option 
-                              key={theaterId}
-                              value={theaterId}
-                              style={{ background: "#181a20", color: "#fff" }}
-                            >
-                              {theater.name} - {theater.location}
-                            </option>
-                          );
-                        })}
+                      {theaters.length === 0 ? (
+                        <option value="" disabled style={{ background: "#181a20", color: "#fff" }}>
+                          Không có rạp nào
+                        </option>
+                      ) : (
+                        theaters
+                          .filter(t => !t.status || t.status === "active")
+                          .map((theater) => {
+                            const theaterId = getId(theater);
+                            return (
+                              <option 
+                                key={theaterId}
+                                value={theaterId}
+                                style={{ background: "#181a20", color: "#fff" }}
+                              >
+                                {theater.name} - {theater.location}
+                              </option>
+                            );
+                          })
+                      )}
                     </Select>
+                    {theaters.length === 0 && (
+                      <Text fontSize="xs" color="orange.400" mt={1}>
+                        Không có rạp nào. Vui lòng tạo rạp trước khi tạo phòng.
+                      </Text>
+                    )}
                   </FormControl>
                 )}
 

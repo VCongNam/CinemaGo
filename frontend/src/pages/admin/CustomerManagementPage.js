@@ -130,7 +130,6 @@ export default function CustomerManagementPage() {
       
       const statusText = {
         active: "kích hoạt",
-        suspended: "tạm ngưng",
         locked: "khóa"
       }
       
@@ -205,7 +204,6 @@ export default function CustomerManagementPage() {
             >
               <option value="all" style={{background:'#181a20', color:'#fff'}}>Tất cả trạng thái</option>
               <option value="active" style={{background:'#181a20', color:'#fff'}}>Hoạt động</option>
-              <option value="suspended" style={{background:'#181a20', color:'#fff'}}>Tạm ngưng</option>
               <option value="locked" style={{background:'#181a20', color:'#fff'}}>Khóa</option>
             </Select>
           </Flex>
