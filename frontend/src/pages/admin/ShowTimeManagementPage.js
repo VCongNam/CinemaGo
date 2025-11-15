@@ -656,7 +656,13 @@ export default function ShowtimeManagementPage() {
                             {s.movie_id?.title || "Không rõ"}
                           </Text>
                         </Td>
-                        <Td fontSize="sm">{s.room_id?.name || "Không rõ"}</Td>
+                        <Td fontSize="sm">
+                          {(() => {
+                            const roomName = s.room_id?.name || "Không rõ";
+                            const theaterName = s.room_id?.theater_name || "";
+                            return theaterName ? `${roomName} - ${theaterName}` : roomName;
+                          })()}
+                        </Td>
                         <Td fontSize="sm">{formatDateTime(s)}</Td>
                         <Td fontSize="sm">{s.created_by?.name || s.created_by?.email || "Admin"}</Td>
                         <Td>
@@ -807,7 +813,7 @@ export default function ShowtimeManagementPage() {
               <FormControl isRequired>
                 <FormLabel>Phòng chiếu</FormLabel>
                 <Select
-                  placeholder="Chọn phòng"
+                  placeholder="Chọn phòng - rạp"
                   value={newShowtime.room_id}
                   onChange={(e) => setNewShowtime({ ...newShowtime, room_id: e.target.value })}
                   bg="gray.800"
@@ -823,13 +829,15 @@ export default function ShowtimeManagementPage() {
                     activeRooms.map((r) => {
                       const roomId = r._id || r.id;
                       const roomName = r.name || `Phòng ${roomId}`;
+                      const theaterName = r.theater_name || "";
+                      const displayText = theaterName ? `${roomName} - ${theaterName}` : roomName;
                       return (
                         <option
                           key={roomId}
                           value={roomId}
                           style={{ background: "#1a202c", color: "white" }}
                         >
-                          {roomName}
+                          {displayText}
                         </option>
                       );
                     })
