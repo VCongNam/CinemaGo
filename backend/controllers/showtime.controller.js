@@ -49,12 +49,23 @@ export const listShowtimes = async (req, res, next) => {
 
     const items = await Showtime.find(filter)
       .populate("movie_id", "title duration poster_url status")
-      .populate("room_id", "name theater_id status")
+      .populate({
+        path: "room_id",
+        select: "name theater_id status",
+        populate: {
+          path: "theater_id",
+          select: "name location"
+        }
+      })
       .sort({ start_time: 1 });
     
     // Format dates to Vietnam timezone
     const formattedItems = items.map(item => {
       const itemObj = item.toObject();
+      // Add theater_name to room_id for easier access
+      if (itemObj.room_id && itemObj.room_id.theater_id) {
+        itemObj.room_id.theater_name = itemObj.room_id.theater_id.name || "";
+      }
       if (itemObj.start_time) {
         itemObj.start_time = formatForAPI(itemObj.start_time);
       }

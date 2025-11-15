@@ -74,8 +74,8 @@ const Header = ({ isAdmin = false }) => {
 
   const NavLinks = () => (
     <>
-      <Link as={RouterLink} to="/" color="white" _hover={{ color: "orange.400" }}>
-        Phim đang chiếu
+      <Link as={RouterLink} to="/all-movies" color="white" _hover={{ color: "orange.400" }}>
+        Tất cả phim
       </Link>
       <Link as={RouterLink} to="/theaters" color="white" _hover={{ color: "orange.400" }}>
         Rạp chiếu
