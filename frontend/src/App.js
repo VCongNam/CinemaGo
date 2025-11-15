@@ -35,6 +35,7 @@ import PayOSReturnHandler from "./pages/staff/PayOSReturnHandler"
 
 // Homepage & Auth
 import HomePage from "./pages/HomePage"
+import AllMoviesPage from "./pages/AllMoviesPage"
 import MovieDetail from "./pages/MovieDetail"
 import LoginPage from "./pages/Login"
 import RegisterPage from "./pages/Register"
@@ -109,6 +110,7 @@ function AppContent() {
         <Routes>
           {/* Root */}
           <Route index element={<HomePage />} />
+          <Route path="/all-movies" element={<AllMoviesPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/admin/login" element={<AdminAndStaffLoginPage />} />

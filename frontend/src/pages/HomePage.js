@@ -196,6 +196,10 @@ const Homepage = () => {
   }, [location.search])
 
   const filteredMovies = movies.filter((m) => {
+    // Chỉ hiển thị phim có suất chiếu hôm nay
+    const movieShowtimes = getMovieShowtimes(m._id)
+    if (movieShowtimes.length === 0) return false
+
     // filter by categories (if any)
     if (selectedCategories && selectedCategories.length > 0) {
       const has = (m.genre || []).some((g) => selectedCategories.includes(g))
@@ -204,7 +208,6 @@ const Homepage = () => {
 
     // filter by showtimes (if any)
     if (selectedShowtimes && selectedShowtimes.length > 0) {
-      const movieShowtimes = getMovieShowtimes(m._id)
       const hasShowtime = selectedShowtimes.some((time) => movieShowtimes.includes(time))
       if (!hasShowtime) return false
     }
@@ -405,7 +408,7 @@ const Homepage = () => {
           {/* Main Content */}
           <Box flex="1">
             <Heading as="h2" size="xl" textAlign="center" mb={6} color="orange.400">
-              Phim đang chiếu
+              Phim Hôm nay
             </Heading>
 
             {loading && (
