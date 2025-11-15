@@ -33,7 +33,6 @@ const AllMoviesPage = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 12 // 12 phim mỗi trang
   const [selectedCategories, setSelectedCategories] = useState([])
-  const [statusFilter, setStatusFilter] = useState("all") // all, active, upcoming
   const [sortBy, setSortBy] = useState("newest") // newest, oldest, title_asc, title_desc
   const navigate = useNavigate()
   const location = useLocation()
@@ -69,7 +68,7 @@ const AllMoviesPage = () => {
   // Reset trang khi thay đổi filter
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedCategories, statusFilter, sortBy, searchQuery])
+  }, [selectedCategories, sortBy, searchQuery])
 
   const formatDuration = (minutes) => {
     if (!minutes && minutes !== 0) return ""
@@ -94,10 +93,6 @@ const AllMoviesPage = () => {
   }
 
   const filteredMovies = movies.filter((m) => {
-    // Filter by status
-    if (statusFilter === "active" && m.status !== "active") return false
-    if (statusFilter === "upcoming" && m.status !== "upcoming") return false
-
     // Filter by categories
     if (selectedCategories && selectedCategories.length > 0) {
       const has = (m.genre || []).some((g) => selectedCategories.includes(g))
@@ -195,24 +190,6 @@ const AllMoviesPage = () => {
                         onKeyDown={handleSearch}
                       />
                     </InputGroup>
-                  </Box>
-
-                  {/* Status Filter */}
-                  <Box>
-                    <Text fontSize="md" color="gray.200" fontWeight="medium" mb={3}>
-                      Trạng thái
-                    </Text>
-                    <Select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      bg="gray.700"
-                      border="none"
-                      color="white"
-                    >
-                      <option value="all" style={{ background: "#1a202c", color: "#fff" }}>Tất cả</option>
-                      <option value="active" style={{ background: "#1a202c", color: "#fff" }}>Đang chiếu</option>
-                      <option value="upcoming" style={{ background: "#1a202c", color: "#fff" }}>Sắp chiếu</option>
-                    </Select>
                   </Box>
 
                   {/* Sort */}
@@ -326,20 +303,6 @@ const AllMoviesPage = () => {
                             <Badge position="absolute" top={2} left={2} bg="orange.400" color="white" px={2} py={1} borderRadius="md" display="flex" alignItems="center" gap={1}>
                               <StarIcon />
                               {movie.rating}
-                            </Badge>
-                          )}
-                          {movie.status && (
-                            <Badge 
-                              position="absolute" 
-                              top={2} 
-                              right={2} 
-                              bg={movie.status === "active" ? "green.500" : "blue.500"} 
-                              color="white" 
-                              px={2} 
-                              py={1} 
-                              borderRadius="md"
-                            >
-                              {movie.status === "active" ? "Đang chiếu" : "Sắp chiếu"}
                             </Badge>
                           )}
                         </Box>
