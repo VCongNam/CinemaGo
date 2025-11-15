@@ -41,7 +41,7 @@ const CombosManagement = () => {
   const [loading, setLoading] = useState(true);
   const [searchName, setSearchName] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
+  const [sortBy, setSortBy] = useState("name_asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [selectedCombo, setSelectedCombo] = useState(null);
@@ -264,18 +264,10 @@ const CombosManagement = () => {
 
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case "newest":
-          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-        case "oldest":
-          return new Date(a.created_at || 0) - new Date(b.created_at || 0);
         case "name_asc":
           return (a.name || "").localeCompare(b.name || "");
         case "name_desc":
           return (b.name || "").localeCompare(a.name || "");
-        case "price_asc":
-          return (a.price || 0) - (b.price || 0);
-        case "price_desc":
-          return (b.price || 0) - (a.price || 0);
         default:
           return 0;
       }
@@ -368,12 +360,8 @@ const CombosManagement = () => {
             color="#fff"
             border="1px solid #23242a"
           >
-            <option value="newest" style={{ background: "#181a20", color: "#fff" }}>Mới nhất</option>
-            <option value="oldest" style={{ background: "#181a20", color: "#fff" }}>Cũ nhất</option>
             <option value="name_asc" style={{ background: "#181a20", color: "#fff" }}>Tên A-Z</option>
             <option value="name_desc" style={{ background: "#181a20", color: "#fff" }}>Tên Z-A</option>
-            <option value="price_asc" style={{ background: "#181a20", color: "#fff" }}>Giá thấp đến cao</option>
-            <option value="price_desc" style={{ background: "#181a20", color: "#fff" }}>Giá cao đến thấp</option>
           </Select>
         </HStack>
 

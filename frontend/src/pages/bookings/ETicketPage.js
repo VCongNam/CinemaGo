@@ -110,6 +110,7 @@ const ETicketPage = () => {
 
           <VStack spacing={2} align="stretch" fontSize="md">
             <Heading size="md" mt={2}>{showtime.movie_id.title}</Heading>
+            <Text><strong>Mã đặt vé (BookingID):</strong> {booking.order_code || booking._id}</Text>
             <Text><strong>Rạp:</strong> {showtime.room_id.theater_id.name}</Text>
             <Text><strong>Phòng chiếu:</strong> {showtime.room_id.name}</Text>
             <Text><strong>Suất chiếu:</strong> {new Date(showtime.start_time.vietnam).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })} - {new Date(showtime.start_time.vietnam).toLocaleDateString("vi-VN")}</Text>
